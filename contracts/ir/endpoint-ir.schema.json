@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/ir/endpoint-ir.schema.json",
+  "title": "Endpoint Intermediate Representation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "endpoint",
+    "method",
+    "controller",
+    "authentication",
+    "required_role",
+    "service",
+    "repository",
+    "resource",
+    "sensitivity"
+  ],
+  "properties": {
+    "endpoint": {
+      "type": "string",
+      "minLength": 1,
+      "examples": ["/customers"]
+    },
+    "method": {
+      "type": "string",
+      "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+    },
+    "controller": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authentication": {
+      "type": "boolean"
+    },
+    "required_role": {
+      "type": ["string", "null"],
+      "examples": ["ADMIN", null]
+    },
+    "service": {
+      "type": ["string", "null"]
+    },
+    "repository": {
+      "type": ["string", "null"]
+    },
+    "resource": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sensitivity": {
+      "type": "string",
+      "enum": ["LOW", "MODERATE", "MEDIUM", "HIGH", "CRITICAL"]
+    }
+  }
+}

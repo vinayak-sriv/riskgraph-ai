@@ -1,0 +1,9 @@
+{
+  "target_base_url": "http://sandbox-app:8080",
+  "method": "GET",
+  "path": "/admin/export",
+  "auth_context": "ANONYMOUS",
+  "headers": {},
+  "body": null,
+  "expected_status": 401
+}

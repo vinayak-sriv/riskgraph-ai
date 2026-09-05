@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/ir/graph-delta.schema.json",
+  "title": "Security Graph Delta",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["before", "after", "new_paths", "removed_paths"],
+  "properties": {
+    "before": {
+      "$ref": "#/$defs/security_graph"
+    },
+    "after": {
+      "$ref": "#/$defs/security_graph"
+    },
+    "new_paths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/path"
+      }
+    },
+    "removed_paths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/path"
+      }
+    }
+  },
+  "$defs": {
+    "security_graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge"
+          }
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "node_type", "name"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "node_type": {
+          "type": "string",
+          "enum": [
+            "USER",
+            "ROLE",
+            "ENDPOINT",
+            "CONTROLLER",
+            "FUNCTION",
+            "SERVICE",
+            "DATABASE",
+            "DATA_RESOURCE",
+            "EXTERNAL_SERVICE"
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "target_id", "relationship"],
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "target_id": {
+          "type": "string"
+        },
+        "relationship": {
+          "type": "string",
+          "enum": [
+            "CAN_ACCESS",
+            "CALLS",
+            "READS",
+            "WRITES",
+            "REQUIRES_ROLE",
+            "CONNECTS_TO",
+            "RETURNS",
+            "HAS_ROLE"
+          ]
+        }
+      }
+    },
+    "path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target", "nodes", "edges"],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

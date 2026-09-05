@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/ai/ai-test-suggestion.schema.json",
+  "title": "AI HTTP Test Suggestion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "method",
+    "path",
+    "auth_context",
+    "expected_status",
+    "rationale"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "method": {
+      "type": "string",
+      "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "auth_context": {
+      "type": "string",
+      "enum": ["ANONYMOUS", "USER", "ADMIN"]
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {}
+    },
+    "body": {
+      "type": ["object", "array", "string", "null"]
+    },
+    "expected_status": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 599
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

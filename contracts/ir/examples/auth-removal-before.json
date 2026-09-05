@@ -1,0 +1,11 @@
+{
+  "endpoint": "/admin/export",
+  "method": "GET",
+  "controller": "AdminExportController",
+  "authentication": true,
+  "required_role": "ADMIN",
+  "service": "AdminExportService",
+  "repository": "CustomerRepository",
+  "resource": "Customer",
+  "sensitivity": "CRITICAL"
+}

@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+**/node_modules
+**/target
+**/build
+**/.gradle
+**/__pycache__
+**/.pytest_cache
+**/.venv
+**/venv
+
+logs
+tmp

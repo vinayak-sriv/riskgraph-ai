@@ -1,0 +1,11 @@
+{
+  "endpoint": "/users",
+  "method": "DELETE",
+  "controller": "UserAdminController",
+  "authentication": true,
+  "required_role": "USER",
+  "service": "UserManagementService",
+  "repository": "UserRepository",
+  "resource": "User",
+  "sensitivity": "HIGH"
+}

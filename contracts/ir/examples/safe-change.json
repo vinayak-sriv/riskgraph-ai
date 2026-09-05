@@ -1,0 +1,11 @@
+{
+  "endpoint": "/products",
+  "method": "GET",
+  "controller": "ProductController",
+  "authentication": false,
+  "required_role": null,
+  "service": "ProductService",
+  "repository": "ProductRepository",
+  "resource": "Product",
+  "sensitivity": "LOW"
+}

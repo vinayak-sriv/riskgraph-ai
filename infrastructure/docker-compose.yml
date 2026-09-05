@@ -1,0 +1,83 @@
+name: riskgraph-ai
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-riskgraph}
+      POSTGRES_USER: ${POSTGRES_USER:-riskgraph}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-riskgraph_dev_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - riskgraph-postgres-data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-riskgraph} -d ${POSTGRES_DB:-riskgraph}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  platform-api:
+    build:
+      context: ../services/platform-api
+    profiles: ["future-services"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      graph-risk-service:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/riskgraph}
+      POSTGRES_USER: ${POSTGRES_USER:-riskgraph}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-riskgraph_dev_password}
+      JAVA_ANALYZER_BASE_URL: ${JAVA_ANALYZER_BASE_URL:-http://java-analyzer:8081}
+      GRAPH_RISK_BASE_URL: ${GRAPH_RISK_BASE_URL:-http://graph-risk-service:8082}
+      AI_VALIDATION_BASE_URL: ${AI_VALIDATION_BASE_URL:-http://ai-validation-service:8083}
+      DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-http://localhost:5173}
+    ports:
+      - "8080:8080"
+
+  java-analyzer:
+    build:
+      context: ../services/java-analyzer
+    profiles: ["future-services"]
+    ports:
+      - "8081:8081"
+
+  graph-risk-service:
+    build:
+      context: ../services/graph-risk-service
+    profiles: ["future-services"]
+    ports:
+      - "8082:8082"
+
+  ai-validation-service:
+    build:
+      context: ../services/ai-validation-service
+    profiles: ["future-services"]
+    environment:
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+    ports:
+      - "8083:8083"
+
+  dashboard:
+    build:
+      context: ../apps/dashboard
+      args:
+        VITE_PLATFORM_API_BASE_URL: ${VITE_PLATFORM_API_BASE_URL:-http://localhost:8080}
+    profiles: ["future-services"]
+    depends_on:
+      platform-api:
+        condition: service_started
+    ports:
+      - "5173:5173"
+
+  sandbox-app:
+    image: alpine:3.20
+    profiles: ["sandbox"]
+    command: ["sh", "-c", "echo sandbox-app placeholder; sleep infinity"]
+
+volumes:
+  riskgraph-postgres-data:

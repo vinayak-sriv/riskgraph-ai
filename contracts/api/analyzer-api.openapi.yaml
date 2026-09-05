@@ -1,0 +1,68 @@
+openapi: 3.1.0
+info:
+  title: RiskGraph Java Analyzer API
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Java analyzer is healthy
+  /analyze:
+    post:
+      summary: Analyze old and new commits and return endpoint IR
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeRequest"
+      responses:
+        "200":
+          description: Endpoint IR extracted from before and after commits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyzeResponse"
+components:
+  schemas:
+    AnalyzeRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - repository_path
+        - old_commit
+        - new_commit
+      properties:
+        repository_path:
+          type: string
+          minLength: 1
+        old_commit:
+          type: string
+          minLength: 7
+        new_commit:
+          type: string
+          minLength: 7
+    EndpointIr:
+      $ref: "../ir/endpoint-ir.schema.json"
+    AnalyzeResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - before
+        - after
+        - changed_files
+      properties:
+        before:
+          type: array
+          items:
+            $ref: "#/components/schemas/EndpointIr"
+        after:
+          type: array
+          items:
+            $ref: "#/components/schemas/EndpointIr"
+        changed_files:
+          type: array
+          items:
+            type: string

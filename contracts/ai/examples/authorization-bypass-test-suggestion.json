@@ -1,0 +1,10 @@
+{
+  "name": "anonymous_admin_export_is_rejected",
+  "method": "GET",
+  "path": "/admin/export",
+  "auth_context": "ANONYMOUS",
+  "headers": {},
+  "body": null,
+  "expected_status": 401,
+  "rationale": "The endpoint previously required ADMIN access and should reject anonymous requests"
+}

@@ -1,0 +1,10 @@
+{
+  "finding": "Authorization Bypass",
+  "evidence": [
+    "ADMIN authorization removed from GET /admin/export",
+    "Customer data is newly reachable from an anonymous entry point"
+  ],
+  "hypothesis": "Unauthenticated users may be able to export customer data",
+  "recommended_test": "GET /admin/export without authentication should be rejected",
+  "confidence": "HIGH"
+}

@@ -1,0 +1,76 @@
+openapi: 3.1.0
+info:
+  title: RiskGraph AI Validation API
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: AI validation service is healthy
+  /ai/analyze:
+    post:
+      summary: Explain deterministic evidence with schema-constrained Ollama output
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiAnalysisRequest"
+      responses:
+        "200":
+          description: AI analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "../ai/ai-analysis.schema.json"
+  /ai/test-suggestion:
+    post:
+      summary: Suggest an HTTP validation test from deterministic evidence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiAnalysisRequest"
+      responses:
+        "200":
+          description: AI HTTP test suggestion
+          content:
+            application/json:
+              schema:
+                $ref: "../ai/ai-test-suggestion.schema.json"
+  /validation/http:
+    post:
+      summary: Run HTTP validation against Docker sandbox only
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "../validation/http-validation-test.schema.json"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "../validation/validation-result.schema.json"
+components:
+  schemas:
+    AiAnalysisRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - risk_result
+        - evidence
+      properties:
+        risk_result:
+          $ref: "../ir/risk-result.schema.json"
+        evidence:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1

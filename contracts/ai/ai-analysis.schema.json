@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/ai/ai-analysis.schema.json",
+  "title": "AI Analysis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "finding",
+    "evidence",
+    "hypothesis",
+    "recommended_test",
+    "confidence"
+  ],
+  "properties": {
+    "finding": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "hypothesis": {
+      "type": "string",
+      "minLength": 1
+    },
+    "recommended_test": {
+      "type": "string",
+      "minLength": 1
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH"]
+    }
+  }
+}

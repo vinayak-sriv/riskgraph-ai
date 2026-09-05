@@ -1,0 +1,11 @@
+{
+  "endpoint": "/users/{id}/details",
+  "method": "GET",
+  "controller": "UserDetailsController",
+  "authentication": false,
+  "required_role": null,
+  "service": "UserDetailsService",
+  "repository": "UserRepository",
+  "resource": "UserDetails",
+  "sensitivity": "HIGH"
+}

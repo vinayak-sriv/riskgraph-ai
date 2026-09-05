@@ -1,0 +1,10 @@
+{
+  "status": "FAILED",
+  "actual_status": 200,
+  "expected_status": 401,
+  "confirmed": true,
+  "evidence": [
+    "Anonymous request to GET /admin/export returned 200 instead of 401"
+  ],
+  "error": null
+}

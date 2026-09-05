@@ -1,0 +1,154 @@
+from dataclasses import dataclass
+
+from .graph_engine import anonymous_sensitive_paths, endpoint_node_id
+from .models import (
+    ComponentScore, EndpointIr, GraphDelta, RiskComponents, RiskResult, Verdict,
+)
+
+
+WEIGHTS = {
+    "reachability": 0.25,
+    "authorization_change": 0.20,
+    "data_sensitivity": 0.20,
+    "external_exposure": 0.15,
+    "privilege_impact": 0.10,
+    "exploitability": 0.10,
+}
+SENSITIVITY_SCORES = {
+    "LOW": 20, "MODERATE": 40, "MEDIUM": 60, "HIGH": 80, "CRITICAL": 100,
+}
+
+
+@dataclass(frozen=True)
+class RawScores:
+    reachability: int
+    authorization_change: int
+    data_sensitivity: int
+    external_exposure: int
+    privilege_impact: int
+    exploitability: int
+
+
+def score_risk(
+    before: list[EndpointIr], after: list[EndpointIr], graph_delta: GraphDelta,
+) -> RiskResult:
+    removed_auth = _authorization_removals(before, after)
+    before_scores = _state_scores(
+        before,
+        bool(anonymous_sensitive_paths(graph_delta.before, before)),
+    )
+    after_scores = _state_scores(
+        after,
+        bool(anonymous_sensitive_paths(graph_delta.after, after)),
+        removed_auth,
+    )
+    risk_before = _weighted_total(before_scores)
+    risk_after = _weighted_total(after_scores)
+    return RiskResult(
+        risk_before=risk_before,
+        risk_after=risk_after,
+        risk_delta=risk_after - risk_before,
+        category_before=category_for(risk_before),
+        category_after=category_for(risk_after),
+        components=_components(after_scores),
+        evidence=_evidence(before, after, graph_delta, removed_auth),
+    )
+
+
+def decide(risk: RiskResult, graph_delta: GraphDelta) -> Verdict:
+    if graph_delta.new_paths and risk.risk_after >= 61:
+        return "BLOCK"
+    if risk.risk_after >= 41 or risk.risk_delta >= 21:
+        return "REVIEW"
+    return "ALLOW"
+
+
+def category_for(score: int) -> str:
+    if score <= 20:
+        return "LOW"
+    if score <= 40:
+        return "MODERATE"
+    if score <= 60:
+        return "MEDIUM"
+    if score <= 80:
+        return "HIGH"
+    return "CRITICAL"
+
+
+def _state_scores(
+    endpoints: list[EndpointIr], has_anonymous_path: bool, removed_auth: set[str] | None = None,
+) -> RawScores:
+    removed_auth = removed_auth or set()
+    max_sensitivity = max(
+        (SENSITIVITY_SCORES[endpoint.sensitivity] for endpoint in endpoints), default=0,
+    )
+    public_sensitive = _has_public_sensitive_endpoint(endpoints)
+    has_sensitive_get = any(
+        endpoint.method == "GET" and SENSITIVITY_SCORES[endpoint.sensitivity] >= 60
+        for endpoint in endpoints
+    )
+    # Fixed MVP rubric: auth removal has broad privilege impact (60), while an
+    # unauthenticated sensitive GET is directly testable over HTTP (50).
+    exploitability = 50 if public_sensitive and has_sensitive_get else 20 if has_sensitive_get else 0
+    return RawScores(
+        reachability=100 if has_anonymous_path else 0,
+        authorization_change=100 if removed_auth else 0,
+        data_sensitivity=max_sensitivity,
+        external_exposure=100 if public_sensitive else 0,
+        privilege_impact=60 if removed_auth else 0,
+        exploitability=exploitability,
+    )
+
+
+def _authorization_removals(before: list[EndpointIr], after: list[EndpointIr]) -> set[str]:
+    before_by_endpoint = {endpoint_node_id(endpoint): endpoint for endpoint in before}
+    return {
+        endpoint_node_id(endpoint)
+        for endpoint in after
+        if (previous := before_by_endpoint.get(endpoint_node_id(endpoint)))
+        and previous.authentication
+        and not endpoint.authentication
+    }
+
+
+def _has_public_sensitive_endpoint(endpoints: list[EndpointIr]) -> bool:
+    return any(
+        not endpoint.authentication and SENSITIVITY_SCORES[endpoint.sensitivity] >= 60
+        for endpoint in endpoints
+    )
+
+
+def _weighted_total(scores: RawScores) -> int:
+    return round(sum(getattr(scores, name) * weight for name, weight in WEIGHTS.items()))
+
+
+def _components(scores: RawScores) -> RiskComponents:
+    values = {
+        name: ComponentScore(
+            score=getattr(scores, name),
+            weight=weight,
+            weighted_score=getattr(scores, name) * weight,
+        )
+        for name, weight in WEIGHTS.items()
+    }
+    return RiskComponents(**values)
+
+
+def _evidence(
+    before: list[EndpointIr], after: list[EndpointIr], graph_delta: GraphDelta,
+    removed_auth: set[str],
+) -> list[str]:
+    evidence = []
+    before_by_id = {endpoint_node_id(endpoint): endpoint for endpoint in before}
+    after_by_id = {endpoint_node_id(endpoint): endpoint for endpoint in after}
+    for endpoint_id in sorted(removed_auth):
+        previous = before_by_id[endpoint_id]
+        current = after_by_id[endpoint_id]
+        role = previous.required_role or "authenticated-user"
+        evidence.append(f"{role} authorization removed from {current.method} {current.endpoint}")
+    for path in graph_delta.new_paths:
+        resource = path.target.removeprefix("resource:")
+        evidence.append(f"Anonymous user can newly reach sensitive resource {resource}")
+    if not evidence:
+        evidence.append("No new anonymous-to-sensitive-resource path detected")
+    return evidence

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/ir/risk-result.schema.json",
+  "title": "Risk Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "risk_before",
+    "risk_after",
+    "risk_delta",
+    "category_before",
+    "category_after",
+    "components",
+    "evidence"
+  ],
+  "properties": {
+    "risk_before": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "risk_after": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "risk_delta": {
+      "type": "integer",
+      "minimum": -100,
+      "maximum": 100
+    },
+    "category_before": {
+      "$ref": "#/$defs/category"
+    },
+    "category_after": {
+      "$ref": "#/$defs/category"
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reachability",
+        "authorization_change",
+        "data_sensitivity",
+        "external_exposure",
+        "privilege_impact",
+        "exploitability"
+      ],
+      "properties": {
+        "reachability": {
+          "$ref": "#/$defs/component"
+        },
+        "authorization_change": {
+          "$ref": "#/$defs/component"
+        },
+        "data_sensitivity": {
+          "$ref": "#/$defs/component"
+        },
+        "external_exposure": {
+          "$ref": "#/$defs/component"
+        },
+        "privilege_impact": {
+          "$ref": "#/$defs/component"
+        },
+        "exploitability": {
+          "$ref": "#/$defs/component"
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "category": {
+      "type": "string",
+      "enum": ["LOW", "MODERATE", "MEDIUM", "HIGH", "CRITICAL"]
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "weight", "weighted_score"],
+      "properties": {
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "weighted_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    }
+  }
+}

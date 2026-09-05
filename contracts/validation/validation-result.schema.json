@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/validation/validation-result.schema.json",
+  "title": "Validation Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "actual_status",
+    "expected_status",
+    "confirmed",
+    "evidence"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["PASSED", "FAILED", "ERROR", "SKIPPED"]
+    },
+    "actual_status": {
+      "type": ["integer", "null"],
+      "minimum": 100,
+      "maximum": 599
+    },
+    "expected_status": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 599
+    },
+    "confirmed": {
+      "type": "boolean"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "error": {
+      "type": ["string", "null"]
+    }
+  }
+}

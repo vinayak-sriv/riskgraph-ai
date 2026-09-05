@@ -1,0 +1,12 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: java-analyzer
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

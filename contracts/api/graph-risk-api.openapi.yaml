@@ -1,0 +1,117 @@
+openapi: 3.1.0
+info:
+  title: RiskGraph Graph Risk API
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Graph risk service is healthy
+  /graph/delta:
+    post:
+      summary: Build before/after graph delta from endpoint IR
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GraphDeltaRequest"
+      responses:
+        "200":
+          description: Graph delta result
+          content:
+            application/json:
+              schema:
+                $ref: "../ir/graph-delta.schema.json"
+  /risk/score:
+    post:
+      summary: Compute deterministic risk before, after, and delta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RiskScoreRequest"
+      responses:
+        "200":
+          description: Risk result
+          content:
+            application/json:
+              schema:
+                $ref: "../ir/risk-result.schema.json"
+  /analysis:
+    post:
+      summary: Build graph delta, score risk, and return a deterministic verdict
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GraphDeltaRequest"
+      responses:
+        "200":
+          description: Complete deterministic graph and risk analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResult"
+components:
+  schemas:
+    EndpointIr:
+      $ref: "../ir/endpoint-ir.schema.json"
+    GraphDeltaRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - before
+        - after
+      properties:
+        before:
+          type: array
+          items:
+            $ref: "#/components/schemas/EndpointIr"
+        after:
+          type: array
+          items:
+            $ref: "#/components/schemas/EndpointIr"
+    RiskScoreRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - before
+        - after
+        - graph_delta
+      properties:
+        before:
+          type: array
+          items:
+            $ref: "#/components/schemas/EndpointIr"
+        after:
+          type: array
+          items:
+            $ref: "#/components/schemas/EndpointIr"
+        graph_delta:
+          $ref: "../ir/graph-delta.schema.json"
+    AnalysisResult:
+      type: object
+      additionalProperties: false
+      required:
+        - scenario
+        - graph_delta
+        - risk_result
+        - verdict
+      properties:
+        scenario:
+          type: string
+        graph_delta:
+          $ref: "../ir/graph-delta.schema.json"
+        risk_result:
+          $ref: "../ir/risk-result.schema.json"
+        verdict:
+          type: string
+          enum:
+            - ALLOW
+            - REVIEW
+            - BLOCK

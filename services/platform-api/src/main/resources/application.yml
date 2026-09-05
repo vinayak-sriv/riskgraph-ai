@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: platform-api
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/riskgraph}
+    username: ${POSTGRES_USER:riskgraph}
+    password: ${POSTGRES_PASSWORD:riskgraph_dev_password}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+riskgraph:
+  services:
+    graph-risk-base-url: ${GRAPH_RISK_BASE_URL:http://localhost:8082}
+  web:
+    allowed-origin: ${DASHBOARD_ORIGIN:http://localhost:5173}
