@@ -1,0 +1,64 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "sandbox_revision": {
+      "enum": [
+        "protected",
+        "vulnerable"
+      ],
+      "title": "Sandbox Revision",
+      "type": "string"
+    },
+    "expected_commit": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Commit"
+    },
+    "method": {
+      "const": "GET",
+      "default": "GET",
+      "title": "Method",
+      "type": "string"
+    },
+    "path": {
+      "const": "/admin/export",
+      "default": "/admin/export",
+      "title": "Path",
+      "type": "string"
+    },
+    "headers": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "maxProperties": 0,
+      "title": "Headers",
+      "type": "object"
+    },
+    "body": {
+      "default": null,
+      "title": "Body",
+      "type": "null"
+    },
+    "auth_context": {
+      "const": "ANONYMOUS",
+      "default": "ANONYMOUS",
+      "title": "Auth Context",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sandbox_revision"
+  ],
+  "title": "ValidationRequest",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/validation/sandbox-request.schema.json"
+}

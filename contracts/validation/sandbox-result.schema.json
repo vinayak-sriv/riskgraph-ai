@@ -1,0 +1,103 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "enum": [
+        "CONFIRMED",
+        "REJECTED",
+        "INCONCLUSIVE",
+        "NOT_RUN",
+        "ERROR"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "confirmed": {
+      "default": false,
+      "title": "Confirmed",
+      "type": "boolean"
+    },
+    "actual_status": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Actual Status"
+    },
+    "expected_status": {
+      "default": 200,
+      "title": "Expected Status",
+      "type": "integer"
+    },
+    "evidence": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "reason_code": {
+      "title": "Reason Code",
+      "type": "string"
+    },
+    "sandbox_revision": {
+      "title": "Sandbox Revision",
+      "type": "string"
+    },
+    "container_image_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Container Image Id"
+    },
+    "cleanup_complete": {
+      "default": true,
+      "title": "Cleanup Complete",
+      "type": "boolean"
+    },
+    "response_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Response Sha256"
+    },
+    "source_commit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Commit"
+    }
+  },
+  "required": [
+    "status",
+    "reason_code",
+    "sandbox_revision"
+  ],
+  "title": "ValidationResult",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/validation/sandbox-result.schema.json"
+}

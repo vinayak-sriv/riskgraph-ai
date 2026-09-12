@@ -1,8 +1,8 @@
 # RiskGraph AI Delivery Plan
 
-> **Current week: 4**
-> Weeks 1–3 are complete. The current product is a tested, fixture-driven vertical
-> slice; it does not yet analyze arbitrary Java code or pull requests.
+> **Current week: 7**
+> Weeks 1–6 are complete. The Java analyzer now accepts a local repository and two
+> immutable commits, extracts the changed Spring surface, and emits traceable IR.
 
 ## Delivery Principle
 
@@ -17,10 +17,10 @@ tests, and demo procedure must all work from a clean checkout.
 | 1 | Complete | Repository layout, ownership boundaries, Docker Compose skeleton, PostgreSQL baseline, and environment templates | Compose config validates and services have documented boundaries |
 | 2 | Complete | Locked JSON schemas, fixtures, migrations, and baseline build/test workflows | Contracts validate; Java, Python, and dashboard builds pass |
 | 3 | Complete | Authorization-removal fixture runs through NetworkX graphs, BFS reachability, transparent risk scoring, deterministic verdict, platform API, and dashboard | Automated tests prove 22 → 91, delta +69, and BLOCK |
-| 4 | Current | Read a local Git repository at two commit SHAs, safely materialize both revisions, compute changed Java files/method candidates, and attach repository/commit provenance | Repeatable diff results; invalid paths/SHAs fail cleanly; temporary workspaces are cleaned |
-| 5 | Planned | Use Spoon to extract Spring routes, HTTP methods, controllers, and `@PreAuthorize` requirements with file/line evidence | Golden tests cover class/method mappings, auth removal, overloads, and unsupported constructs |
-| 6 | Planned | Resolve controller → service → repository → resource paths and emit schema-valid IR for the changed surface | The sample auth-removal commits produce expected before/after IR without hand-authored fixtures |
-| 7 | Planned | Harden graph identity, provenance, reachability, score calibration, and confidence/coverage reporting | Unit, integration, metamorphic, and negative tests demonstrate deterministic behavior |
+| 4 | Complete | Read a local Git repository at two commit SHAs, safely materialize both revisions, compute changed Java files/method candidates, and attach repository/commit provenance | Repeatable diff results; invalid paths/SHAs fail cleanly; temporary workspaces are cleaned |
+| 5 | Complete | Use Spoon to extract Spring routes, HTTP methods, controllers, and `@PreAuthorize` requirements with file/line evidence | Tests cover class/method mappings, auth removal, multiple paths, overload-safe traversal, and unsupported authorization expressions |
+| 6 | Complete | Resolve controller → service → repository → resource paths and emit schema-valid IR for the changed surface | Generated auth-removal commits produce expected before/after IR without hand-authored analyzer fixtures |
+| 7 | Current | Harden graph identity, provenance, reachability, score calibration, and confidence/coverage reporting | Unit, integration, metamorphic, and negative tests demonstrate deterministic behavior |
 | 8 | Planned | Run one real Java commit pair end to end from source to the dashboard | One-command mentor demo shows source evidence, new attack path, 22 → 91, and BLOCK |
 | 9 | Planned | Add Ollama-backed structured explanations and HTTP-test proposals behind a swappable interface | JSON Schema constrained output validates; unavailable Ollama degrades clearly without changing the deterministic verdict |
 | 10 | Planned | Execute the proposed authorization test only inside a hardened Docker sandbox and combine evidence into the decision engine | Egress-restricted test run is time/resource bounded, logged, repeatable, and incapable of targeting public systems |

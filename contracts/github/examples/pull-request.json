@@ -1,0 +1,16 @@
+{
+  "action": "synchronize",
+  "number": 1,
+  "repository": {
+    "full_name": "riskgraph/synthetic-demo"
+  },
+  "pull_request": {
+    "number": 1,
+    "base": {
+      "sha": "cd798461fbbd4cc37e6e1c35313f726061b913cb"
+    },
+    "head": {
+      "sha": "593c8cf10cb63c35867417273381ffa2dd610af5"
+    }
+  }
+}

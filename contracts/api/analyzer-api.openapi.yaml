@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RiskGraph Java Analyzer API
-  version: 0.1.0
+  version: 0.2.0
 paths:
   /health:
     get:
@@ -12,6 +12,12 @@ paths:
   /analyze:
     post:
       summary: Analyze old and new commits and return endpoint IR
+      parameters:
+        - name: X-RiskGraph-Service-Token
+          in: header
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -24,7 +30,20 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AnalyzeResponse"
+                $ref: "../ir/analysis-envelope.schema.json"
+        "400":
+          description: Repository path or commit validation failed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                required: [title, status, detail, code]
+        "401":
+          description: Invalid internal service credential
+        "429":
+          description: Analyzer capacity is exhausted
+        "503":
+          description: Internal service authentication is not configured
 components:
   schemas:
     AnalyzeRequest:
@@ -40,29 +59,13 @@ components:
           minLength: 1
         old_commit:
           type: string
-          minLength: 7
+          minLength: 40
+          maxLength: 40
+          pattern: "^[0-9a-fA-F]{40}$"
         new_commit:
           type: string
-          minLength: 7
+          minLength: 40
+          maxLength: 40
+          pattern: "^[0-9a-fA-F]{40}$"
     EndpointIr:
       $ref: "../ir/endpoint-ir.schema.json"
-    AnalyzeResponse:
-      type: object
-      additionalProperties: false
-      required:
-        - before
-        - after
-        - changed_files
-      properties:
-        before:
-          type: array
-          items:
-            $ref: "#/components/schemas/EndpointIr"
-        after:
-          type: array
-          items:
-            $ref: "#/components/schemas/EndpointIr"
-        changed_files:
-          type: array
-          items:
-            type: string

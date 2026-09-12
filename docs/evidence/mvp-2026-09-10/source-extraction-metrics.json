@@ -1,0 +1,9 @@
+{
+  "scope": "Four authored real Git pairs; seven source-located IR rows, not external accuracy",
+  "expected_rows": 7,
+  "endpoint_extraction_accuracy": 1.0,
+  "authorization_extraction_accuracy": 1.0,
+  "sensitivity_accuracy": 1.0,
+  "canonical_ir_exact_match": 1.0,
+  "extraction_coverage": 1.0
+}

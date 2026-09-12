@@ -2,31 +2,36 @@ name: riskgraph-ai
 
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16.8-bookworm
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-riskgraph}
       POSTGRES_USER: ${POSTGRES_USER:-riskgraph}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-riskgraph_dev_password}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - riskgraph-postgres-data:/var/lib/postgresql/data
-      - ./db/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-riskgraph} -d ${POSTGRES_DB:-riskgraph}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
 
   platform-api:
     build:
-      context: ../services/platform-api
-    profiles: ["future-services"]
+      context: ..
+      dockerfile: services/platform-api/Dockerfile
+    profiles: ["app", "future-services"]
     depends_on:
       postgres:
         condition: service_healthy
       graph-risk-service:
-        condition: service_started
+        condition: service_healthy
+      java-analyzer:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/riskgraph}
       POSTGRES_USER: ${POSTGRES_USER:-riskgraph}
@@ -35,49 +40,122 @@ services:
       GRAPH_RISK_BASE_URL: ${GRAPH_RISK_BASE_URL:-http://graph-risk-service:8082}
       AI_VALIDATION_BASE_URL: ${AI_VALIDATION_BASE_URL:-http://ai-validation-service:8083}
       DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-http://localhost:5173}
+      DASHBOARD_ALLOWED_ORIGINS: ${DASHBOARD_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      RISKGRAPH_ALLOWED_REPOSITORY_ROOTS: /analysis-repositories
+      RISKGRAPH_SANDBOX_MANIFEST: /analysis-repositories/mvp-v1/manifest.compose.json
+      RISKGRAPH_BOOTSTRAP_PASSWORD_FILE: /run/riskgraph-auth/admin.password
+      RISKGRAPH_SECURE_COOKIE: ${RISKGRAPH_SECURE_COOKIE:-false}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-riskgraph-oauth-disabled}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-riskgraph-oauth-disabled}
+      RISKGRAPH_SERVICE_TOKEN: ${RISKGRAPH_SERVICE_TOKEN:?Set RISKGRAPH_SERVICE_TOKEN to a random secret}
+    volumes:
+      - ${ANALYZER_REPOSITORY_ROOT:-../samples/generated}:/analysis-repositories:ro
+      - ../tmp/local-auth:/run/riskgraph-auth:ro
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 768m
+    cpus: 1.5
+    pids_limit: 192
 
   java-analyzer:
     build:
       context: ../services/java-analyzer
-    profiles: ["future-services"]
-    ports:
-      - "8081:8081"
+    profiles: ["app", "future-services"]
+    environment:
+      RISKGRAPH_ALLOWED_REPOSITORY_ROOTS: /analysis-repositories
+      RISKGRAPH_MAX_JAVA_FILES: ${RISKGRAPH_MAX_JAVA_FILES:-5000}
+      RISKGRAPH_MAX_JAVA_FILE_BYTES: ${RISKGRAPH_MAX_JAVA_FILE_BYTES:-2097152}
+      RISKGRAPH_MAX_TOTAL_JAVA_BYTES: ${RISKGRAPH_MAX_TOTAL_JAVA_BYTES:-52428800}
+      RISKGRAPH_MAX_ANALYSIS_SECONDS: ${RISKGRAPH_MAX_ANALYSIS_SECONDS:-60}
+      RISKGRAPH_MAX_CONCURRENT_ANALYSES: ${RISKGRAPH_MAX_CONCURRENT_ANALYSES:-2}
+      RISKGRAPH_MAX_QUEUED_ANALYSES: ${RISKGRAPH_MAX_QUEUED_ANALYSES:-4}
+      RISKGRAPH_ANALYZER_PROCESS_ISOLATION: "true"
+      RISKGRAPH_ANALYZER_EXECUTABLE_JAR: /app/app.jar
+      RISKGRAPH_SERVICE_TOKEN: ${RISKGRAPH_SERVICE_TOKEN:?Set RISKGRAPH_SERVICE_TOKEN to a random secret}
+    volumes:
+      - ${ANALYZER_REPOSITORY_ROOT:-../samples/generated}:/analysis-repositories:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 1536m
+    cpus: 2.0
+    pids_limit: 256
 
   graph-risk-service:
     build:
       context: ../services/graph-risk-service
-    profiles: ["future-services"]
-    ports:
-      - "8082:8082"
+    profiles: ["app", "future-services"]
+    environment:
+      RISKGRAPH_SERVICE_TOKEN: ${RISKGRAPH_SERVICE_TOKEN:?Set RISKGRAPH_SERVICE_TOKEN to a random secret}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8082/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
 
   ai-validation-service:
     build:
       context: ../services/ai-validation-service
-    profiles: ["future-services"]
+    profiles: ["app", "future-services"]
     environment:
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
-    ports:
-      - "8083:8083"
+      RISKGRAPH_SERVICE_TOKEN: ${RISKGRAPH_SERVICE_TOKEN:?Set RISKGRAPH_SERVICE_TOKEN to a random secret}
+      RISKGRAPH_VALIDATION_CONCURRENCY: ${RISKGRAPH_VALIDATION_CONCURRENCY:-2}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8083/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
 
   dashboard:
     build:
       context: ../apps/dashboard
       args:
         VITE_PLATFORM_API_BASE_URL: ${VITE_PLATFORM_API_BASE_URL:-http://localhost:8080}
-    profiles: ["future-services"]
+    profiles: ["app", "future-services"]
     depends_on:
       platform-api:
-        condition: service_started
+        condition: service_healthy
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
 
   sandbox-app:
-    image: alpine:3.20
+    build:
+      context: ../samples/sandbox
+    image: riskgraph-sandbox:local
     profiles: ["sandbox"]
-    command: ["sh", "-c", "echo sandbox-app placeholder; sleep infinity"]
+    environment:
+      SPRING_PROFILES_ACTIVE: protected
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    user: "65532:65532"
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    tmpfs: [/tmp:rw,noexec,nosuid,size=32m]
+    networks: [sandbox]
+
+networks:
+  sandbox:
+    internal: true
 
 volumes:
   riskgraph-postgres-data:

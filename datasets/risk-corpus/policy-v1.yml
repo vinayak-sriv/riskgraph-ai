@@ -1,0 +1,11 @@
+version: 1.0.0
+weights:
+  reachability: 0.25
+  authorization_change: 0.20
+  data_sensitivity: 0.20
+  external_exposure: 0.15
+  privilege_impact: 0.10
+  exploitability: 0.10
+block_after: 61
+review_after: 41
+review_delta: 21

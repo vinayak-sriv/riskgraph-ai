@@ -1,0 +1,265 @@
+{
+  "scenario": "local-source",
+  "graph_delta": {
+    "before": {
+      "nodes": [
+        {
+          "id": "user:anonymous",
+          "node_type": "USER",
+          "name": "Anonymous"
+        }
+      ],
+      "edges": []
+    },
+    "after": {
+      "nodes": [
+        {
+          "id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "node_type": "CONTROLLER",
+          "name": "ExportController"
+        },
+        {
+          "id": "endpoint:GET:/admin/export",
+          "node_type": "ENDPOINT",
+          "name": "GET /admin/export"
+        },
+        {
+          "id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "node_type": "DATABASE",
+          "name": "PaymentRepository"
+        },
+        {
+          "id": "resource:Payment",
+          "node_type": "DATA_RESOURCE",
+          "name": "Payment"
+        },
+        {
+          "id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "node_type": "SERVICE",
+          "name": "ExportService"
+        },
+        {
+          "id": "user:anonymous",
+          "node_type": "USER",
+          "name": "Anonymous"
+        }
+      ],
+      "edges": [
+        {
+          "source_id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "CALLS"
+        },
+        {
+          "source_id": "endpoint:GET:/admin/export",
+          "target_id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "CALLS"
+        },
+        {
+          "source_id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "resource:Payment",
+          "relationship": "RETURNS"
+        },
+        {
+          "source_id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "READS"
+        },
+        {
+          "source_id": "user:anonymous",
+          "target_id": "endpoint:GET:/admin/export",
+          "relationship": "CAN_ACCESS"
+        }
+      ]
+    },
+    "new_paths": [
+      {
+        "source": "user:anonymous",
+        "target": "resource:Payment",
+        "nodes": [
+          "user:anonymous",
+          "endpoint:GET:/admin/export",
+          "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "resource:Payment"
+        ],
+        "edges": [
+          "CAN_ACCESS",
+          "CALLS",
+          "CALLS",
+          "READS",
+          "RETURNS"
+        ]
+      }
+    ],
+    "removed_paths": []
+  },
+  "risk_result": {
+    "risk_before": 0,
+    "risk_after": 65,
+    "risk_delta": 65,
+    "category_before": "LOW",
+    "category_after": "HIGH",
+    "components": {
+      "reachability": {
+        "score": 100,
+        "weight": 0.25,
+        "weighted_score": 25.0
+      },
+      "authorization_change": {
+        "score": 0,
+        "weight": 0.2,
+        "weighted_score": 0.0
+      },
+      "data_sensitivity": {
+        "score": 100,
+        "weight": 0.2,
+        "weighted_score": 20.0
+      },
+      "external_exposure": {
+        "score": 100,
+        "weight": 0.15,
+        "weighted_score": 15.0
+      },
+      "privilege_impact": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      },
+      "exploitability": {
+        "score": 50,
+        "weight": 0.1,
+        "weighted_score": 5.0
+      }
+    },
+    "evidence": [
+      "Anonymous user can newly reach sensitive resource Payment"
+    ],
+    "components_before": {
+      "reachability": {
+        "score": 0,
+        "weight": 0.25,
+        "weighted_score": 0.0
+      },
+      "authorization_change": {
+        "score": 0,
+        "weight": 0.2,
+        "weighted_score": 0.0
+      },
+      "data_sensitivity": {
+        "score": 0,
+        "weight": 0.2,
+        "weighted_score": 0.0
+      },
+      "external_exposure": {
+        "score": 0,
+        "weight": 0.15,
+        "weighted_score": 0.0
+      },
+      "privilege_impact": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      },
+      "exploitability": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      }
+    },
+    "policy_version": "1.0.0"
+  },
+  "verdict": "BLOCK",
+  "schema_version": "1.0.0",
+  "reason_codes": [
+    "NEW_ANONYMOUS_SENSITIVE_PATH",
+    "RISK_AFTER_REVIEW_THRESHOLD",
+    "RISK_DELTA_REVIEW_THRESHOLD"
+  ],
+  "quality": {
+    "confidence": "HIGH",
+    "coverage_ratio": 1.0,
+    "incomplete": false
+  },
+  "provenance": {
+    "repository_path": "/analysis-repositories/mvp-v1/new-public-sensitive-endpoint",
+    "repository_identity": "local-git:f16183707e2df1bba786dc596ac7aaaab99fc6cc",
+    "old_commit": "f16183707e2df1bba786dc596ac7aaaab99fc6cc",
+    "new_commit": "24c60514319d820e7ff7df7edcde3aff6a943f11"
+  },
+  "coverage": {
+    "java_files_considered": 1,
+    "controllers_discovered": 1,
+    "endpoints_emitted": 1,
+    "endpoints_with_service": 1,
+    "endpoints_with_repository": 1,
+    "coverage_ratio": 1.0
+  },
+  "diagnostics": [],
+  "source_evidence": {
+    "before": [],
+    "after": [
+      {
+        "endpoint": {
+          "endpoint": "/admin/export",
+          "method": "GET",
+          "controller": "ExportController",
+          "authentication": false,
+          "required_role": null,
+          "service": "ExportService",
+          "repository": "PaymentRepository",
+          "resource": "Payment",
+          "sensitivity": "CRITICAL"
+        },
+        "source_location": {
+          "path": "src/main/java/demo/ExportController.java",
+          "start_line": 8,
+          "end_line": 8
+        },
+        "qualified_controller": "demo.ExportController",
+        "method_signature": "export()",
+        "dependency_paths": [
+          {
+            "service": "ExportService",
+            "repository": "PaymentRepository",
+            "resource": "Payment"
+          }
+        ],
+        "sensitivity_evidence": {
+          "classification": "CRITICAL",
+          "source": "classpath:sensitivity-policy.yml",
+          "matched_rule": "Payment@1.0.0"
+        },
+        "extraction_confidence": {
+          "route": "HIGH",
+          "authorization": "HIGH",
+          "call_resolution": "HIGH",
+          "overall": "HIGH"
+        }
+      }
+    ]
+  },
+  "analyzer_version": "0.3.1",
+  "analysis_id": "2288abc6e31e646e7c10ebd7328baf4b726b489315673984243585e5c9483e0c",
+  "pre_validation_verdict": "BLOCK",
+  "validation_status": "NOT_RUN",
+  "final_verdict": "BLOCK",
+  "status": "DEGRADED",
+  "scan_id": "d99a01c4e2d083aec3dadc5148e236680625266c45d1240f48686ef33a001c8c",
+  "ai": {
+    "status": "DEGRADED",
+    "confirmed": false,
+    "provider": "deterministic-fallback",
+    "reason_code": "OLLAMA_UNAVAILABLE",
+    "analysis": {
+      "finding": "Security change requires review",
+      "evidence": [
+        "Anonymous user can newly reach sensitive resource Payment"
+      ],
+      "hypothesis": "Unconfirmed: validate the deterministic reachability evidence in the local Docker sandbox.",
+      "recommended_test": "GET /admin/export without authentication",
+      "confidence": "LOW"
+    }
+  }
+}

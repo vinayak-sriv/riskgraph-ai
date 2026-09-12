@@ -1,0 +1,54 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": "1.0.0",
+      "title": "Version",
+      "type": "string"
+    },
+    "weights": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "const": {
+        "authorization_change": 0.2,
+        "data_sensitivity": 0.2,
+        "exploitability": 0.1,
+        "external_exposure": 0.15,
+        "privilege_impact": 0.1,
+        "reachability": 0.25
+      },
+      "title": "Weights",
+      "type": "object"
+    },
+    "block_after": {
+      "maximum": 61,
+      "minimum": 61,
+      "title": "Block After",
+      "type": "integer"
+    },
+    "review_after": {
+      "maximum": 41,
+      "minimum": 41,
+      "title": "Review After",
+      "type": "integer"
+    },
+    "review_delta": {
+      "maximum": 21,
+      "minimum": 21,
+      "title": "Review Delta",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "weights",
+    "block_after",
+    "review_after",
+    "review_delta"
+  ],
+  "title": "Policy",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/ir/risk-policy.schema.json"
+}

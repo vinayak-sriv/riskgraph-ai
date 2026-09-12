@@ -1,0 +1,42 @@
+{
+  "scope": "Two pinned external negative changes; static extraction only; no execution or exploit validation",
+  "label_status": "PROVISIONAL",
+  "review_type": "AI_SOURCE_REVIEW",
+  "human_reviewed": false,
+  "vulnerability_precision": null,
+  "vulnerability_recall": null,
+  "vulnerability_f1": null,
+  "sensitivity_accuracy": null,
+  "cases": {
+    "spring-petclinic": {
+      "matched_endpoint_auth_rows": 2,
+      "expected_endpoint_auth_rows": 2,
+      "endpoint_auth_recall": 1.0,
+      "quality": {
+        "confidence": "LOW",
+        "coverage_ratio": 0.0,
+        "incomplete": false
+      },
+      "verdict": "REVIEW",
+      "risk_delta": 0,
+      "diagnostic_codes": [],
+      "mean_runtime_seconds": 6.069
+    },
+    "gs-rest-service": {
+      "matched_endpoint_auth_rows": 0,
+      "expected_endpoint_auth_rows": 2,
+      "endpoint_auth_recall": 0.0,
+      "quality": {
+        "confidence": "LOW",
+        "coverage_ratio": 0.0,
+        "incomplete": true
+      },
+      "verdict": "REVIEW",
+      "risk_delta": 0,
+      "diagnostic_codes": [
+        "SPOON_MODEL_FAILED"
+      ],
+      "mean_runtime_seconds": 2.322
+    }
+  }
+}

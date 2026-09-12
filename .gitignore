@@ -35,3 +35,15 @@ coverage/
 # Docker/runtime
 *.pid
 tmp/
+samples/generated/
+.coverage
+
+# Tool/test caches
+.ruff_cache/
+.test-tmp/
+.review-logic-pytest/
+pytest-cache-files-*/
+
+# Local generated archives
+/apps/dashboard.zip
+/riskgraph-dataset-package.zip

@@ -1,0 +1,399 @@
+{
+  "$defs": {
+    "ComponentScore": {
+      "additionalProperties": false,
+      "properties": {
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "integer"
+        },
+        "weight": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Weight",
+          "type": "number"
+        },
+        "weighted_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Weighted Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "score",
+        "weight",
+        "weighted_score"
+      ],
+      "title": "ComponentScore",
+      "type": "object"
+    },
+    "Edge": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "target_id": {
+          "title": "Target Id",
+          "type": "string"
+        },
+        "relationship": {
+          "enum": [
+            "CAN_ACCESS",
+            "CALLS",
+            "READS",
+            "WRITES",
+            "REQUIRES_ROLE",
+            "CONNECTS_TO",
+            "RETURNS",
+            "HAS_ROLE"
+          ],
+          "title": "Relationship",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "target_id",
+        "relationship"
+      ],
+      "title": "Edge",
+      "type": "object"
+    },
+    "GraphDelta": {
+      "additionalProperties": false,
+      "properties": {
+        "before": {
+          "$ref": "#/$defs/SecurityGraph"
+        },
+        "after": {
+          "$ref": "#/$defs/SecurityGraph"
+        },
+        "new_paths": {
+          "items": {
+            "$ref": "#/$defs/PathEvidence"
+          },
+          "title": "New Paths",
+          "type": "array"
+        },
+        "removed_paths": {
+          "items": {
+            "$ref": "#/$defs/PathEvidence"
+          },
+          "title": "Removed Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "before",
+        "after",
+        "new_paths",
+        "removed_paths"
+      ],
+      "title": "GraphDelta",
+      "type": "object"
+    },
+    "Node": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "node_type": {
+          "enum": [
+            "USER",
+            "ROLE",
+            "ENDPOINT",
+            "CONTROLLER",
+            "FUNCTION",
+            "SERVICE",
+            "DATABASE",
+            "DATA_RESOURCE",
+            "EXTERNAL_SERVICE"
+          ],
+          "title": "Node Type",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "node_type",
+        "name"
+      ],
+      "title": "Node",
+      "type": "object"
+    },
+    "PathEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Edges",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "nodes",
+        "edges"
+      ],
+      "title": "PathEvidence",
+      "type": "object"
+    },
+    "Quality": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "default": "HIGH",
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        },
+        "coverage_ratio": {
+          "default": 1,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Coverage Ratio",
+          "type": "number"
+        },
+        "incomplete": {
+          "default": false,
+          "title": "Incomplete",
+          "type": "boolean"
+        }
+      },
+      "title": "Quality",
+      "type": "object"
+    },
+    "RiskComponents": {
+      "additionalProperties": false,
+      "properties": {
+        "reachability": {
+          "$ref": "#/$defs/ComponentScore"
+        },
+        "authorization_change": {
+          "$ref": "#/$defs/ComponentScore"
+        },
+        "data_sensitivity": {
+          "$ref": "#/$defs/ComponentScore"
+        },
+        "external_exposure": {
+          "$ref": "#/$defs/ComponentScore"
+        },
+        "privilege_impact": {
+          "$ref": "#/$defs/ComponentScore"
+        },
+        "exploitability": {
+          "$ref": "#/$defs/ComponentScore"
+        }
+      },
+      "required": [
+        "reachability",
+        "authorization_change",
+        "data_sensitivity",
+        "external_exposure",
+        "privilege_impact",
+        "exploitability"
+      ],
+      "title": "RiskComponents",
+      "type": "object"
+    },
+    "RiskResult": {
+      "additionalProperties": false,
+      "properties": {
+        "risk_before": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Risk Before",
+          "type": "integer"
+        },
+        "risk_after": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Risk After",
+          "type": "integer"
+        },
+        "risk_delta": {
+          "maximum": 100,
+          "minimum": -100,
+          "title": "Risk Delta",
+          "type": "integer"
+        },
+        "category_before": {
+          "enum": [
+            "LOW",
+            "MODERATE",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ],
+          "title": "Category Before",
+          "type": "string"
+        },
+        "category_after": {
+          "enum": [
+            "LOW",
+            "MODERATE",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ],
+          "title": "Category After",
+          "type": "string"
+        },
+        "components": {
+          "$ref": "#/$defs/RiskComponents"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "components_before": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RiskComponents"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "policy_version": {
+          "default": "1.0.0",
+          "title": "Policy Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "risk_before",
+        "risk_after",
+        "risk_delta",
+        "category_before",
+        "category_after",
+        "components",
+        "evidence"
+      ],
+      "title": "RiskResult",
+      "type": "object"
+    },
+    "SecurityGraph": {
+      "additionalProperties": false,
+      "properties": {
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/Node"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/Edge"
+          },
+          "title": "Edges",
+          "type": "array"
+        }
+      },
+      "required": [
+        "nodes",
+        "edges"
+      ],
+      "title": "SecurityGraph",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "scenario": {
+      "title": "Scenario",
+      "type": "string"
+    },
+    "graph_delta": {
+      "$ref": "#/$defs/GraphDelta"
+    },
+    "risk_result": {
+      "$ref": "#/$defs/RiskResult"
+    },
+    "verdict": {
+      "enum": [
+        "ALLOW",
+        "REVIEW",
+        "BLOCK"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "1.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "reason_codes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reason Codes",
+      "type": "array"
+    },
+    "quality": {
+      "$ref": "#/$defs/Quality"
+    },
+    "mode": {
+      "type": "string"
+    },
+    "pre_validation_verdict": {
+      "type": "string"
+    },
+    "final_verdict": {
+      "type": "string"
+    },
+    "validation_status": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "scenario",
+    "graph_delta",
+    "risk_result",
+    "verdict"
+  ],
+  "title": "AnalysisResult",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/ir/graph-analysis.schema.json"
+}

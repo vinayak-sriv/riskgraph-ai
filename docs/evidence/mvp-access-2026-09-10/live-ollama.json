@@ -1,0 +1,68 @@
+{
+  "model": "qwen2.5:0.5b",
+  "model_digest": "a8b0c51577010a279d933d14c2a8ab4b268079d44c5c8830c0a93900f1827c67",
+  "scope": "Live integration; explanation quality is not benchmarked",
+  "results": {
+    "/ai/analyze": {
+      "response": {
+        "status": "AVAILABLE",
+        "confirmed": false,
+        "provider": "ollama",
+        "reason_code": "SCHEMA_VALIDATED",
+        "analysis": {
+          "finding": "The GET method is used to access the admin/export endpoint, which is not authorized for the current user. The ADMIN permission, ",
+          "evidence": [
+            "ADMIN authorization removed",
+            "Anonymous access to the Payment resource is newly reachable"
+          ],
+          "hypothesis": "Unauthorized access to the admin/export endpoint is possible.",
+          "recommended_test": "GET /admin/export without authentication",
+          "confidence": "HIGH"
+        }
+      },
+      "seconds": 15.594
+    },
+    "/ai/test-suggestion": {
+      "response": {
+        "status": "AVAILABLE",
+        "confirmed": false,
+        "provider": "ollama",
+        "reason_code": "SCHEMA_VALIDATED",
+        "analysis": {
+          "finding": "The GET method is used to access the admin/export endpoint, which is not authorized for the current user. The ADMIN permission, ",
+          "evidence": [
+            "ADMIN authorization removed",
+            "Anonymous access to the Payment resource is newly reachable"
+          ],
+          "hypothesis": "Unauthorized access to the admin/export endpoint is possible.",
+          "recommended_test": "GET /admin/export without authentication",
+          "confidence": "HIGH"
+        }
+      },
+      "seconds": 10.79
+    },
+    "source_pipeline": {
+      "scan_id": "473fb8b6ffbfd649e48da8642e320f4b171f6c3b5c589d7bf0599c1a46c6c8df",
+      "ai": {
+        "status": "AVAILABLE",
+        "confirmed": false,
+        "provider": "ollama",
+        "reason_code": "SCHEMA_VALIDATED",
+        "analysis": {
+          "finding": "The GET /admin/export method is unauthenticated, as it does not include the user's credentials. The unauthorized access is due, ",
+          "evidence": [
+            "ADMIN authorization removed from GET /admin/export",
+            "Anonymous user can newly reach sensitive resource Payment"
+          ],
+          "hypothesis": "Unauthorized access is possible due to unauthenticated method and path.",
+          "recommended_test": "GET /admin/export without authentication",
+          "confidence": "LOW"
+        }
+      },
+      "risk_before": 22,
+      "risk_after": 91,
+      "risk_delta": 69,
+      "verdict": "BLOCK"
+    }
+  }
+}

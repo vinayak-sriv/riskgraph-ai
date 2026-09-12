@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      RISKGRAPH_SERVICE_TOKEN: ci-contract-only-not-a-deployment-secret
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/dashboard/package-lock.json
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check services/graph-risk-service services/ai-validation-service tests tools
+      - run: ruff format --check services/graph-risk-service services/ai-validation-service tests tools
+      - run: python -m pytest tests -q --cov=services/graph-risk-service/app --cov=services/ai-validation-service/app
+      - run: mvn -f services/java-analyzer/pom.xml verify
+      - run: mvn -f services/platform-api/pom.xml verify
+      - run: docker compose -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app config --quiet
+      - run: npm ci
+        working-directory: apps/dashboard
+      - run: npm run build
+        working-directory: apps/dashboard
+      - run: npm run lint
+        working-directory: apps/dashboard
+      - run: npm run format:check
+        working-directory: apps/dashboard
+      - run: npm test
+        working-directory: apps/dashboard
+      - run: npm audit --omit=dev
+        working-directory: apps/dashboard

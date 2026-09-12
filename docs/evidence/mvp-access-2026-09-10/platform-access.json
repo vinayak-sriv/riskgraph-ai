@@ -1,0 +1,8 @@
+{
+  "DEVELOPER": "PASS",
+  "ANALYST": "PASS",
+  "anonymous_denied": true,
+  "csrf_enforced": true,
+  "logout_ends_session": true,
+  "accounts_persisted": true
+}

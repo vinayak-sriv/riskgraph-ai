@@ -1,14 +1,20 @@
 openapi: 3.1.0
 info:
   title: RiskGraph Platform API
-  version: 0.1.0
+  version: 2.0.0
+  description: Source and account APIs require a platform session. POST operations
+    also require the CSRF token returned by /auth/csrf. The endpoint IR shape remains
+    compatible; the source-analysis envelope is version 1.1.0.
 paths:
   /health:
     get:
       summary: Health check
       responses:
-        "200":
+        '200':
           description: Platform API is healthy
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+      security: []
   /scans:
     post:
       summary: Start a scan
@@ -17,105 +23,456 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateScanRequest"
+              $ref: '#/components/schemas/CreateScanRequest'
       responses:
-        "202":
+        '202':
           description: Scan accepted
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CreateScanResponse"
+                $ref: '#/components/schemas/CreateScanResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+      parameters:
+      - in: header
+        name: X-CSRF-TOKEN
+        required: true
+        schema:
+          type: string
   /scans/{scanId}:
     get:
       summary: Read scan status and result
       parameters:
-        - name: scanId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Scan result
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ScanResult"
+                $ref: '#/components/schemas/ScanResult'
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
   /demo/authorization-removal:
     get:
       summary: Run the canonical authorization-removal mentor demo
-      responses:
-        "200":
+      responses: &id003
+        '200':
           description: Deterministic graph, risk, and verdict result
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DemoAnalysisResult"
-        "502":
+                $ref: '#/components/schemas/DemoAnalysisResult'
+        '502':
           description: Graph risk service is unavailable
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+      security: []
+  /analyses:
+    post:
+      summary: Analyze an allowlisted local immutable commit pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - repository_path
+              - old_commit
+              - new_commit
+              properties:
+                repository_path:
+                  type: string
+                  minLength: 1
+                old_commit:
+                  type: string
+                  pattern: ^[0-9a-fA-F]{40}$
+                new_commit:
+                  type: string
+                  pattern: ^[0-9a-fA-F]{40}$
+      responses:
+        '200': &id002
+          description: Versioned deterministic scan with provenance and optional unconfirmed
+            AI
+          content:
+            application/json:
+              schema:
+                $ref: ../ir/scan-result.schema.json
+        '400': &id001
+          description: Structured failure; never implies ALLOW
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+        '502': *id001
+        '503': *id001
+        '504': *id001
+        '401':
+          description: Authentication required
+      parameters:
+      - in: header
+        name: X-CSRF-TOKEN
+        required: true
+        schema:
+          type: string
+  /analyses/{id}:
+    get:
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200': *id002
+        '404': *id001
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+  /analyses/{id}/sandbox-demonstration/{revision}:
+    post:
+      summary: Run the shipped synthetic sandbox separately from source confirmation
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: revision
+        required: true
+        schema:
+          type: string
+      - in: header
+        name: X-CSRF-TOKEN
+        required: true
+        schema:
+          type: string
+      responses:
+        '200': *id002
+        '400': *id001
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+  /analyses/{id}/access:
+    post:
+      summary: Explicitly grant per-scan view or validation access
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      - in: header
+        name: X-CSRF-TOKEN
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [username, access]
+              properties:
+                username:
+                  type: string
+                  pattern: '^[a-z][a-z0-9_.-]{2,63}$'
+                access:
+                  type: string
+                  enum: [VIEW, VALIDATE]
+      responses:
+        '200':
+          description: Access granted
+        '400': *id001
+        '401':
+          description: Authentication required
+        '403':
+          description: Caller does not have validation access to this scan
+        '404': *id001
+  /demo/scenarios/{scenario}:
+    get:
+      parameters:
+      - in: path
+        name: scenario
+        required: true
+        schema:
+          type: string
+      responses: *id003
+      security: []
+  /analyses/{id}/validation:
+    post:
+      summary: Validate a registered source-bound Docker fixture
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      - in: header
+        name: X-CSRF-TOKEN
+        required: true
+        schema:
+          type: string
+      responses:
+        '200': *id002
+        '400': *id001
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+  /auth/csrf:
+    get:
+      security: []
+      summary: Start/reuse session and obtain CSRF token
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - headerName
+                - token
+                properties:
+                  headerName:
+                    const: X-CSRF-TOKEN
+                  token:
+                    type: string
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+  /auth/session:
+    get:
+      security: []
+      summary: Read current account; anonymous sessions return authenticated=false
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - authenticated
+                properties:
+                  authenticated:
+                    type: boolean
+                  user:
+                    $ref: '#/components/schemas/PlatformAccount'
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+  /auth/github/connect:
+    get:
+      security: []
+      summary: Start GitHub App user authorization and optionally link the current
+        local account
+      responses:
+        '302':
+          description: Redirect to Spring Security's GitHub authorization endpoint
+        '503':
+          description: GitHub client ID or client secret is not configured
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+  /auth/login:
+    post:
+      security: []
+      summary: Sign in; fetch a fresh CSRF token after success
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - username
+              - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                  writeOnly: true
+      responses:
+        '200':
+          description: Signed in; session ID rotated
+        '401':
+          description: Invalid credentials
+        '429':
+          description: Too many failed login attempts; retry later
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+      parameters:
+      - in: header
+        name: X-CSRF-TOKEN
+        required: true
+        schema:
+          type: string
+  /auth/logout:
+    post:
+      summary: Invalidate session
+      responses:
+        '200':
+          description: Signed out
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+      parameters:
+      - in: header
+        name: X-CSRF-TOKEN
+        required: true
+        schema:
+          type: string
+  /admin/users:
+    get:
+      summary: List accounts (Admin only)
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlatformAccount'
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+    post:
+      summary: Create account (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPlatformAccount'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformAccount'
+        '400': *id001
+        '409':
+          description: Username already exists
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+      parameters:
+      - in: header
+        name: X-CSRF-TOKEN
+        required: true
+        schema:
+          type: string
 components:
   schemas:
+    GithubConnection:
+      type: object
+      additionalProperties: false
+      required:
+      - status
+      - permissions
+      properties:
+        status:
+          type: string
+          enum:
+          - NOT_CONFIGURED
+          - DISCONNECTED
+          - CONNECTED
+          - ERROR
+        login:
+          type:
+          - string
+          - 'null'
+        permissions:
+          type: array
+          items:
+            type: string
+        message:
+          type:
+          - string
+          - 'null'
     CreateScanRequest:
       type: object
       additionalProperties: false
       required:
-        - repository
-        - old_commit
-        - new_commit
+      - repository
+      - old_commit
+      - new_commit
       properties:
         repository:
           type: string
           minLength: 1
         old_commit:
           type: string
-          minLength: 7
+          pattern: ^[0-9a-fA-F]{40}$
         new_commit:
           type: string
-          minLength: 7
+          pattern: ^[0-9a-fA-F]{40}$
     CreateScanResponse:
       type: object
       additionalProperties: false
       required:
-        - scan_id
-        - status
+      - scan_id
+      - status
       properties:
         scan_id:
           type: string
         status:
           type: string
           enum:
-            - PENDING
-            - RUNNING
+          - PENDING
+          - RUNNING
+          - COMPLETE
+          - DEGRADED
+          - FAILED
     ScanResult:
       type: object
       additionalProperties: false
       required:
-        - scan_id
-        - status
-        - decision
-        - risk_before
-        - risk_after
-        - risk_delta
-        - findings
+      - scan_id
+      - status
+      - decision
+      - risk_before
+      - risk_after
+      - risk_delta
+      - findings
       properties:
         scan_id:
           type: string
         status:
           type: string
           enum:
-            - PENDING
-            - RUNNING
-            - COMPLETED
-            - FAILED
+          - PENDING
+          - RUNNING
+          - COMPLETE
+          - DEGRADED
+          - FAILED
         decision:
           type:
-            - string
-            - "null"
+          - string
+          - 'null'
           enum:
-            - ALLOW
-            - REVIEW
-            - BLOCK
-            - null
+          - ALLOW
+          - REVIEW
+          - BLOCK
+          - null
         risk_before:
           type: integer
           minimum: 0
@@ -134,40 +491,71 @@ components:
             type: object
             additionalProperties: false
             required:
-              - type
-              - severity
-              - description
+            - type
+            - severity
+            - description
+            - finding_id
             properties:
               type:
                 type: string
               severity:
                 type: string
                 enum:
-                  - LOW
-                  - MODERATE
-                  - MEDIUM
-                  - HIGH
-                  - CRITICAL
-                description:
-                  type: string
+                - LOW
+                - MODERATE
+                - MEDIUM
+                - HIGH
+                - CRITICAL
+              description:
+                type: string
+              finding_id:
+                type: string
+                pattern: ^[0-9a-f]{64}$
     DemoAnalysisResult:
+      $ref: ../ir/demo-result.schema.json
+    PlatformAccount:
       type: object
-      additionalProperties: false
       required:
-        - scenario
-        - graph_delta
-        - risk_result
-        - verdict
+      - username
+      - name
+      - role
+      additionalProperties: false
       properties:
-        scenario:
+        username: &id004
           type: string
-        graph_delta:
-          $ref: "../ir/graph-delta.schema.json"
-        risk_result:
-          $ref: "../ir/risk-result.schema.json"
-        verdict:
+          pattern: ^[a-z][a-z0-9_.-]{2,63}$
+        name: &id005
+          type: string
+          minLength: 1
+          maxLength: 120
+        role: &id006
           type: string
           enum:
-            - ALLOW
-            - REVIEW
-            - BLOCK
+          - DEVELOPER
+          - ANALYST
+          - ADMIN
+    NewPlatformAccount:
+      type: object
+      required:
+      - username
+      - name
+      - role
+      - password
+      additionalProperties: false
+      properties:
+        username: *id004
+        name: *id005
+        role: *id006
+        password:
+          type: string
+          minLength: 12
+          maxLength: 72
+          writeOnly: true
+          description: Maximum 72 UTF-8 bytes; BCrypt stored, never returned
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: JSESSIONID
+security:
+- sessionCookie: []

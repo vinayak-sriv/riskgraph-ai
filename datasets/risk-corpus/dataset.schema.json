@@ -1,0 +1,415 @@
+{
+  "$defs": {
+    "EndpointIr": {
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Endpoint",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "controller": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Controller",
+          "type": "string"
+        },
+        "authentication": {
+          "title": "Authentication",
+          "type": "boolean"
+        },
+        "required_role": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Required Role"
+        },
+        "service": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Service"
+        },
+        "repository": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Repository"
+        },
+        "resource": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Resource",
+          "type": "string"
+        },
+        "sensitivity": {
+          "enum": [
+            "LOW",
+            "MODERATE",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ],
+          "title": "Sensitivity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "endpoint",
+        "method",
+        "controller",
+        "authentication",
+        "required_role",
+        "service",
+        "repository",
+        "resource",
+        "sensitivity"
+      ],
+      "title": "EndpointIr",
+      "type": "object"
+    },
+    "Expected": {
+      "additionalProperties": false,
+      "properties": {
+        "before_ir": {
+          "items": {
+            "$ref": "#/$defs/EndpointIr"
+          },
+          "title": "Before Ir",
+          "type": "array"
+        },
+        "after_ir": {
+          "items": {
+            "$ref": "#/$defs/EndpointIr"
+          },
+          "title": "After Ir",
+          "type": "array"
+        },
+        "added_paths": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Added Paths",
+          "type": "array"
+        },
+        "removed_paths": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Removed Paths",
+          "type": "array"
+        },
+        "risk": {
+          "$ref": "#/$defs/RiskExpectation"
+        },
+        "preliminary_verdict": {
+          "enum": [
+            "ALLOW",
+            "REVIEW",
+            "BLOCK"
+          ],
+          "title": "Preliminary Verdict",
+          "type": "string"
+        },
+        "ai_permitted_evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ai Permitted Evidence",
+          "type": "array"
+        },
+        "validation_target": {
+          "const": "LOCAL_DOCKER_ONLY",
+          "title": "Validation Target",
+          "type": "string"
+        },
+        "validation_status": {
+          "const": "NOT_RUN",
+          "title": "Validation Status",
+          "type": "string"
+        },
+        "validation_expectation": {
+          "enum": [
+            "VULNERABLE_RESPONSE",
+            "PROTECTED_RESPONSE",
+            "NOT_APPLICABLE"
+          ],
+          "title": "Validation Expectation",
+          "type": "string"
+        },
+        "final_verdict": {
+          "enum": [
+            "ALLOW",
+            "REVIEW",
+            "BLOCK"
+          ],
+          "title": "Final Verdict",
+          "type": "string"
+        }
+      },
+      "required": [
+        "before_ir",
+        "after_ir",
+        "added_paths",
+        "removed_paths",
+        "risk",
+        "preliminary_verdict",
+        "ai_permitted_evidence",
+        "validation_target",
+        "validation_status",
+        "validation_expectation",
+        "final_verdict"
+      ],
+      "title": "Expected",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "repository_family": {
+          "title": "Repository Family",
+          "type": "string"
+        },
+        "scenario_family": {
+          "title": "Scenario Family",
+          "type": "string"
+        },
+        "before_source": {
+          "title": "Before Source",
+          "type": "string"
+        },
+        "after_source": {
+          "title": "After Source",
+          "type": "string"
+        },
+        "before_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Before Sha256",
+          "type": "string"
+        },
+        "after_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "After Sha256",
+          "type": "string"
+        },
+        "diff_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Diff Sha256",
+          "type": "string"
+        },
+        "commit_identity": {
+          "const": "NOT_A_GIT_COMMIT_SYNTHETIC_SOURCE",
+          "title": "Commit Identity",
+          "type": "string"
+        },
+        "analyzer_version": {
+          "const": "expected-spoon-contract-v1",
+          "title": "Analyzer Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository_family",
+        "scenario_family",
+        "before_source",
+        "after_source",
+        "before_sha256",
+        "after_sha256",
+        "diff_sha256",
+        "commit_identity",
+        "analyzer_version"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Quality": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "default": "HIGH",
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        },
+        "coverage_ratio": {
+          "default": 1,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Coverage Ratio",
+          "type": "number"
+        },
+        "incomplete": {
+          "default": false,
+          "title": "Incomplete",
+          "type": "boolean"
+        }
+      },
+      "title": "Quality",
+      "type": "object"
+    },
+    "RiskExpectation": {
+      "additionalProperties": false,
+      "properties": {
+        "components_before": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 6,
+          "minItems": 6,
+          "title": "Components Before",
+          "type": "array"
+        },
+        "components_after": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 6,
+          "minItems": 6,
+          "title": "Components After",
+          "type": "array"
+        },
+        "risk_before": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Risk Before",
+          "type": "integer"
+        },
+        "risk_after": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Risk After",
+          "type": "integer"
+        },
+        "risk_delta": {
+          "maximum": 100,
+          "minimum": -100,
+          "title": "Risk Delta",
+          "type": "integer"
+        },
+        "category_before": {
+          "title": "Category Before",
+          "type": "string"
+        },
+        "category_after": {
+          "title": "Category After",
+          "type": "string"
+        }
+      },
+      "required": [
+        "components_before",
+        "components_after",
+        "risk_before",
+        "risk_after",
+        "risk_delta",
+        "category_before",
+        "category_after"
+      ],
+      "title": "RiskExpectation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^rg-[0-9a-f]{20}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "label_status": {
+      "const": "PROVISIONAL",
+      "title": "Label Status",
+      "type": "string"
+    },
+    "source_type": {
+      "const": "SYNTHETIC_AI_ASSISTED",
+      "title": "Source Type",
+      "type": "string"
+    },
+    "split": {
+      "enum": [
+        "development",
+        "calibration",
+        "test"
+      ],
+      "title": "Split",
+      "type": "string"
+    },
+    "scenario": {
+      "title": "Scenario",
+      "type": "string"
+    },
+    "safe_negative": {
+      "title": "Safe Negative",
+      "type": "boolean"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "quality": {
+      "$ref": "#/$defs/Quality"
+    },
+    "expected": {
+      "$ref": "#/$defs/Expected"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "label_status",
+    "source_type",
+    "split",
+    "scenario",
+    "safe_negative",
+    "provenance",
+    "quality",
+    "expected"
+  ],
+  "title": "Record",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

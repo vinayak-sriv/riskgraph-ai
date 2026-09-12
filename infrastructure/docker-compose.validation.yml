@@ -1,0 +1,65 @@
+# Opt-in validation worker backed by a disposable Docker-in-Docker daemon. The
+# host Docker socket is deliberately not mounted into an application container.
+services:
+  validation-docker:
+    image: docker:27.5.1-dind
+    privileged: true
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    command: ["--host=tcp://0.0.0.0:2375", "--host=unix:///var/run/docker.sock"]
+    volumes:
+      - riskgraph-validation-docker:/var/lib/docker
+    networks: [validation-engine, validation-egress]
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 1536m
+    cpus: 2.0
+    pids_limit: 256
+
+  validation-image-loader:
+    image: docker:27.5.1-cli
+    depends_on:
+      validation-docker:
+        condition: service_healthy
+    environment:
+      DOCKER_HOST: tcp://validation-docker:2375
+    working_dir: /workspace
+    volumes:
+      - ../samples:/workspace/samples:ro
+    command:
+      - sh
+      - -ec
+      - |
+        docker build --tag riskgraph-sandbox-protected:local samples/generated/build-protected
+        docker build --tag riskgraph-sandbox-vulnerable:local samples/generated/build-vulnerable
+        docker build --tag riskgraph-sandbox:local samples/sandbox
+        docker pull python:3.12-alpine
+    networks: [validation-engine]
+    restart: "no"
+
+  ai-validation-service:
+    build:
+      context: ../services/ai-validation-service
+      dockerfile: Dockerfile.validation
+    depends_on:
+      validation-docker:
+        condition: service_healthy
+      validation-image-loader:
+        condition: service_completed_successfully
+    environment:
+      RISKGRAPH_VALIDATION_DOCKER_HOST: tcp://validation-docker:2375
+      RISKGRAPH_REQUIRE_ISOLATED_DOCKER: "true"
+    networks:
+      - default
+      - validation-engine
+
+networks:
+  validation-engine:
+    internal: true
+  validation-egress: {}
+
+volumes:
+  riskgraph-validation-docker:

@@ -1,25 +1,13 @@
 import os
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import Depends, FastAPI
 
+from .reasoning import EvidenceRequest, Explanation, OllamaProvider, explain
+from .service_auth import require_service_token
+from .validation import ValidationRequest, ValidationResult, validate
 
 app = FastAPI(title="RiskGraph AI Validation Service", version="0.1.0")
-
-
-class EvidenceRequest(BaseModel):
-    risk_result: dict
-    evidence: list[str]
-
-
-class HttpValidationTest(BaseModel):
-    target_base_url: str
-    method: str
-    path: str
-    auth_context: str
-    expected_status: int
-    headers: dict[str, str] = Field(default_factory=dict)
-    body: dict | list | str | None = None
+ollama = OllamaProvider()
 
 
 @app.get("/health")
@@ -32,25 +20,22 @@ def health() -> dict[str, str]:
     }
 
 
-@app.post("/ai/analyze")
-def analyze(_: EvidenceRequest) -> None:
-    raise HTTPException(
-        status_code=501,
-        detail="Week 3 scaffold only: schema-constrained Ollama analysis starts in a later week",
-    )
+@app.post("/ai/analyze", response_model=Explanation, dependencies=[Depends(require_service_token)])
+async def analyze(request: EvidenceRequest) -> Explanation:
+    return await explain(request, ollama)
 
 
-@app.post("/ai/test-suggestion")
-def test_suggestion(_: EvidenceRequest) -> None:
-    raise HTTPException(
-        status_code=501,
-        detail="Week 3 scaffold only: Ollama-backed test suggestions start in a later week",
-    )
+@app.post(
+    "/ai/test-suggestion", response_model=Explanation, dependencies=[Depends(require_service_token)]
+)
+async def test_suggestion(request: EvidenceRequest) -> Explanation:
+    return await explain(request, ollama)
 
 
-@app.post("/validation/http")
-def validate_http(_: HttpValidationTest) -> None:
-    raise HTTPException(
-        status_code=501,
-        detail="Week 3 scaffold only: Docker sandbox validation runner starts in a later week",
-    )
+@app.post(
+    "/validation/http",
+    response_model=ValidationResult,
+    dependencies=[Depends(require_service_token)],
+)
+async def validate_http(request: ValidationRequest) -> ValidationResult:
+    return await validate(request)

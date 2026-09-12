@@ -1,7 +1,11 @@
 # Sample Spring Apps
 
-This folder will contain local Spring Boot applications used for demos and
-sandbox validation.
+This folder contains documentation for local Spring applications used for demos and
+sandbox validation. Generate the Week 6 commit-pair source repository with:
+
+```powershell
+python tools/dev/create_week6_sample.py
+```
 
 Planned scenarios:
 - Authorization removal.
@@ -9,5 +13,5 @@ Planned scenarios:
 - Public sensitive endpoint.
 - Sensitive resource exposure.
 
-Week 4 introduces the first real sample repository and immutable commit pair for
-authorization removal. Privilege expansion is retained only as Phase 2 planning.
+The generated repository is ignored by Git because its own two commits are the test
+artifact. Privilege expansion is retained only as Phase 2 planning.

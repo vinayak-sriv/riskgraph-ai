@@ -1,18 +1,21 @@
 import asyncio
 import json
+import os
 from pathlib import Path
 
 import httpx
+from app.main import app
 from jsonschema import Draft202012Validator
 
-from app.main import app
+TEST_SERVICE_TOKEN = os.environ.setdefault("RISKGRAPH_SERVICE_TOKEN", "test-internal-token")
 
 
-def post(path: str, payload: dict) -> httpx.Response:
+def post(path: str, payload: dict, *, authenticated: bool = True) -> httpx.Response:
     async def send() -> httpx.Response:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            return await client.post(path, json=payload)
+            headers = {"X-RiskGraph-Service-Token": TEST_SERVICE_TOKEN} if authenticated else {}
+            return await client.post(path, json=payload, headers=headers)
 
     return asyncio.run(send())
 
@@ -28,6 +31,12 @@ def test_analysis_endpoint_returns_contract_shaped_demo(
     assert body["risk_result"]["risk_before"] == 22
     assert body["risk_result"]["risk_after"] == 91
     assert len(body["graph_delta"]["new_paths"]) == 1
+
+
+def test_internal_routes_reject_missing_service_credentials(
+    authorization_removal_payload: dict,
+) -> None:
+    assert post("/analysis", authorization_removal_payload, authenticated=False).status_code == 401
 
 
 def test_graph_and_risk_responses_match_locked_json_schemas(

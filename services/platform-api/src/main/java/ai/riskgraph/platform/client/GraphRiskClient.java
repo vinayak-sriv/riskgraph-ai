@@ -15,6 +15,10 @@ import static org.springframework.http.HttpStatus.BAD_GATEWAY;
 public class GraphRiskClient {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    @Value("${RISKGRAPH_SERVICE_TOKEN:}")
+    private String serviceToken = "";
+    @Value("${RISKGRAPH_MAX_DEPENDENCY_RESPONSE_BYTES:33554432}")
+    private int maxResponseBytes = 32 * 1024 * 1024;
 
     public GraphRiskClient(
             RestClient.Builder builder,
@@ -27,16 +31,27 @@ public class GraphRiskClient {
 
     public JsonNode analyze(JsonNode request) {
         try {
-            String response = restClient.post()
+            JsonNode response = restClient.post()
                     .uri("/analysis")
+                    .header("X-RiskGraph-Service-Token", serviceToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(request.toString())
-                    .retrieve()
-                    .body(String.class);
+                    .exchange((httpRequest, result) -> {
+                        if (!result.getStatusCode().is2xxSuccessful()) {
+                            throw new ResponseStatusException(BAD_GATEWAY,
+                                    "Graph risk service rejected the request");
+                        }
+                        byte[] bytes = result.getBody().readNBytes(maxResponseBytes + 1);
+                        if (bytes.length > maxResponseBytes) {
+                            throw new ResponseStatusException(BAD_GATEWAY,
+                                    "Graph risk service response exceeds the configured limit");
+                        }
+                        return objectMapper.readTree(bytes);
+                    });
             if (response == null) {
                 throw new ResponseStatusException(BAD_GATEWAY, "Graph risk service returned no result");
             }
-            return objectMapper.readTree(response);
+            return response;
         } catch (RestClientException exception) {
             throw new ResponseStatusException(
                     BAD_GATEWAY,

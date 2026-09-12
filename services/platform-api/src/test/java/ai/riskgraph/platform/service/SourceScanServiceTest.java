@@ -1,0 +1,204 @@
+package ai.riskgraph.platform.service;
+
+import ai.riskgraph.platform.client.AnalysisClient;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import java.nio.file.Path;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class SourceScanServiceTest {
+    @TempDir Path root;
+    final JsonMapper mapper = JsonMapper.builder().build();
+
+    @Test void validatesContractAndProvenanceBeforeSendingCanonicalIr() throws Exception {
+        var client = mock(AnalysisClient.class);
+        ObjectNode envelope = (ObjectNode) mapper.readTree(getClass().getResourceAsStream(
+            "/contracts/ir/examples/analysis-envelope.json"));
+        ((ObjectNode) envelope.path("provenance")).put("repository_path", root.toRealPath().toString());
+        String oldSha = envelope.at("/provenance/old_commit").asString();
+        String newSha = envelope.at("/provenance/new_commit").asString();
+        when(client.post(eq("analyzer"), eq("/analyze"), any())).thenReturn(envelope);
+        when(client.post(eq("graph"), eq("/analysis"), any())).thenAnswer(invocation -> {
+            JsonNode request = invocation.getArgument(2);
+            assertThat(request.at("/before/0").has("source_location")).isFalse();
+            assertThat(request.at("/after/0/endpoint").isString()).isTrue();
+            throw new PipelineException("DEPENDENCY_UNAVAILABLE", 503, "test");
+        });
+        var service = new SourceScanService(client, new ContractValidator(), mapper, "analyzer", "graph", root.toString(), new MemoryScanStore());
+        assertThatThrownBy(() -> service.analyze(root.toString(), oldSha, newSha))
+            .isInstanceOf(PipelineException.class).hasMessage("test");
+        ((ObjectNode) envelope.path("provenance")).put("new_commit", "f".repeat(40));
+        assertThatThrownBy(() -> service.analyze(root.toString(), oldSha, newSha))
+            .hasMessage("Analyzer provenance does not match request");
+    }
+
+    @Test void rejectsMalformedEnvelopeAndDisallowedPaths() {
+        var client = mock(AnalysisClient.class);
+        when(client.post(any(), any(), any())).thenReturn(mapper.createObjectNode());
+        var service = new SourceScanService(client, new ContractValidator(), mapper, "analyzer", "graph", root.toString(), new MemoryScanStore());
+        assertThatThrownBy(() -> service.analyze(root.toString(), "a".repeat(40), "b".repeat(40)))
+            .hasMessageContaining("does not match");
+        assertThatThrownBy(() -> service.analyze(root.getParent().toString(), "a".repeat(40), "b".repeat(40)))
+            .hasMessageContaining("outside the allowlist");
+        assertThatThrownBy(() -> service.get("missing")).hasMessage("Scan does not exist");
+    }
+
+    @Test void identicalReanalysisRetainsExistingValidationEvidence() throws Exception {
+        var client=mock(AnalysisClient.class);
+        ObjectNode envelope=(ObjectNode) mapper.readTree(getClass().getResourceAsStream("/contracts/ir/examples/analysis-envelope.json"));
+        ((ObjectNode) envelope.path("provenance")).put("repository_path",root.toRealPath().toString());
+        String oldSha=envelope.at("/provenance/old_commit").asString(), newSha=envelope.at("/provenance/new_commit").asString();
+        when(client.post(eq("analyzer"),eq("/analyze"),any())).thenReturn(envelope);
+        ObjectNode graph=mapper.createObjectNode().put("verdict","BLOCK");
+        graph.putObject("graph_delta").putArray("new_paths");
+        when(client.post(eq("graph"),eq("/analysis"),any())).thenAnswer(call -> graph.deepCopy());
+        var store=new MemoryScanStore();
+        var service=new SourceScanService(client,mock(ContractValidator.class),mapper,"analyzer","graph",root.toString(),store);
+        ObjectNode first=(ObjectNode) service.analyze(root.toString(),oldSha,newSha);
+        first.put("validation_status","CONFIRMED");
+        first.putObject("validation").put("status","CONFIRMED").put("source_commit",newSha).put("cleanup_complete",true);
+        store.save(first);
+        var repeated=service.analyze(root.toString(),oldSha,newSha);
+        assertThat(repeated.path("scan_id")).isEqualTo(first.path("scan_id"));
+        assertThat(repeated.path("validation")).isEqualTo(first.path("validation"));
+        assertThat(repeated.path("validation_status").asString()).isEqualTo("CONFIRMED");
+        assertThat(repeated.path("final_verdict").asString()).isEqualTo("BLOCK");
+    }
+
+    @Test void parserErrorsAndEmptyChangedSurfacesNeverReportHighConfidence() throws Exception {
+        for (boolean parserError : new boolean[]{true, false}) {
+            var client = mock(AnalysisClient.class);
+            ObjectNode envelope = (ObjectNode) mapper.readTree(getClass().getResourceAsStream(
+                "/contracts/ir/examples/analysis-envelope.json"));
+            ((ObjectNode) envelope.path("provenance")).put("repository_path", root.toRealPath().toString());
+            if (parserError) envelope.putArray("diagnostics").addObject().put("severity", "ERROR")
+                .put("code", "SPOON_MODEL_FAILED").put("message", "Duplicate type").putNull("path");
+            else { envelope.putArray("before"); envelope.putArray("after"); }
+            when(client.post(eq("analyzer"), eq("/analyze"), any())).thenReturn(envelope);
+            when(client.post(eq("graph"), eq("/analysis"), any())).thenAnswer(call -> {
+                JsonNode payload = call.getArgument(2);
+                assertThat(payload.at("/quality/confidence").asString()).isEqualTo("LOW");
+                assertThat(payload.at("/quality/incomplete").asBoolean()).isTrue();
+                throw new PipelineException("DEPENDENCY_UNAVAILABLE", 503, "checked quality");
+            });
+            var service = new SourceScanService(client, new ContractValidator(), mapper,
+                "analyzer", "graph", root.toString(), new MemoryScanStore());
+            assertThatThrownBy(() -> service.analyze(root.toString(),
+                envelope.at("/provenance/old_commit").asString(), envelope.at("/provenance/new_commit").asString()))
+                .hasMessage("checked quality");
+        }
+    }
+
+    @Test void multipleDependencyPathsBecomeIndependentCanonicalRows() throws Exception {
+        var client = mock(AnalysisClient.class);
+        ObjectNode envelope = envelopeForRoot();
+        ObjectNode second = ((ObjectNode) envelope.at("/after/0/dependency_paths/0")).deepCopy();
+        second.put("service", "AuditService").put("repository", "AuditRepository")
+                .put("resource", "Audit").put("sensitivity", "MEDIUM");
+        ((tools.jackson.databind.node.ArrayNode) envelope.at("/after/0/dependency_paths")).add(second);
+        when(client.post(eq("analyzer"), eq("/analyze"), any())).thenReturn(envelope);
+        when(client.post(eq("graph"), eq("/analysis"), any())).thenAnswer(call -> {
+            JsonNode payload = call.getArgument(2);
+            assertThat(payload.path("after")).hasSize(2);
+            assertThat(payload.at("/after/0/resource").asString()).isEqualTo("Customer");
+            assertThat(payload.at("/after/1/resource").asString()).isEqualTo("Audit");
+            throw new PipelineException("CHECKED", 503, "checked");
+        });
+        var service = new SourceScanService(client, new ContractValidator(), mapper,
+                "analyzer", "graph", root.toString(), new MemoryScanStore());
+        assertThatThrownBy(() -> service.analyze(root.toString(),
+                envelope.at("/provenance/old_commit").asString(), envelope.at("/provenance/new_commit").asString()))
+                .hasMessage("checked");
+    }
+
+    @Test void eachFindingReceivesItsOwnAiExplanation() throws Exception {
+        var client = mock(AnalysisClient.class);
+        ObjectNode envelope = envelopeForRoot();
+        when(client.post(eq("analyzer"), eq("/analyze"), any())).thenReturn(envelope);
+        when(client.post(eq("graph"), eq("/analysis"), any())).thenReturn(graphWithTwoFindings());
+        when(client.post(any(), eq("/ai/analyze"), any())).thenAnswer(call -> {
+            JsonNode request = call.getArgument(2);
+            String path = request.path("path").asString();
+            ObjectNode ai = mapper.createObjectNode().put("status", "AVAILABLE").put("confirmed", false)
+                    .put("provider", "test").put("reason_code", "SCHEMA_VALIDATED");
+            ai.putObject("analysis").put("finding", "Finding " + path)
+                    .set("evidence", request.path("evidence").deepCopy());
+            ((ObjectNode) ai.path("analysis")).put("hypothesis", "Unconfirmed " + path)
+                    .put("recommended_test", "GET " + path + " without authentication").put("confidence", "HIGH");
+            return ai;
+        });
+        var service = new SourceScanService(client, mock(ContractValidator.class), mapper,
+                "analyzer", "graph", root.toString(), new MemoryScanStore());
+
+        JsonNode result = service.analyze(root.toString(), envelope.at("/provenance/old_commit").asString(),
+                envelope.at("/provenance/new_commit").asString());
+
+        assertThat(result.path("findings")).hasSize(2);
+        assertThat(result.at("/findings/0/finding_id")).isNotEqualTo(result.at("/findings/1/finding_id"));
+        assertThat(result.at("/findings/0/ai/analysis/hypothesis").asString()).contains("/one");
+        assertThat(result.at("/findings/1/ai/analysis/hypothesis").asString()).contains("/two");
+        verify(client, times(2)).post(any(), eq("/ai/analyze"), any());
+    }
+
+    @Test void unrelatedScansCanAnalyzeConcurrently() throws Exception {
+        var client = mock(AnalysisClient.class);
+        CountDownLatch entered = new CountDownLatch(2);
+        when(client.post(eq("analyzer"), eq("/analyze"), any())).thenAnswer(call -> {
+            entered.countDown();
+            assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
+            ObjectNode envelope = envelopeForRoot();
+            JsonNode request = call.getArgument(2);
+            ((ObjectNode) envelope.path("provenance")).put("old_commit", request.path("old_commit").asString())
+                    .put("new_commit", request.path("new_commit").asString());
+            return envelope;
+        });
+        when(client.post(eq("graph"), eq("/analysis"), any())).thenReturn(emptyGraphResult());
+        var service = new SourceScanService(client, mock(ContractValidator.class), mapper,
+                "analyzer", "graph", root.toString(), new MemoryScanStore());
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var first = executor.submit(() -> service.analyze(root.toString(), "a".repeat(40), "b".repeat(40)));
+            var second = executor.submit(() -> service.analyze(root.toString(), "c".repeat(40), "d".repeat(40)));
+            first.get(5, TimeUnit.SECONDS);
+            second.get(5, TimeUnit.SECONDS);
+        }
+        assertThat(entered.getCount()).isZero();
+    }
+
+    private ObjectNode envelopeForRoot() throws Exception {
+        ObjectNode envelope = (ObjectNode) mapper.readTree(getClass().getResourceAsStream(
+                "/contracts/ir/examples/analysis-envelope.json"));
+        ((ObjectNode) envelope.path("provenance")).put("repository_path", root.toRealPath().toString());
+        return envelope;
+    }
+
+    private ObjectNode graphWithTwoFindings() {
+        ObjectNode result = emptyGraphResult();
+        var paths = (tools.jackson.databind.node.ArrayNode) result.at("/graph_delta/new_paths");
+        for (String path : new String[]{"/one", "/two"}) {
+            ObjectNode evidence = paths.addObject().put("source", "user:anonymous").put("target", "resource:Customer");
+            evidence.putArray("nodes").add("user:anonymous").add("endpoint:GET:" + path).add("resource:Customer");
+            evidence.putArray("edges").add("CAN_ACCESS").add("RETURNS");
+        }
+        ((ObjectNode) result.path("risk_result")).put("category_after", "HIGH");
+        return result;
+    }
+
+    private ObjectNode emptyGraphResult() {
+        ObjectNode result = mapper.createObjectNode().put("verdict", "REVIEW");
+        ObjectNode delta = result.putObject("graph_delta");
+        delta.putObject("before").putArray("nodes");
+        ((ObjectNode) delta.path("before")).putArray("edges");
+        delta.putObject("after").putArray("nodes");
+        ((ObjectNode) delta.path("after")).putArray("edges");
+        delta.putArray("new_paths"); delta.putArray("removed_paths");
+        result.putObject("risk_result").put("category_after", "LOW").putArray("evidence");
+        return result;
+    }
+}

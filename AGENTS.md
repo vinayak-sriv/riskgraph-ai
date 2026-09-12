@@ -194,7 +194,7 @@ override, trigger validation), `Admin` (configure rules, manage users/repos).
 Codex should treat this as the current source of truth for "what phase are we in."
 Update the **CURRENT WEEK** marker below each week during your mentor check-in.
 
-> **CURRENT WEEK: 4**  ← Weeks 1–3 are complete; update this manually each week
+> **CURRENT WEEK: 7**  ← Weeks 1–6 are complete; update this manually each week
 
 | Wk | Focus | Deliverable |
 |---|---|---|

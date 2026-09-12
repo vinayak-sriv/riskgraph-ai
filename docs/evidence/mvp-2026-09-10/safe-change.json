@@ -1,0 +1,328 @@
+{
+  "scenario": "local-source",
+  "graph_delta": {
+    "before": {
+      "nodes": [
+        {
+          "id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "node_type": "CONTROLLER",
+          "name": "ExportController"
+        },
+        {
+          "id": "endpoint:GET:/admin/export",
+          "node_type": "ENDPOINT",
+          "name": "GET /admin/export"
+        },
+        {
+          "id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "node_type": "DATABASE",
+          "name": "PaymentRepository"
+        },
+        {
+          "id": "resource:Payment",
+          "node_type": "DATA_RESOURCE",
+          "name": "Payment"
+        },
+        {
+          "id": "role:ADMIN",
+          "node_type": "ROLE",
+          "name": "ADMIN"
+        },
+        {
+          "id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "node_type": "SERVICE",
+          "name": "ExportService"
+        },
+        {
+          "id": "user:anonymous",
+          "node_type": "USER",
+          "name": "Anonymous"
+        }
+      ],
+      "edges": [
+        {
+          "source_id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "CALLS"
+        },
+        {
+          "source_id": "endpoint:GET:/admin/export",
+          "target_id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "CALLS"
+        },
+        {
+          "source_id": "endpoint:GET:/admin/export",
+          "target_id": "role:ADMIN",
+          "relationship": "REQUIRES_ROLE"
+        },
+        {
+          "source_id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "resource:Payment",
+          "relationship": "RETURNS"
+        },
+        {
+          "source_id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "READS"
+        }
+      ]
+    },
+    "after": {
+      "nodes": [
+        {
+          "id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "node_type": "CONTROLLER",
+          "name": "ExportController"
+        },
+        {
+          "id": "endpoint:GET:/admin/export",
+          "node_type": "ENDPOINT",
+          "name": "GET /admin/export"
+        },
+        {
+          "id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "node_type": "DATABASE",
+          "name": "PaymentRepository"
+        },
+        {
+          "id": "resource:Payment",
+          "node_type": "DATA_RESOURCE",
+          "name": "Payment"
+        },
+        {
+          "id": "role:ADMIN",
+          "node_type": "ROLE",
+          "name": "ADMIN"
+        },
+        {
+          "id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "node_type": "SERVICE",
+          "name": "ExportService"
+        },
+        {
+          "id": "user:anonymous",
+          "node_type": "USER",
+          "name": "Anonymous"
+        }
+      ],
+      "edges": [
+        {
+          "source_id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "CALLS"
+        },
+        {
+          "source_id": "endpoint:GET:/admin/export",
+          "target_id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "CALLS"
+        },
+        {
+          "source_id": "endpoint:GET:/admin/export",
+          "target_id": "role:ADMIN",
+          "relationship": "REQUIRES_ROLE"
+        },
+        {
+          "source_id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "resource:Payment",
+          "relationship": "RETURNS"
+        },
+        {
+          "source_id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "READS"
+        }
+      ]
+    },
+    "new_paths": [],
+    "removed_paths": []
+  },
+  "risk_result": {
+    "risk_before": 22,
+    "risk_after": 22,
+    "risk_delta": 0,
+    "category_before": "MODERATE",
+    "category_after": "MODERATE",
+    "components": {
+      "reachability": {
+        "score": 0,
+        "weight": 0.25,
+        "weighted_score": 0.0
+      },
+      "authorization_change": {
+        "score": 0,
+        "weight": 0.2,
+        "weighted_score": 0.0
+      },
+      "data_sensitivity": {
+        "score": 100,
+        "weight": 0.2,
+        "weighted_score": 20.0
+      },
+      "external_exposure": {
+        "score": 0,
+        "weight": 0.15,
+        "weighted_score": 0.0
+      },
+      "privilege_impact": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      },
+      "exploitability": {
+        "score": 20,
+        "weight": 0.1,
+        "weighted_score": 2.0
+      }
+    },
+    "evidence": [
+      "No new anonymous-to-sensitive-resource path detected"
+    ],
+    "components_before": {
+      "reachability": {
+        "score": 0,
+        "weight": 0.25,
+        "weighted_score": 0.0
+      },
+      "authorization_change": {
+        "score": 0,
+        "weight": 0.2,
+        "weighted_score": 0.0
+      },
+      "data_sensitivity": {
+        "score": 100,
+        "weight": 0.2,
+        "weighted_score": 20.0
+      },
+      "external_exposure": {
+        "score": 0,
+        "weight": 0.15,
+        "weighted_score": 0.0
+      },
+      "privilege_impact": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      },
+      "exploitability": {
+        "score": 20,
+        "weight": 0.1,
+        "weighted_score": 2.0
+      }
+    },
+    "policy_version": "1.0.0"
+  },
+  "verdict": "ALLOW",
+  "schema_version": "1.0.0",
+  "reason_codes": [
+    "NO_REVIEW_CONDITION"
+  ],
+  "quality": {
+    "confidence": "HIGH",
+    "coverage_ratio": 1.0,
+    "incomplete": false
+  },
+  "provenance": {
+    "repository_path": "/analysis-repositories/mvp-v1/safe-change",
+    "repository_identity": "local-git:cd798461fbbd4cc37e6e1c35313f726061b913cb",
+    "old_commit": "cd798461fbbd4cc37e6e1c35313f726061b913cb",
+    "new_commit": "f8f27d1aa0cb84b46af291e602784d1ee4407f5e"
+  },
+  "coverage": {
+    "java_files_considered": 1,
+    "controllers_discovered": 1,
+    "endpoints_emitted": 2,
+    "endpoints_with_service": 2,
+    "endpoints_with_repository": 2,
+    "coverage_ratio": 1.0
+  },
+  "diagnostics": [],
+  "source_evidence": {
+    "before": [
+      {
+        "endpoint": {
+          "endpoint": "/admin/export",
+          "method": "GET",
+          "controller": "ExportController",
+          "authentication": true,
+          "required_role": "ADMIN",
+          "service": "ExportService",
+          "repository": "PaymentRepository",
+          "resource": "Payment",
+          "sensitivity": "CRITICAL"
+        },
+        "source_location": {
+          "path": "src/main/java/demo/ExportController.java",
+          "start_line": 9,
+          "end_line": 9
+        },
+        "qualified_controller": "demo.ExportController",
+        "method_signature": "export()",
+        "dependency_paths": [
+          {
+            "service": "ExportService",
+            "repository": "PaymentRepository",
+            "resource": "Payment"
+          }
+        ],
+        "sensitivity_evidence": {
+          "classification": "CRITICAL",
+          "source": "classpath:sensitivity-policy.yml",
+          "matched_rule": "Payment@1.0.0"
+        },
+        "extraction_confidence": {
+          "route": "HIGH",
+          "authorization": "HIGH",
+          "call_resolution": "HIGH",
+          "overall": "HIGH"
+        }
+      }
+    ],
+    "after": [
+      {
+        "endpoint": {
+          "endpoint": "/admin/export",
+          "method": "GET",
+          "controller": "ExportController",
+          "authentication": true,
+          "required_role": "ADMIN",
+          "service": "ExportService",
+          "repository": "PaymentRepository",
+          "resource": "Payment",
+          "sensitivity": "CRITICAL"
+        },
+        "source_location": {
+          "path": "src/main/java/demo/ExportController.java",
+          "start_line": 9,
+          "end_line": 9
+        },
+        "qualified_controller": "demo.ExportController",
+        "method_signature": "export()",
+        "dependency_paths": [
+          {
+            "service": "ExportService",
+            "repository": "PaymentRepository",
+            "resource": "Payment"
+          }
+        ],
+        "sensitivity_evidence": {
+          "classification": "CRITICAL",
+          "source": "classpath:sensitivity-policy.yml",
+          "matched_rule": "Payment@1.0.0"
+        },
+        "extraction_confidence": {
+          "route": "HIGH",
+          "authorization": "HIGH",
+          "call_resolution": "HIGH",
+          "overall": "HIGH"
+        }
+      }
+    ]
+  },
+  "analyzer_version": "0.3.1",
+  "analysis_id": "5ddda9acfbc506fba7c814e514a1fed235a62c5e8088446d616db4cc1c4ebfd6",
+  "pre_validation_verdict": "ALLOW",
+  "validation_status": "NOT_RUN",
+  "final_verdict": "ALLOW",
+  "status": "COMPLETE",
+  "scan_id": "6ad1fa7f43e18eda2e01c62a8a7fe00688207ed65c83297365851ee15daa141e"
+}

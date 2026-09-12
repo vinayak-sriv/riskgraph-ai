@@ -6,6 +6,8 @@
 
 **/node_modules
 **/target
+**/dist
+**/coverage
 **/build
 **/.gradle
 **/__pycache__
@@ -15,3 +17,7 @@
 
 logs
 tmp
+.coverage
+*.log
+*.pid
+*.zip

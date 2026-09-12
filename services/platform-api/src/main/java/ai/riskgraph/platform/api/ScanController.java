@@ -17,15 +17,35 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class ScanController {
+    private final ai.riskgraph.platform.service.SourceScanService scans;
+    private final ai.riskgraph.platform.security.GithubConnectionGuard github;
+    private final ai.riskgraph.platform.security.ScanAccessService access;
+    public ScanController(ai.riskgraph.platform.service.SourceScanService scans,
+        ai.riskgraph.platform.security.GithubConnectionGuard github,
+        ai.riskgraph.platform.security.ScanAccessService access) {
+        this.scans = scans; this.github = github; this.access = access;
+    }
     @PostMapping("/scans")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public CreateScanResponse createScan(@Valid @RequestBody CreateScanRequest request) {
-        return new CreateScanResponse(UUID.randomUUID().toString(), "PENDING");
+        github.requireLinked();
+        var result = scans.analyze(request.repository(), request.old_commit(), request.new_commit());
+        access.claim(result.path("scan_id").asString());
+        return new CreateScanResponse(result.path("scan_id").asString(), result.path("status").asString());
     }
 
     @GetMapping("/scans/{scanId}")
     public ScanResult getScan(@PathVariable String scanId) {
-        return new ScanResult(scanId, "PENDING", null, 0, 0, 0, List.of());
+        github.requireLinked();
+        access.requireView(scanId);
+        var result = scans.get(scanId);
+        var findings = new java.util.ArrayList<FindingSummary>();
+        for (var finding : result.path("findings")) findings.add(new FindingSummary(
+                finding.path("finding_id").asString(), "Anonymous sensitive path",
+                finding.path("severity").asString(), finding.at("/evidence/0").asString()));
+        return new ScanResult(scanId, result.path("status").asString(), result.path("final_verdict").asString(),
+            result.at("/risk_result/risk_before").asInt(), result.at("/risk_result/risk_after").asInt(),
+            result.at("/risk_result/risk_delta").asInt(), List.copyOf(findings));
     }
 
     public record CreateScanRequest(
@@ -53,6 +73,7 @@ public class ScanController {
     }
 
     public record FindingSummary(
+            String finding_id,
             String type,
             String severity,
             String description

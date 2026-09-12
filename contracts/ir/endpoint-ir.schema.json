@@ -19,6 +19,7 @@
     "endpoint": {
       "type": "string",
       "minLength": 1,
+      "maxLength": 512,
       "examples": ["/customers"]
     },
     "method": {
@@ -27,24 +28,29 @@
     },
     "controller": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 512
     },
     "authentication": {
       "type": "boolean"
     },
     "required_role": {
       "type": ["string", "null"],
+      "maxLength": 256,
       "examples": ["ADMIN", null]
     },
     "service": {
-      "type": ["string", "null"]
+      "type": ["string", "null"],
+      "maxLength": 512
     },
     "repository": {
-      "type": ["string", "null"]
+      "type": ["string", "null"],
+      "maxLength": 512
     },
     "resource": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 512
     },
     "sensitivity": {
       "type": "string",

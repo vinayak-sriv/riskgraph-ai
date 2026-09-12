@@ -20,10 +20,31 @@ public class DemoScenarioService {
     }
 
     public JsonNode analyzeAuthorizationRemoval() {
+        return analyzeScenario("authorization-removal");
+    }
+
+    public JsonNode analyzeScenario(String scenario) {
         ObjectNode request = objectMapper.createObjectNode();
-        request.putArray("before").add(readFixture("demo/auth-removal-before.json"));
-        request.putArray("after").add(readFixture("demo/auth-removal-after.json"));
-        return graphRiskClient.analyze(request);
+        ObjectNode protectedRow = (ObjectNode) readFixture("demo/auth-removal-before.json");
+        ObjectNode publicRow = (ObjectNode) readFixture("demo/auth-removal-after.json");
+        var before = request.putArray("before");
+        var after = request.putArray("after");
+        switch (scenario) {
+            case "authorization-removal" -> { before.add(protectedRow); after.add(publicRow); }
+            case "safe-change" -> { before.add(protectedRow); after.add(protectedRow.deepCopy()); }
+            case "new-public-sensitive-endpoint" -> after.add(publicRow);
+            case "sensitive-resource-exposure" -> {
+                before.add(publicRow.deepCopy().put("resource", "PublicCatalog").put("sensitivity", "LOW")
+                    .put("repository", "CatalogRepository"));
+                after.add(publicRow);
+            }
+            default -> throw new PipelineException("UNKNOWN_SCENARIO", 404, "Unknown demo scenario");
+        }
+        ObjectNode result = (ObjectNode) graphRiskClient.analyze(request);
+        result.put("scenario", scenario).put("mode", "FIXTURE");
+        result.put("pre_validation_verdict", result.path("verdict").asString());
+        result.put("final_verdict", result.path("verdict").asString()).put("validation_status", "NOT_RUN");
+        return result;
     }
 
     private JsonNode readFixture(String path) {

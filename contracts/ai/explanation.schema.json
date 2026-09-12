@@ -1,0 +1,92 @@
+{
+  "$defs": {
+    "AIAnalysis": {
+      "additionalProperties": false,
+      "properties": {
+        "finding": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Finding",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "hypothesis": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Hypothesis",
+          "type": "string"
+        },
+        "recommended_test": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Recommended Test",
+          "type": "string"
+        },
+        "confidence": {
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding",
+        "evidence",
+        "hypothesis",
+        "recommended_test",
+        "confidence"
+      ],
+      "title": "AIAnalysis",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "enum": [
+        "AVAILABLE",
+        "DEGRADED"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "confirmed": {
+      "const": false,
+      "default": false,
+      "title": "Confirmed",
+      "type": "boolean"
+    },
+    "provider": {
+      "title": "Provider",
+      "type": "string"
+    },
+    "reason_code": {
+      "title": "Reason Code",
+      "type": "string"
+    },
+    "analysis": {
+      "$ref": "#/$defs/AIAnalysis"
+    }
+  },
+  "required": [
+    "status",
+    "provider",
+    "reason_code",
+    "analysis"
+  ],
+  "title": "Explanation",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/ai/explanation.schema.json"
+}

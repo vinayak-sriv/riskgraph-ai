@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/ir/analysis-envelope.schema.json",
+  "title": "Java Analyzer Result Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "analyzer_version", "analyzer_config_hash", "analysis_id", "analyzed_at", "provenance",
+    "changed_files", "before", "after", "coverage", "diagnostics"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.1.0" },
+    "analyzer_version": { "type": "string", "minLength": 1 },
+    "analyzer_config_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "analysis_id": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "analyzed_at": { "type": "string", "format": "date-time" },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository_path", "repository_identity", "old_commit", "new_commit"],
+      "properties": {
+        "repository_path": { "type": "string", "minLength": 1 },
+        "repository_identity": { "type": "string", "minLength": 1 },
+        "old_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "new_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+      }
+    },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "old_path", "new_path", "old_ranges", "new_ranges"],
+        "properties": {
+          "status": { "enum": ["ADD", "MODIFY", "DELETE", "RENAME", "COPY"] },
+          "old_path": { "type": ["string", "null"] },
+          "new_path": { "type": ["string", "null"] },
+          "old_ranges": { "$ref": "#/$defs/ranges" },
+          "new_ranges": { "$ref": "#/$defs/ranges" }
+        }
+      }
+    },
+    "before": { "$ref": "#/$defs/evidenceList" },
+    "after": { "$ref": "#/$defs/evidenceList" },
+    "coverage": { "$ref": "#/$defs/coverage" },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "code", "message", "path"],
+        "properties": {
+          "severity": { "enum": ["INFO", "WARNING", "ERROR"] },
+          "code": { "type": "string", "minLength": 1 },
+          "message": { "type": "string", "minLength": 1 },
+          "path": { "type": ["string", "null"] }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_line", "end_line"],
+      "properties": {
+        "start_line": { "type": "integer", "minimum": 1 },
+        "end_line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "ranges": { "type": "array", "items": { "$ref": "#/$defs/range" } },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "start_line", "end_line"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "start_line": { "type": "integer", "minimum": 1 },
+        "end_line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "endpoint", "source_location", "qualified_controller", "method_signature",
+        "dependency_paths", "sensitivity_evidence", "extraction_confidence"
+      ],
+      "properties": {
+        "endpoint": { "$ref": "endpoint-ir.schema.json" },
+        "source_location": { "$ref": "#/$defs/sourceLocation" },
+        "qualified_controller": { "type": "string", "minLength": 1 },
+        "method_signature": { "type": "string", "minLength": 1 },
+        "dependency_paths": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dependencyPath" }
+        },
+        "sensitivity_evidence": { "$ref": "#/$defs/sensitivityEvidence" },
+        "extraction_confidence": { "$ref": "#/$defs/extractionConfidence" }
+      }
+    },
+    "evidenceList": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+    "dependencyPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service", "repository", "resource", "sensitivity"],
+      "properties": {
+        "service": { "type": ["string", "null"] },
+        "repository": { "type": ["string", "null"] },
+        "resource": { "type": "string", "minLength": 1 },
+        "sensitivity": { "enum": ["LOW", "MODERATE", "MEDIUM", "HIGH", "CRITICAL"] }
+      }
+    },
+    "sensitivityEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "source", "matched_rule"],
+      "properties": {
+        "classification": { "enum": ["LOW", "MODERATE", "MEDIUM", "HIGH", "CRITICAL"] },
+        "source": { "type": "string", "minLength": 1 },
+        "matched_rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "extractionConfidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["route", "authorization", "call_resolution", "overall"],
+      "properties": {
+        "route": { "$ref": "#/$defs/confidence" },
+        "authorization": { "$ref": "#/$defs/confidence" },
+        "call_resolution": { "$ref": "#/$defs/confidence" },
+        "overall": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "confidence": { "enum": ["LOW", "MEDIUM", "HIGH"] },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "java_files_considered", "controllers_discovered", "endpoints_emitted",
+        "endpoints_with_service", "endpoints_with_repository", "coverage_ratio"
+      ],
+      "properties": {
+        "java_files_considered": { "type": "integer", "minimum": 0 },
+        "controllers_discovered": { "type": "integer", "minimum": 0 },
+        "endpoints_emitted": { "type": "integer", "minimum": 0 },
+        "endpoints_with_service": { "type": "integer", "minimum": 0 },
+        "endpoints_with_repository": { "type": "integer", "minimum": 0 },
+        "coverage_ratio": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

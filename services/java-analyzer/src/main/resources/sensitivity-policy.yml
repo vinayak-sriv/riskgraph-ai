@@ -1,0 +1,11 @@
+version: "1.0.0"
+default_sensitivity: MODERATE
+resources:
+  Account: HIGH
+  Admin: HIGH
+  Credential: CRITICAL
+  Customer: HIGH
+  Payment: CRITICAL
+  Secret: CRITICAL
+  Token: CRITICAL
+  User: HIGH

@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SERVICE_ROOT = ROOT / "services" / "graph-risk-service"
 sys.path.insert(0, str(SERVICE_ROOT))

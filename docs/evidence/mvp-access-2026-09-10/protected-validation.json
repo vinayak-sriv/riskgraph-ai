@@ -1,0 +1,15 @@
+{
+  "status": "REJECTED",
+  "confirmed": false,
+  "actual_status": 403,
+  "expected_status": 200,
+  "evidence": [
+    "Anonymous GET /admin/export executed in the shipped local Docker sandbox"
+  ],
+  "reason_code": "HTTP_AUTH_PROBE",
+  "sandbox_revision": "protected",
+  "container_image_id": "sha256:2a96c2c58698a5bfd228851aae13e489406c6b42cd6a1dd1165f1a8829655109",
+  "cleanup_complete": true,
+  "response_sha256": "7dfd61d303883f527d150b9586526cdedad2ac691cd2ddf6edb065e524e0f6a0",
+  "source_commit": "cd798461fbbd4cc37e6e1c35313f726061b913cb"
+}

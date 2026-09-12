@@ -1,0 +1,13 @@
+{
+  "desktop_source_scan": true,
+  "mobile_viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "mobile_horizontal_overflow": false,
+  "light_and_dark_themes": true,
+  "navigation_and_filter_accessible_names": true,
+  "inspector_tab_containment": true,
+  "escape_closes_inspector": true,
+  "source_validation_display": "CONFIRMED"
+}

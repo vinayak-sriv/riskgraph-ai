@@ -1,0 +1,103 @@
+{
+  "schema_version": "1.1.0",
+  "analyzer_version": "0.3.0",
+  "analyzer_config_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "analysis_id": "0000000000000000000000000000000000000000000000000000000000000000",
+  "analyzed_at": "2026-09-06T12:00:00Z",
+  "provenance": {
+    "repository_path": "C:/analysis/sample",
+    "repository_identity": "sample-auth-removal",
+    "old_commit": "1111111111111111111111111111111111111111",
+    "new_commit": "2222222222222222222222222222222222222222"
+  },
+  "changed_files": [
+    {
+      "status": "MODIFY",
+      "old_path": "src/main/java/demo/AdminController.java",
+      "new_path": "src/main/java/demo/AdminController.java",
+      "old_ranges": [{ "start_line": 7, "end_line": 7 }],
+      "new_ranges": [{ "start_line": 7, "end_line": 7 }]
+    }
+  ],
+  "before": [
+    {
+      "endpoint": {
+        "endpoint": "/admin/export",
+        "method": "GET",
+        "controller": "AdminController",
+        "authentication": true,
+        "required_role": "ADMIN",
+        "service": "CustomerService",
+        "repository": "CustomerRepository",
+        "resource": "Customer",
+        "sensitivity": "HIGH"
+      },
+      "source_location": {
+        "path": "src/main/java/demo/AdminController.java",
+        "start_line": 6,
+        "end_line": 8
+      },
+      "qualified_controller": "demo.AdminController",
+      "method_signature": "export()",
+      "dependency_paths": [
+        { "service": "CustomerService", "repository": "CustomerRepository", "resource": "Customer", "sensitivity": "HIGH" }
+      ],
+      "sensitivity_evidence": {
+        "classification": "HIGH",
+        "source": "classpath:sensitivity-policy.yml",
+        "matched_rule": "Customer@1.0.0"
+      },
+      "extraction_confidence": {
+        "route": "HIGH",
+        "authorization": "HIGH",
+        "call_resolution": "HIGH",
+        "overall": "HIGH"
+      }
+    }
+  ],
+  "after": [
+    {
+      "endpoint": {
+        "endpoint": "/admin/export",
+        "method": "GET",
+        "controller": "AdminController",
+        "authentication": false,
+        "required_role": null,
+        "service": "CustomerService",
+        "repository": "CustomerRepository",
+        "resource": "Customer",
+        "sensitivity": "HIGH"
+      },
+      "source_location": {
+        "path": "src/main/java/demo/AdminController.java",
+        "start_line": 6,
+        "end_line": 7
+      },
+      "qualified_controller": "demo.AdminController",
+      "method_signature": "export()",
+      "dependency_paths": [
+        { "service": "CustomerService", "repository": "CustomerRepository", "resource": "Customer", "sensitivity": "HIGH" }
+      ],
+      "sensitivity_evidence": {
+        "classification": "HIGH",
+        "source": "classpath:sensitivity-policy.yml",
+        "matched_rule": "Customer@1.0.0"
+      },
+      "extraction_confidence": {
+        "route": "HIGH",
+        "authorization": "HIGH",
+        "call_resolution": "HIGH",
+        "overall": "HIGH"
+      }
+    }
+  ],
+  "coverage": {
+    "java_files_considered": 1,
+    "controllers_discovered": 1,
+    "endpoints_emitted": 2,
+    "endpoints_with_service": 2,
+    "endpoints_with_repository": 2,
+    "coverage_ratio": 1.0
+  },
+  "diagnostics": []
+}

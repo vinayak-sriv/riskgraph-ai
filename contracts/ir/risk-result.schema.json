@@ -1,9 +1,138 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://riskgraph.ai/contracts/ir/risk-result.schema.json",
-  "title": "Risk Result",
-  "type": "object",
+  "$defs": {
+    "ComponentScore": {
+      "additionalProperties": false,
+      "properties": {
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "integer"
+        },
+        "weight": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Weight",
+          "type": "number"
+        },
+        "weighted_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Weighted Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "score",
+        "weight",
+        "weighted_score"
+      ],
+      "title": "ComponentScore",
+      "type": "object"
+    },
+    "RiskComponents": {
+      "additionalProperties": false,
+      "properties": {
+        "reachability": {
+          "$ref": "#/$defs/ComponentScore"
+        },
+        "authorization_change": {
+          "$ref": "#/$defs/ComponentScore"
+        },
+        "data_sensitivity": {
+          "$ref": "#/$defs/ComponentScore"
+        },
+        "external_exposure": {
+          "$ref": "#/$defs/ComponentScore"
+        },
+        "privilege_impact": {
+          "$ref": "#/$defs/ComponentScore"
+        },
+        "exploitability": {
+          "$ref": "#/$defs/ComponentScore"
+        }
+      },
+      "required": [
+        "reachability",
+        "authorization_change",
+        "data_sensitivity",
+        "external_exposure",
+        "privilege_impact",
+        "exploitability"
+      ],
+      "title": "RiskComponents",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
+  "properties": {
+    "risk_before": {
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Risk Before",
+      "type": "integer"
+    },
+    "risk_after": {
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Risk After",
+      "type": "integer"
+    },
+    "risk_delta": {
+      "maximum": 100,
+      "minimum": -100,
+      "title": "Risk Delta",
+      "type": "integer"
+    },
+    "category_before": {
+      "enum": [
+        "LOW",
+        "MODERATE",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ],
+      "title": "Category Before",
+      "type": "string"
+    },
+    "category_after": {
+      "enum": [
+        "LOW",
+        "MODERATE",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ],
+      "title": "Category After",
+      "type": "string"
+    },
+    "components": {
+      "$ref": "#/$defs/RiskComponents"
+    },
+    "evidence": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "components_before": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RiskComponents"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "policy_version": {
+      "default": "1.0.0",
+      "title": "Policy Version",
+      "type": "string"
+    }
+  },
   "required": [
     "risk_before",
     "risk_after",
@@ -13,93 +142,8 @@
     "components",
     "evidence"
   ],
-  "properties": {
-    "risk_before": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 100
-    },
-    "risk_after": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 100
-    },
-    "risk_delta": {
-      "type": "integer",
-      "minimum": -100,
-      "maximum": 100
-    },
-    "category_before": {
-      "$ref": "#/$defs/category"
-    },
-    "category_after": {
-      "$ref": "#/$defs/category"
-    },
-    "components": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "reachability",
-        "authorization_change",
-        "data_sensitivity",
-        "external_exposure",
-        "privilege_impact",
-        "exploitability"
-      ],
-      "properties": {
-        "reachability": {
-          "$ref": "#/$defs/component"
-        },
-        "authorization_change": {
-          "$ref": "#/$defs/component"
-        },
-        "data_sensitivity": {
-          "$ref": "#/$defs/component"
-        },
-        "external_exposure": {
-          "$ref": "#/$defs/component"
-        },
-        "privilege_impact": {
-          "$ref": "#/$defs/component"
-        },
-        "exploitability": {
-          "$ref": "#/$defs/component"
-        }
-      }
-    },
-    "evidence": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    }
-  },
-  "$defs": {
-    "category": {
-      "type": "string",
-      "enum": ["LOW", "MODERATE", "MEDIUM", "HIGH", "CRITICAL"]
-    },
-    "component": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["score", "weight", "weighted_score"],
-      "properties": {
-        "score": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "weight": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "weighted_score": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 100
-        }
-      }
-    }
-  }
+  "title": "RiskResult",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/ir/risk-result.schema.json"
 }

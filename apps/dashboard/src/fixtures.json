@@ -1,0 +1,883 @@
+{
+  "authorization-removal": {
+    "scenario": "authorization-removal",
+    "graph_delta": {
+      "before": {
+        "nodes": [
+          {
+            "id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "CONTROLLER",
+            "name": "AdminExportController"
+          },
+          {
+            "id": "endpoint:GET:/admin/export",
+            "node_type": "ENDPOINT",
+            "name": "GET /admin/export"
+          },
+          {
+            "id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "DATABASE",
+            "name": "CustomerRepository"
+          },
+          {
+            "id": "resource:Customer",
+            "node_type": "DATA_RESOURCE",
+            "name": "Customer"
+          },
+          {
+            "id": "role:ADMIN",
+            "node_type": "ROLE",
+            "name": "ADMIN"
+          },
+          {
+            "id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "SERVICE",
+            "name": "AdminExportService"
+          },
+          {
+            "id": "user:anonymous",
+            "node_type": "USER",
+            "name": "Anonymous"
+          }
+        ],
+        "edges": [
+          {
+            "source_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "endpoint:GET:/admin/export",
+            "target_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "endpoint:GET:/admin/export",
+            "target_id": "role:ADMIN",
+            "relationship": "REQUIRES_ROLE"
+          },
+          {
+            "source_id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "resource:Customer",
+            "relationship": "RETURNS"
+          },
+          {
+            "source_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "READS"
+          }
+        ]
+      },
+      "after": {
+        "nodes": [
+          {
+            "id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "CONTROLLER",
+            "name": "AdminExportController"
+          },
+          {
+            "id": "endpoint:GET:/admin/export",
+            "node_type": "ENDPOINT",
+            "name": "GET /admin/export"
+          },
+          {
+            "id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "DATABASE",
+            "name": "CustomerRepository"
+          },
+          {
+            "id": "resource:Customer",
+            "node_type": "DATA_RESOURCE",
+            "name": "Customer"
+          },
+          {
+            "id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "SERVICE",
+            "name": "AdminExportService"
+          },
+          {
+            "id": "user:anonymous",
+            "node_type": "USER",
+            "name": "Anonymous"
+          }
+        ],
+        "edges": [
+          {
+            "source_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "endpoint:GET:/admin/export",
+            "target_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "resource:Customer",
+            "relationship": "RETURNS"
+          },
+          {
+            "source_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "READS"
+          },
+          {
+            "source_id": "user:anonymous",
+            "target_id": "endpoint:GET:/admin/export",
+            "relationship": "CAN_ACCESS"
+          }
+        ]
+      },
+      "new_paths": [
+        {
+          "source": "user:anonymous",
+          "target": "resource:Customer",
+          "nodes": [
+            "user:anonymous",
+            "endpoint:GET:/admin/export",
+            "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "resource:Customer"
+          ],
+          "edges": ["CAN_ACCESS", "CALLS", "CALLS", "READS", "RETURNS"]
+        }
+      ],
+      "removed_paths": []
+    },
+    "risk_result": {
+      "risk_before": 22,
+      "risk_after": 91,
+      "risk_delta": 69,
+      "category_before": "MODERATE",
+      "category_after": "CRITICAL",
+      "components": {
+        "reachability": {
+          "score": 100,
+          "weight": 0.25,
+          "weighted_score": 25.0
+        },
+        "authorization_change": {
+          "score": 100,
+          "weight": 0.2,
+          "weighted_score": 20.0
+        },
+        "data_sensitivity": {
+          "score": 100,
+          "weight": 0.2,
+          "weighted_score": 20.0
+        },
+        "external_exposure": {
+          "score": 100,
+          "weight": 0.15,
+          "weighted_score": 15.0
+        },
+        "privilege_impact": {
+          "score": 60,
+          "weight": 0.1,
+          "weighted_score": 6.0
+        },
+        "exploitability": {
+          "score": 50,
+          "weight": 0.1,
+          "weighted_score": 5.0
+        }
+      },
+      "evidence": [
+        "ADMIN authorization removed from GET /admin/export",
+        "Anonymous user can newly reach sensitive resource Customer"
+      ],
+      "components_before": {
+        "reachability": {
+          "score": 0,
+          "weight": 0.25,
+          "weighted_score": 0.0
+        },
+        "authorization_change": {
+          "score": 0,
+          "weight": 0.2,
+          "weighted_score": 0.0
+        },
+        "data_sensitivity": {
+          "score": 100,
+          "weight": 0.2,
+          "weighted_score": 20.0
+        },
+        "external_exposure": {
+          "score": 0,
+          "weight": 0.15,
+          "weighted_score": 0.0
+        },
+        "privilege_impact": {
+          "score": 0,
+          "weight": 0.1,
+          "weighted_score": 0.0
+        },
+        "exploitability": {
+          "score": 20,
+          "weight": 0.1,
+          "weighted_score": 2.0
+        }
+      },
+      "policy_version": "1.0.0"
+    },
+    "verdict": "BLOCK",
+    "schema_version": "1.1.0",
+    "reason_codes": [
+      "NEW_ANONYMOUS_SENSITIVE_PATH",
+      "RISK_AFTER_REVIEW_THRESHOLD",
+      "RISK_DELTA_REVIEW_THRESHOLD"
+    ],
+    "quality": {
+      "confidence": "HIGH",
+      "coverage_ratio": 1,
+      "incomplete": false
+    },
+    "mode": "OFFLINE_FIXTURE",
+    "validation_status": "NOT_RUN",
+    "pre_validation_verdict": "BLOCK",
+    "final_verdict": "BLOCK"
+  },
+  "safe-change": {
+    "scenario": "safe-change",
+    "graph_delta": {
+      "before": {
+        "nodes": [
+          {
+            "id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "CONTROLLER",
+            "name": "AdminExportController"
+          },
+          {
+            "id": "endpoint:GET:/admin/export",
+            "node_type": "ENDPOINT",
+            "name": "GET /admin/export"
+          },
+          {
+            "id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "DATABASE",
+            "name": "CustomerRepository"
+          },
+          {
+            "id": "resource:Customer",
+            "node_type": "DATA_RESOURCE",
+            "name": "Customer"
+          },
+          {
+            "id": "role:ADMIN",
+            "node_type": "ROLE",
+            "name": "ADMIN"
+          },
+          {
+            "id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "SERVICE",
+            "name": "AdminExportService"
+          },
+          {
+            "id": "user:anonymous",
+            "node_type": "USER",
+            "name": "Anonymous"
+          }
+        ],
+        "edges": [
+          {
+            "source_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "endpoint:GET:/admin/export",
+            "target_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "endpoint:GET:/admin/export",
+            "target_id": "role:ADMIN",
+            "relationship": "REQUIRES_ROLE"
+          },
+          {
+            "source_id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "resource:Customer",
+            "relationship": "RETURNS"
+          },
+          {
+            "source_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "READS"
+          }
+        ]
+      },
+      "after": {
+        "nodes": [
+          {
+            "id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "CONTROLLER",
+            "name": "AdminExportController"
+          },
+          {
+            "id": "endpoint:GET:/admin/export",
+            "node_type": "ENDPOINT",
+            "name": "GET /admin/export"
+          },
+          {
+            "id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "DATABASE",
+            "name": "CustomerRepository"
+          },
+          {
+            "id": "resource:Customer",
+            "node_type": "DATA_RESOURCE",
+            "name": "Customer"
+          },
+          {
+            "id": "role:ADMIN",
+            "node_type": "ROLE",
+            "name": "ADMIN"
+          },
+          {
+            "id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "SERVICE",
+            "name": "AdminExportService"
+          },
+          {
+            "id": "user:anonymous",
+            "node_type": "USER",
+            "name": "Anonymous"
+          }
+        ],
+        "edges": [
+          {
+            "source_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "endpoint:GET:/admin/export",
+            "target_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "endpoint:GET:/admin/export",
+            "target_id": "role:ADMIN",
+            "relationship": "REQUIRES_ROLE"
+          },
+          {
+            "source_id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "resource:Customer",
+            "relationship": "RETURNS"
+          },
+          {
+            "source_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "READS"
+          }
+        ]
+      },
+      "new_paths": [],
+      "removed_paths": []
+    },
+    "risk_result": {
+      "risk_before": 22,
+      "risk_after": 22,
+      "risk_delta": 0,
+      "category_before": "MODERATE",
+      "category_after": "MODERATE",
+      "components": {
+        "reachability": {
+          "score": 0,
+          "weight": 0.25,
+          "weighted_score": 0.0
+        },
+        "authorization_change": {
+          "score": 0,
+          "weight": 0.2,
+          "weighted_score": 0.0
+        },
+        "data_sensitivity": {
+          "score": 100,
+          "weight": 0.2,
+          "weighted_score": 20.0
+        },
+        "external_exposure": {
+          "score": 0,
+          "weight": 0.15,
+          "weighted_score": 0.0
+        },
+        "privilege_impact": {
+          "score": 0,
+          "weight": 0.1,
+          "weighted_score": 0.0
+        },
+        "exploitability": {
+          "score": 20,
+          "weight": 0.1,
+          "weighted_score": 2.0
+        }
+      },
+      "evidence": ["No new anonymous-to-sensitive-resource path detected"],
+      "components_before": {
+        "reachability": {
+          "score": 0,
+          "weight": 0.25,
+          "weighted_score": 0.0
+        },
+        "authorization_change": {
+          "score": 0,
+          "weight": 0.2,
+          "weighted_score": 0.0
+        },
+        "data_sensitivity": {
+          "score": 100,
+          "weight": 0.2,
+          "weighted_score": 20.0
+        },
+        "external_exposure": {
+          "score": 0,
+          "weight": 0.15,
+          "weighted_score": 0.0
+        },
+        "privilege_impact": {
+          "score": 0,
+          "weight": 0.1,
+          "weighted_score": 0.0
+        },
+        "exploitability": {
+          "score": 20,
+          "weight": 0.1,
+          "weighted_score": 2.0
+        }
+      },
+      "policy_version": "1.0.0"
+    },
+    "verdict": "ALLOW",
+    "schema_version": "1.1.0",
+    "reason_codes": ["NO_REVIEW_CONDITION"],
+    "quality": {
+      "confidence": "HIGH",
+      "coverage_ratio": 1,
+      "incomplete": false
+    },
+    "mode": "OFFLINE_FIXTURE",
+    "validation_status": "NOT_RUN",
+    "pre_validation_verdict": "ALLOW",
+    "final_verdict": "ALLOW"
+  },
+  "new-public-sensitive-endpoint": {
+    "scenario": "new-public-sensitive-endpoint",
+    "graph_delta": {
+      "before": {
+        "nodes": [
+          {
+            "id": "user:anonymous",
+            "node_type": "USER",
+            "name": "Anonymous"
+          }
+        ],
+        "edges": []
+      },
+      "after": {
+        "nodes": [
+          {
+            "id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "CONTROLLER",
+            "name": "AdminExportController"
+          },
+          {
+            "id": "endpoint:GET:/admin/export",
+            "node_type": "ENDPOINT",
+            "name": "GET /admin/export"
+          },
+          {
+            "id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "DATABASE",
+            "name": "CustomerRepository"
+          },
+          {
+            "id": "resource:Customer",
+            "node_type": "DATA_RESOURCE",
+            "name": "Customer"
+          },
+          {
+            "id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "SERVICE",
+            "name": "AdminExportService"
+          },
+          {
+            "id": "user:anonymous",
+            "node_type": "USER",
+            "name": "Anonymous"
+          }
+        ],
+        "edges": [
+          {
+            "source_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "endpoint:GET:/admin/export",
+            "target_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "resource:Customer",
+            "relationship": "RETURNS"
+          },
+          {
+            "source_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "READS"
+          },
+          {
+            "source_id": "user:anonymous",
+            "target_id": "endpoint:GET:/admin/export",
+            "relationship": "CAN_ACCESS"
+          }
+        ]
+      },
+      "new_paths": [
+        {
+          "source": "user:anonymous",
+          "target": "resource:Customer",
+          "nodes": [
+            "user:anonymous",
+            "endpoint:GET:/admin/export",
+            "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "resource:Customer"
+          ],
+          "edges": ["CAN_ACCESS", "CALLS", "CALLS", "READS", "RETURNS"]
+        }
+      ],
+      "removed_paths": []
+    },
+    "risk_result": {
+      "risk_before": 0,
+      "risk_after": 65,
+      "risk_delta": 65,
+      "category_before": "LOW",
+      "category_after": "HIGH",
+      "components": {
+        "reachability": {
+          "score": 100,
+          "weight": 0.25,
+          "weighted_score": 25.0
+        },
+        "authorization_change": {
+          "score": 0,
+          "weight": 0.2,
+          "weighted_score": 0.0
+        },
+        "data_sensitivity": {
+          "score": 100,
+          "weight": 0.2,
+          "weighted_score": 20.0
+        },
+        "external_exposure": {
+          "score": 100,
+          "weight": 0.15,
+          "weighted_score": 15.0
+        },
+        "privilege_impact": {
+          "score": 0,
+          "weight": 0.1,
+          "weighted_score": 0.0
+        },
+        "exploitability": {
+          "score": 50,
+          "weight": 0.1,
+          "weighted_score": 5.0
+        }
+      },
+      "evidence": [
+        "Anonymous user can newly reach sensitive resource Customer"
+      ],
+      "components_before": {
+        "reachability": {
+          "score": 0,
+          "weight": 0.25,
+          "weighted_score": 0.0
+        },
+        "authorization_change": {
+          "score": 0,
+          "weight": 0.2,
+          "weighted_score": 0.0
+        },
+        "data_sensitivity": {
+          "score": 0,
+          "weight": 0.2,
+          "weighted_score": 0.0
+        },
+        "external_exposure": {
+          "score": 0,
+          "weight": 0.15,
+          "weighted_score": 0.0
+        },
+        "privilege_impact": {
+          "score": 0,
+          "weight": 0.1,
+          "weighted_score": 0.0
+        },
+        "exploitability": {
+          "score": 0,
+          "weight": 0.1,
+          "weighted_score": 0.0
+        }
+      },
+      "policy_version": "1.0.0"
+    },
+    "verdict": "BLOCK",
+    "schema_version": "1.1.0",
+    "reason_codes": [
+      "NEW_ANONYMOUS_SENSITIVE_PATH",
+      "RISK_AFTER_REVIEW_THRESHOLD",
+      "RISK_DELTA_REVIEW_THRESHOLD"
+    ],
+    "quality": {
+      "confidence": "HIGH",
+      "coverage_ratio": 1,
+      "incomplete": false
+    },
+    "mode": "OFFLINE_FIXTURE",
+    "validation_status": "NOT_RUN",
+    "pre_validation_verdict": "BLOCK",
+    "final_verdict": "BLOCK"
+  },
+  "sensitive-resource-exposure": {
+    "scenario": "sensitive-resource-exposure",
+    "graph_delta": {
+      "before": {
+        "nodes": [
+          {
+            "id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CatalogRepository:PublicCatalog",
+            "node_type": "CONTROLLER",
+            "name": "AdminExportController"
+          },
+          {
+            "id": "endpoint:GET:/admin/export",
+            "node_type": "ENDPOINT",
+            "name": "GET /admin/export"
+          },
+          {
+            "id": "repository:CatalogRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CatalogRepository:PublicCatalog",
+            "node_type": "DATABASE",
+            "name": "CatalogRepository"
+          },
+          {
+            "id": "resource:PublicCatalog",
+            "node_type": "DATA_RESOURCE",
+            "name": "PublicCatalog"
+          },
+          {
+            "id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CatalogRepository:PublicCatalog",
+            "node_type": "SERVICE",
+            "name": "AdminExportService"
+          },
+          {
+            "id": "user:anonymous",
+            "node_type": "USER",
+            "name": "Anonymous"
+          }
+        ],
+        "edges": [
+          {
+            "source_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CatalogRepository:PublicCatalog",
+            "target_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CatalogRepository:PublicCatalog",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "endpoint:GET:/admin/export",
+            "target_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CatalogRepository:PublicCatalog",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "repository:CatalogRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CatalogRepository:PublicCatalog",
+            "target_id": "resource:PublicCatalog",
+            "relationship": "RETURNS"
+          },
+          {
+            "source_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CatalogRepository:PublicCatalog",
+            "target_id": "repository:CatalogRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CatalogRepository:PublicCatalog",
+            "relationship": "READS"
+          },
+          {
+            "source_id": "user:anonymous",
+            "target_id": "endpoint:GET:/admin/export",
+            "relationship": "CAN_ACCESS"
+          }
+        ]
+      },
+      "after": {
+        "nodes": [
+          {
+            "id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "CONTROLLER",
+            "name": "AdminExportController"
+          },
+          {
+            "id": "endpoint:GET:/admin/export",
+            "node_type": "ENDPOINT",
+            "name": "GET /admin/export"
+          },
+          {
+            "id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "DATABASE",
+            "name": "CustomerRepository"
+          },
+          {
+            "id": "resource:Customer",
+            "node_type": "DATA_RESOURCE",
+            "name": "Customer"
+          },
+          {
+            "id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "node_type": "SERVICE",
+            "name": "AdminExportService"
+          },
+          {
+            "id": "user:anonymous",
+            "node_type": "USER",
+            "name": "Anonymous"
+          }
+        ],
+        "edges": [
+          {
+            "source_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "endpoint:GET:/admin/export",
+            "target_id": "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "CALLS"
+          },
+          {
+            "source_id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "resource:Customer",
+            "relationship": "RETURNS"
+          },
+          {
+            "source_id": "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "target_id": "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "relationship": "READS"
+          },
+          {
+            "source_id": "user:anonymous",
+            "target_id": "endpoint:GET:/admin/export",
+            "relationship": "CAN_ACCESS"
+          }
+        ]
+      },
+      "new_paths": [
+        {
+          "source": "user:anonymous",
+          "target": "resource:Customer",
+          "nodes": [
+            "user:anonymous",
+            "endpoint:GET:/admin/export",
+            "controller:AdminExportController@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "service:AdminExportService@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "repository:CustomerRepository@GET:%2Fadmin%2Fexport:AdminExportController:AdminExportService:CustomerRepository:Customer",
+            "resource:Customer"
+          ],
+          "edges": ["CAN_ACCESS", "CALLS", "CALLS", "READS", "RETURNS"]
+        }
+      ],
+      "removed_paths": []
+    },
+    "risk_result": {
+      "risk_before": 4,
+      "risk_after": 65,
+      "risk_delta": 61,
+      "category_before": "LOW",
+      "category_after": "HIGH",
+      "components": {
+        "reachability": {
+          "score": 100,
+          "weight": 0.25,
+          "weighted_score": 25.0
+        },
+        "authorization_change": {
+          "score": 0,
+          "weight": 0.2,
+          "weighted_score": 0.0
+        },
+        "data_sensitivity": {
+          "score": 100,
+          "weight": 0.2,
+          "weighted_score": 20.0
+        },
+        "external_exposure": {
+          "score": 100,
+          "weight": 0.15,
+          "weighted_score": 15.0
+        },
+        "privilege_impact": {
+          "score": 0,
+          "weight": 0.1,
+          "weighted_score": 0.0
+        },
+        "exploitability": {
+          "score": 50,
+          "weight": 0.1,
+          "weighted_score": 5.0
+        }
+      },
+      "evidence": [
+        "Anonymous user can newly reach sensitive resource Customer"
+      ],
+      "components_before": {
+        "reachability": {
+          "score": 0,
+          "weight": 0.25,
+          "weighted_score": 0.0
+        },
+        "authorization_change": {
+          "score": 0,
+          "weight": 0.2,
+          "weighted_score": 0.0
+        },
+        "data_sensitivity": {
+          "score": 20,
+          "weight": 0.2,
+          "weighted_score": 4.0
+        },
+        "external_exposure": {
+          "score": 0,
+          "weight": 0.15,
+          "weighted_score": 0.0
+        },
+        "privilege_impact": {
+          "score": 0,
+          "weight": 0.1,
+          "weighted_score": 0.0
+        },
+        "exploitability": {
+          "score": 0,
+          "weight": 0.1,
+          "weighted_score": 0.0
+        }
+      },
+      "policy_version": "1.0.0"
+    },
+    "verdict": "BLOCK",
+    "schema_version": "1.1.0",
+    "reason_codes": [
+      "NEW_ANONYMOUS_SENSITIVE_PATH",
+      "RISK_AFTER_REVIEW_THRESHOLD",
+      "RISK_DELTA_REVIEW_THRESHOLD"
+    ],
+    "quality": {
+      "confidence": "HIGH",
+      "coverage_ratio": 1,
+      "incomplete": false
+    },
+    "mode": "OFFLINE_FIXTURE",
+    "validation_status": "NOT_RUN",
+    "pre_validation_verdict": "BLOCK",
+    "final_verdict": "BLOCK"
+  }
+}

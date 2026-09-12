@@ -7,14 +7,52 @@ and validation confirms findings only against a local Docker sandbox.
 
 ## Current Phase
 
-Weeks 1–3 are complete. A mentor-ready fixture vertical slice runs the canonical
-authorization-removal IR through real NetworkX graph construction, BFS
-reachability, deterministic risk scoring, the platform API, and the dashboard.
+The Java/Spring pipeline now runs source → Spoon IR → graph comparison → risk →
+deterministic verdict → dashboard for all four MVP scenarios. Optional Ollama
+explanations degrade safely when unavailable. The registered authorization-removal
+sample supports commit-bound, isolated Docker validation. PostgreSQL persistence
+uses Flyway migrations; an explicit native `local` profile uses ephemeral storage.
 
-Week 4 is current: secure local Git source acquisition, immutable before/after
-commits, deterministic Java-file diffing, and provenance. Real Spoon extraction,
-AI explanation, and Docker HTTP validation remain future roadmap work and are not
-represented as complete. See `docs/week-plan.md` and `docs/week-4-checklist.md`.
+The roadmap marker remains Week 7. Implementation does not close the external
+evaluation and review gates: labels are provisional, and broader human-reviewed OSS
+evaluation remains open. Live Ollama and platform session/role checks now pass. See
+[release readiness](docs/release-readiness.md) and [verification report](docs/verification-report.md).
+
+## Quickstart
+
+Install Docker Desktop with a working Linux engine and Python 3.12. From this root:
+
+```powershell
+python -m pip install -r requirements-dev.txt
+python tools/dev/create_mvp_samples.py
+python tools/dev/init_auth.py
+python tools/dev/build_sandboxes.py --prepare-only
+docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app up -d --build
+python tools/dev/verify_mvp.py --compose --validation
+```
+
+Open **http://localhost:5173**. Compose exposes services only on loopback. The validation
+override starts a dedicated Docker-in-Docker daemon on a private internal network; no
+application container receives the host Docker socket. A one-shot loader builds only
+the authored sandbox contexts into that daemon. Omit the override to disable live
+validation. Existing database volumes are preserved; do not use `down -v` as a repair step.
+
+Sign in as `admin` using the generated password in `tmp/local-auth/admin.password`.
+The password stays in that ignored local file; it is never a hardcoded default.
+Admin can create Developer (view only) and Security Analyst accounts. Source APIs
+require a session and CSRF token; fixture viewing remains public. The native launcher
+initializes its own local account using the same file.
+
+Scan access is deny-by-default. The account that starts a scan receives `VALIDATE`
+access; administrators can view all scans, and a scan validator may explicitly grant
+another provisioned account `VIEW` or `VALIDATE` through `POST /analyses/{id}/access`.
+
+For the verified CPU-only Ollama setup, follow [local AI setup](docs/runtime-guide.md#local-ollama-in-compose).
+Two pinned external-source checks are documented in [external evaluation](datasets/external-spring/README.md).
+
+Read [the mentor walkthrough](docs/mentor-demo.md) for exact source inputs,
+[configuration](docs/runtime-guide.md) for native startup and environment variables,
+and [troubleshooting](docs/troubleshooting.md) for Docker/Ollama/database failures.
 
 ## Repository Layout
 
@@ -63,11 +101,16 @@ Fixture vertical-slice verification:
 python tools/dev/verify_week3.py
 ```
 
-Run the fixture vertical-slice services:
+Weeks 4–6 real-source analyzer verification:
 
 ```powershell
-docker compose -f infrastructure/docker-compose.yml --profile future-services build
-docker compose -f infrastructure/docker-compose.yml --profile future-services up
+python tools/dev/verify_week6.py
+```
+
+Run the complete platform without the optional Docker validation worker:
+
+```powershell
+docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile app up -d --build
 ```
 
 ## Architecture Rule

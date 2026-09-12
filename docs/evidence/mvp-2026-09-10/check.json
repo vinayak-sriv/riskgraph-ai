@@ -1,0 +1,20 @@
+{
+  "name": "RiskGraph AI",
+  "head_sha": "593c8cf10cb63c35867417273381ffa2dd610af5",
+  "status": "completed",
+  "conclusion": "failure",
+  "output": {
+    "title": "BLOCK: risk delta +69",
+    "summary": "RiskGraph: **BLOCK**\n\nRisk 22 \u2192 91 (delta +69); 1 new sensitive paths.\n\nPreliminary: BLOCK. Validation: CONFIRMED. Extraction confidence: HIGH.\n\nAnalysis status: DEGRADED. AI text is unconfirmed. Incomplete extraction requires review.\n",
+    "annotations": [
+      {
+        "path": "src/main/java/demo/ExportController.java",
+        "start_line": 8,
+        "end_line": 8,
+        "annotation_level": "failure",
+        "message": "New anonymous GET /admin/export path reaches resource:Payment. Validate in a local Docker sandbox.",
+        "title": "New anonymous sensitive path"
+      }
+    ]
+  }
+}

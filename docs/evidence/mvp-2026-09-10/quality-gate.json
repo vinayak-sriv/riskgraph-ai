@@ -1,0 +1,47 @@
+[
+  {
+    "check": "python",
+    "exit_code": 0,
+    "seconds": 17.22
+  },
+  {
+    "check": "analyzer",
+    "exit_code": 0,
+    "seconds": 29.27
+  },
+  {
+    "check": "platform",
+    "exit_code": 0,
+    "seconds": 14.82
+  },
+  {
+    "check": "frontend-tests",
+    "exit_code": 0,
+    "seconds": 21.41
+  },
+  {
+    "check": "frontend-build",
+    "exit_code": 0,
+    "seconds": 8.06
+  },
+  {
+    "check": "production-audit",
+    "exit_code": 0,
+    "seconds": 3.19
+  },
+  {
+    "check": "compose",
+    "exit_code": 0,
+    "seconds": 0.46
+  },
+  {
+    "check": "corpus",
+    "exit_code": 0,
+    "seconds": 1.72
+  },
+  {
+    "check": "diff",
+    "exit_code": 0,
+    "seconds": 0.1
+  }
+]

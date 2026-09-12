@@ -6,7 +6,7 @@ internal code or database tables.
 
 ## Folders
 
-- `ir/`: endpoint IR, graph delta, and deterministic risk result schemas.
+- `ir/`: endpoint IR, analyzer envelope, graph delta, and deterministic risk result schemas.
 - `ai/`: schema-constrained Ollama outputs for explanation and test suggestion.
 - `validation/`: HTTP validation input and result schemas.
 - `api/`: OpenAPI skeletons for service boundaries.

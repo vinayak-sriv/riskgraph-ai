@@ -7,7 +7,7 @@ from pathlib import Path
 
 import yaml
 from jsonschema import Draft202012Validator
-
+from referencing import Registry, Resource
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -17,7 +17,14 @@ def load_json(path: Path) -> dict:
 
 
 def validate_schema(schema_path: Path, example_path: Path) -> None:
-    validator = Draft202012Validator(load_json(schema_path))
+    registry = Registry()
+    for dependency in sorted(schema_path.parent.glob("*.schema.json")):
+        dependency_schema = load_json(dependency)
+        if "$id" in dependency_schema:
+            registry = registry.with_resource(
+                dependency_schema["$id"], Resource.from_contents(dependency_schema)
+            )
+    validator = Draft202012Validator(load_json(schema_path), registry=registry)
     errors = sorted(validator.iter_errors(load_json(example_path)), key=lambda error: error.path)
     if errors:
         print(f"FAIL {example_path}")
@@ -31,7 +38,14 @@ def validate_schema(schema_path: Path, example_path: Path) -> None:
 def validate_contracts() -> None:
     endpoint_schema = ROOT / "contracts" / "ir" / "endpoint-ir.schema.json"
     for example in sorted((ROOT / "contracts" / "ir" / "examples").glob("*.json")):
+        if example.name == "analysis-envelope.json":
+            continue
         validate_schema(endpoint_schema, example)
+
+    validate_schema(
+        ROOT / "contracts" / "ir" / "analysis-envelope.schema.json",
+        ROOT / "contracts" / "ir" / "examples" / "analysis-envelope.json",
+    )
 
     validate_schema(
         ROOT / "contracts" / "ai" / "ai-analysis.schema.json",
@@ -69,7 +83,16 @@ def docker_command() -> list[str] | None:
 
     user_profile = os.environ.get("USERPROFILE")
     if user_profile:
-        docker_path = Path(user_profile) / "AppData" / "Local" / "Programs" / "DockerDesktop" / "resources" / "bin" / "docker.exe"
+        docker_path = (
+            Path(user_profile)
+            / "AppData"
+            / "Local"
+            / "Programs"
+            / "DockerDesktop"
+            / "resources"
+            / "bin"
+            / "docker.exe"
+        )
         if docker_path.exists():
             return [str(docker_path)]
 
@@ -88,8 +111,12 @@ def validate_compose() -> None:
         docker + ["compose", "-f", str(compose_file), "--profile", "future-services", "config"],
         docker + ["compose", "-f", str(compose_file), "--profile", "sandbox", "config"],
     ]
+    environment = os.environ.copy()
+    environment.setdefault(
+        "RISKGRAPH_SERVICE_TOKEN", "contract-validation-only-not-a-deployment-secret"
+    )
     for command in commands:
-        subprocess.run(command, cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(command, cwd=ROOT, check=True, stdout=subprocess.DEVNULL, env=environment)
         print(f"OK {' '.join(command[-4:])}")
 
 

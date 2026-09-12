@@ -1,0 +1,178 @@
+"""Pinned public source checks; never check out or execute external project code."""
+
+import argparse
+import hashlib
+import json
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools/dev"))
+from platform_session import PlatformSession  # noqa: E402
+
+DATA = ROOT / "datasets/external-spring"
+REPOSITORIES = ROOT / "samples/generated/external"
+
+
+def read_manifest():
+    manifest = json.loads((DATA / "manifest.json").read_text(encoding="utf-8"))
+    seen = set()
+    for case in manifest["cases"]:
+        name = case["id"]
+        if not re.fullmatch(r"[a-z0-9-]+", name) or name in seen:
+            raise ValueError("Unsafe or duplicate case ID")
+        seen.add(name)
+        if not re.fullmatch(
+            r"https://github\.com/(spring-projects|spring-guides)/[a-z0-9-]+\.git",
+            case["repository"],
+        ):
+            raise ValueError("Only the registered official public Spring sources are supported")
+        if any(
+            not re.fullmatch(r"[0-9a-f]{40}", case[key]) for key in ("old_commit", "new_commit")
+        ):
+            raise ValueError("Immutable commit required")
+        for item in [case["license"], *case["sources"]]:
+            path = item["path"]
+            if path.startswith("/") or "\\" in path or ":" in path or ".." in path.split("/"):
+                raise ValueError("Unsafe source path")
+    return manifest
+
+
+def git(repo, *args):
+    return subprocess.check_output(
+        ["git", "-c", "core.hooksPath=/dev/null", "-C", str(repo), *args], timeout=120
+    )
+
+
+def prepare(case):
+    repo = REPOSITORIES / case["id"]
+    REPOSITORIES.mkdir(parents=True, exist_ok=True)
+    if repo.is_symlink() or (
+        repo.exists() and not repo.resolve().is_relative_to(REPOSITORIES.resolve())
+    ):
+        raise ValueError("Repository resolves outside evaluation directory")
+    if not repo.exists():
+        subprocess.run(
+            ["git", "clone", "--no-checkout", "--depth=1", case["repository"], str(repo)],
+            check=True,
+            timeout=120,
+        )
+    if git(repo, "remote", "get-url", "origin").decode().strip() != case["repository"]:
+        raise ValueError("Existing repository origin differs; preserving it")
+    for sha in (case["old_commit"], case["new_commit"]):
+        try:
+            git(repo, "cat-file", "-e", sha + "^{commit}")
+        except subprocess.CalledProcessError:
+            git(repo, "fetch", "--depth=2", "origin", sha)
+    for item in [case["license"], *case["sources"]]:
+        for revision in ("old", "new"):
+            content = git(repo, "show", case[revision + "_commit"] + ":" + item["path"])
+            if hashlib.sha256(content).hexdigest() != item[revision + "_sha256"]:
+                raise ValueError("Pinned source/license integrity mismatch")
+    return repo
+
+
+def assess(case, scan):
+    matched = 0
+    expected = 0
+    for revision in ("before", "after"):
+        rows = scan["source_evidence"][revision]
+        actual = {
+            (
+                row["endpoint"]["method"],
+                row["endpoint"]["endpoint"],
+                row["endpoint"]["authentication"],
+                row["endpoint"]["required_role"],
+            )
+            for row in rows
+        }
+        gold = {
+            (row["method"], row["endpoint"], row["authentication"], row["required_role"])
+            for row in case["expected_changed_endpoints"]
+        }
+        matched += len(actual & gold)
+        expected += len(gold)
+    assert not scan["graph_delta"]["new_paths"], "Unexpected new path on reviewed source change"
+    assert scan["risk_result"]["risk_delta"] == 0
+    assert scan["final_verdict"] == "REVIEW", "Incomplete extraction must remain reviewable"
+    assert scan["quality"]["confidence"] == "LOW"
+    assert scan["quality"]["coverage_ratio"] == 0.0
+    if case["expected_diagnostic"]:
+        assert case["expected_diagnostic"] in {d["code"] for d in scan["diagnostics"]}
+    return dict(
+        matched_endpoint_auth_rows=matched,
+        expected_endpoint_auth_rows=expected,
+        endpoint_auth_recall=matched / expected,
+        quality=scan["quality"],
+        verdict=scan["final_verdict"],
+        risk_delta=scan["risk_result"]["risk_delta"],
+        diagnostic_codes=sorted({d["code"] for d in scan["diagnostics"]}),
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--compose", action="store_true")
+    parser.add_argument("--output", type=Path, default=ROOT / "tmp/external-evaluation")
+    args = parser.parse_args()
+    manifest = read_manifest()
+    args.output.mkdir(parents=True, exist_ok=True)
+    results = {}
+    session = PlatformSession()
+    for case in manifest["cases"]:
+        repo = prepare(case)
+        if args.prepare_only:
+            print(case["id"] + ": pinned source and license verified")
+            continue
+        request = dict(
+            repository_path="/analysis-repositories/external/" + case["id"]
+            if args.compose
+            else str(repo.resolve()),
+            old_commit=case["old_commit"],
+            new_commit=case["new_commit"],
+        )
+        scans = []
+        started = time.perf_counter()
+        for _ in range(2):
+            scans.append(session.call("/analyses", request))
+        scan, repeated = scans
+        for key in (
+            "scan_id",
+            "provenance",
+            "graph_delta",
+            "risk_result",
+            "source_evidence",
+            "quality",
+            "diagnostics",
+        ):
+            assert scan[key] == repeated[key], (case["id"], "nondeterministic", key)
+        result = assess(case, scan)
+        result["mean_runtime_seconds"] = round((time.perf_counter() - started) / 2, 3)
+        results[case["id"]] = result
+        (args.output / (case["id"] + ".json")).write_text(
+            json.dumps(scan, indent=2) + "\n", encoding="utf-8", newline="\n"
+        )
+        print(case["id"] + ": checks passed; " + json.dumps(result), flush=True)
+    if not args.prepare_only:
+        summary = dict(
+            scope="Two pinned external negative changes; static extraction only; no execution or exploit validation",
+            label_status="PROVISIONAL",
+            review_type="AI_SOURCE_REVIEW",
+            human_reviewed=False,
+            vulnerability_precision=None,
+            vulnerability_recall=None,
+            vulnerability_f1=None,
+            sensitivity_accuracy=None,
+            cases=results,
+        )
+        (args.output / "summary.json").write_text(
+            json.dumps(summary, indent=2) + "\n", encoding="utf-8", newline="\n"
+        )
+
+
+if __name__ == "__main__":
+    main()

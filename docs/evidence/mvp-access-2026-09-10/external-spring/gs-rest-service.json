@@ -1,0 +1,151 @@
+{
+  "scenario": "local-source",
+  "graph_delta": {
+    "before": {
+      "nodes": [
+        {
+          "id": "user:anonymous",
+          "node_type": "USER",
+          "name": "Anonymous"
+        }
+      ],
+      "edges": []
+    },
+    "after": {
+      "nodes": [
+        {
+          "id": "user:anonymous",
+          "node_type": "USER",
+          "name": "Anonymous"
+        }
+      ],
+      "edges": []
+    },
+    "new_paths": [],
+    "removed_paths": []
+  },
+  "risk_result": {
+    "risk_before": 0,
+    "risk_after": 0,
+    "risk_delta": 0,
+    "category_before": "LOW",
+    "category_after": "LOW",
+    "components": {
+      "reachability": {
+        "score": 0,
+        "weight": 0.25,
+        "weighted_score": 0.0
+      },
+      "authorization_change": {
+        "score": 0,
+        "weight": 0.2,
+        "weighted_score": 0.0
+      },
+      "data_sensitivity": {
+        "score": 0,
+        "weight": 0.2,
+        "weighted_score": 0.0
+      },
+      "external_exposure": {
+        "score": 0,
+        "weight": 0.15,
+        "weighted_score": 0.0
+      },
+      "privilege_impact": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      },
+      "exploitability": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      }
+    },
+    "evidence": [
+      "No new anonymous-to-sensitive-resource path detected"
+    ],
+    "components_before": {
+      "reachability": {
+        "score": 0,
+        "weight": 0.25,
+        "weighted_score": 0.0
+      },
+      "authorization_change": {
+        "score": 0,
+        "weight": 0.2,
+        "weighted_score": 0.0
+      },
+      "data_sensitivity": {
+        "score": 0,
+        "weight": 0.2,
+        "weighted_score": 0.0
+      },
+      "external_exposure": {
+        "score": 0,
+        "weight": 0.15,
+        "weighted_score": 0.0
+      },
+      "privilege_impact": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      },
+      "exploitability": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      }
+    },
+    "policy_version": "1.0.0"
+  },
+  "verdict": "REVIEW",
+  "schema_version": "1.0.0",
+  "reason_codes": [
+    "INSUFFICIENT_EXTRACTION_EVIDENCE"
+  ],
+  "quality": {
+    "confidence": "LOW",
+    "coverage_ratio": 0.0,
+    "incomplete": true
+  },
+  "provenance": {
+    "repository_path": "/analysis-repositories/external/gs-rest-service",
+    "repository_identity": "https://github.com/spring-guides/gs-rest-service.git",
+    "old_commit": "ccccdcd71c068276d2fc5ccf1e155e26a5614a7c",
+    "new_commit": "389429a7345a718c27a77cabc495cf7ea68bbaee"
+  },
+  "coverage": {
+    "java_files_considered": 5,
+    "controllers_discovered": 0,
+    "endpoints_emitted": 0,
+    "endpoints_with_service": 0,
+    "endpoints_with_repository": 0,
+    "coverage_ratio": 0.0
+  },
+  "diagnostics": [
+    {
+      "severity": "ERROR",
+      "code": "SPOON_MODEL_FAILED",
+      "message": "The type RestServiceApplication is already defined",
+      "path": null
+    },
+    {
+      "severity": "ERROR",
+      "code": "SPOON_MODEL_FAILED",
+      "message": "The type RestServiceApplication is already defined",
+      "path": null
+    }
+  ],
+  "source_evidence": {
+    "before": [],
+    "after": []
+  },
+  "analyzer_version": "0.3.2",
+  "analysis_id": "8e5da72ddf82862d41c198c5a111d835b82cecafdac201fcd28aae357265577e",
+  "pre_validation_verdict": "REVIEW",
+  "validation_status": "NOT_RUN",
+  "final_verdict": "REVIEW",
+  "status": "DEGRADED",
+  "scan_id": "cea736c5d47e55a97385de2a34638b7d1d9f194fce0adc0219af6592a48db801"
+}

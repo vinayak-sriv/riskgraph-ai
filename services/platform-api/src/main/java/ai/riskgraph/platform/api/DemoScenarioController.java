@@ -3,6 +3,7 @@ package ai.riskgraph.platform.api;
 import ai.riskgraph.platform.service.DemoScenarioService;
 import tools.jackson.databind.JsonNode;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -16,5 +17,10 @@ public class DemoScenarioController {
     @GetMapping("/demo/authorization-removal")
     public JsonNode authorizationRemoval() {
         return demoScenarioService.analyzeAuthorizationRemoval();
+    }
+
+    @GetMapping("/demo/scenarios/{scenario}")
+    public JsonNode scenario(@PathVariable String scenario) {
+        return demoScenarioService.analyzeScenario(scenario);
     }
 }

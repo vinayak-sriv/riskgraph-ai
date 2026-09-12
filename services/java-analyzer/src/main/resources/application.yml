@@ -5,6 +5,19 @@ spring:
   application:
     name: java-analyzer
 
+riskgraph:
+  analyzer:
+    allowed-repository-roots: ${RISKGRAPH_ALLOWED_REPOSITORY_ROOTS:${user.dir}}
+    max-java-files: ${RISKGRAPH_MAX_JAVA_FILES:5000}
+    max-java-file-bytes: ${RISKGRAPH_MAX_JAVA_FILE_BYTES:2097152}
+    max-total-java-bytes: ${RISKGRAPH_MAX_TOTAL_JAVA_BYTES:52428800}
+    max-analysis-seconds: ${RISKGRAPH_MAX_ANALYSIS_SECONDS:60}
+    max-concurrent-analyses: ${RISKGRAPH_MAX_CONCURRENT_ANALYSES:2}
+    max-queued-analyses: ${RISKGRAPH_MAX_QUEUED_ANALYSES:4}
+    process-isolation: ${RISKGRAPH_ANALYZER_PROCESS_ISOLATION:false}
+    executable-jar: ${RISKGRAPH_ANALYZER_EXECUTABLE_JAR:}
+    sensitivity-policy: ${RISKGRAPH_SENSITIVITY_POLICY:}
+
 management:
   endpoints:
     web:

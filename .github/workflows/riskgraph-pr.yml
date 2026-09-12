@@ -1,0 +1,80 @@
+name: RiskGraph PR analysis
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Analyzer/tools come from trusted base. Target Java is parsed, never built.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: engine
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: target
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Build trusted platform and analyzer
+        working-directory: engine
+        run: |
+          pip install -r services/graph-risk-service/requirements.txt
+          mvn -q -f services/java-analyzer/pom.xml package -DskipTests
+          mvn -q -f services/platform-api/pom.xml package -DskipTests
+      - name: Analyze immutable target revisions
+        working-directory: engine
+        env:
+          RISKGRAPH_ALLOWED_REPOSITORY_ROOTS: ${{ github.workspace }}/target
+          SPRING_PROFILES_ACTIVE: local
+          RISKGRAPH_BOOTSTRAP_PASSWORD_FILE: ${{ github.workspace }}/engine/tmp/local-auth/admin.password
+          # Ephemeral per-job credential; this is not a deployment secret.
+          RISKGRAPH_SERVICE_TOKEN: ci-internal-service-token-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          python tools/dev/init_auth.py
+          python -m uvicorn app.main:app --app-dir services/graph-risk-service --host 127.0.0.1 --port 8082 > /tmp/graph.log 2>&1 &
+          java -jar services/java-analyzer/target/java-analyzer-0.1.0-SNAPSHOT.jar > /tmp/analyzer.log 2>&1 &
+          java -jar services/platform-api/target/platform-api-0.1.0-SNAPSHOT.jar > /tmp/platform.log 2>&1 &
+          python tools/dev/wait_ready.py
+          python tools/reporting/submit_event.py "$GITHUB_EVENT_PATH" ../target --output ../reports
+          cat ../reports/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: riskgraph-evidence
+          path: reports/
+      - name: Enforce deterministic block
+        run: python -c "import json; r=json.load(open('reports/scan.json')); raise SystemExit(1 if r['final_verdict']=='BLOCK' else 0)"
+  # Publishing requires repository-owner opt-in; the default local demo needs no token.
+  publish:
+    if: always() && vars.RISKGRAPH_PUBLISH == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: riskgraph-evidence
+          path: reports
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('reports/check.json', 'utf8'));
+            if (report.head_sha !== context.payload.pull_request.head.sha) throw new Error('Head mismatch');
+            await github.rest.checks.create({owner: context.repo.owner, repo: context.repo.repo, ...report});
+            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body: fs.readFileSync('reports/summary.md', 'utf8')});

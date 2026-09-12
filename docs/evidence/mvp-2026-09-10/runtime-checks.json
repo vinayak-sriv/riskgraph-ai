@@ -1,0 +1,9 @@
+{
+  "postgres_restart_roundtrip": true,
+  "scan_id": "986e16ebf6c103bce1cc2e0b0b5838d81c131df2bb24fc321b8e2e6aab9a24c6",
+  "normalized_validation_consistency": true,
+  "cors_allowlist": true,
+  "malformed_request_fails_closed": true,
+  "github_event_and_sarif": true,
+  "sandbox_resources_cleaned_up": true
+}

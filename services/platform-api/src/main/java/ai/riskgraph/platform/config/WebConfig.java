@@ -7,16 +7,17 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-    private final String dashboardOrigin;
+    private final String[] dashboardOrigins;
 
-    public WebConfig(@Value("${riskgraph.web.allowed-origin}") String dashboardOrigin) {
-        this.dashboardOrigin = dashboardOrigin;
+    public WebConfig(@Value("${riskgraph.web.allowed-origins:${riskgraph.web.allowed-origin},http://127.0.0.1:5173}") String dashboardOrigins) {
+        this.dashboardOrigins = java.util.Arrays.stream(dashboardOrigins.split(","))
+            .map(String::strip).filter(value -> !value.isBlank()).distinct().toArray(String[]::new);
     }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/demo/**")
-                .allowedOrigins(dashboardOrigin)
-                .allowedMethods("GET");
+        registry.addMapping("/**")
+                .allowedOrigins(dashboardOrigins).allowedMethods("GET", "POST")
+                .allowedHeaders("Content-Type", "X-CSRF-TOKEN").allowCredentials(true);
     }
 }

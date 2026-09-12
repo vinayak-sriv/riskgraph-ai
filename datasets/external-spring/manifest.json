@@ -1,0 +1,66 @@
+{
+  "version": "1.0.0",
+  "label_status": "PROVISIONAL",
+  "review_type": "AI_SOURCE_REVIEW",
+  "human_reviewed": false,
+  "cases": [
+    {
+      "id": "spring-petclinic",
+      "repository": "https://github.com/spring-projects/spring-petclinic.git",
+      "old_commit": "0f6e8614047bd74cf6223b4d8a858d2ed2824f8a",
+      "new_commit": "bb37aad8c332264723817d855e8b3b96b7c392bc",
+      "license": {
+        "spdx": "Apache-2.0",
+        "path": "LICENSE.txt",
+        "old_sha256": "56dfc19e0dc836e30177332f73e8e6fbc297941acf3d906eec6eaaa46c2c452a",
+        "new_sha256": "56dfc19e0dc836e30177332f73e8e6fbc297941acf3d906eec6eaaa46c2c452a"
+      },
+      "sources": [
+        {
+          "path": "src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java",
+          "old_sha256": "889b37627033275240b813b3fd6d6ae0c7afd5cdd29d01fad0fcc0c937186597",
+          "new_sha256": "f1f61c17a818e0a0643bf3cd9bb3eaf32d6e019b3dac4f5dfd4890dc1221d16e"
+        }
+      ],
+      "source_review": "Source review: strips owner surname whitespace before the same search call. No route, authorization annotation or repository wiring change.",
+      "expected_changed_endpoints": [
+        {
+          "method": "GET",
+          "endpoint": "/owners",
+          "authentication": false,
+          "required_role": null
+        }
+      ],
+      "expected_diagnostic": null
+    },
+    {
+      "id": "gs-rest-service",
+      "repository": "https://github.com/spring-guides/gs-rest-service.git",
+      "old_commit": "ccccdcd71c068276d2fc5ccf1e155e26a5614a7c",
+      "new_commit": "389429a7345a718c27a77cabc495cf7ea68bbaee",
+      "license": {
+        "spdx": "Apache-2.0",
+        "path": "LICENSE.txt",
+        "old_sha256": "56dfc19e0dc836e30177332f73e8e6fbc297941acf3d906eec6eaaa46c2c452a",
+        "new_sha256": "56dfc19e0dc836e30177332f73e8e6fbc297941acf3d906eec6eaaa46c2c452a"
+      },
+      "sources": [
+        {
+          "path": "complete/src/main/java/com/example/restservice/GreetingController.java",
+          "old_sha256": "1f1f7aeec342b4ace54c2341ce3de21e5b3fa864c8bb45546684f57d508619a2",
+          "new_sha256": "ac8984576f74c759e814ac281257e21388427573c451ffe5b7f7824138e0348a"
+        }
+      ],
+      "source_review": "Source review: indentation-only Java change. The initial and complete modules contain duplicate application classes, which the current single-model parser cannot combine.",
+      "expected_changed_endpoints": [
+        {
+          "method": "GET",
+          "endpoint": "/greeting",
+          "authentication": false,
+          "required_role": null
+        }
+      ],
+      "expected_diagnostic": "SPOON_MODEL_FAILED"
+    }
+  ]
+}

@@ -1,21 +1,23 @@
 from dataclasses import dataclass
 
-from .graph_engine import anonymous_sensitive_paths, endpoint_node_id
+from .graph_engine import endpoint_node_id, resource_node_id
 from .models import (
-    ComponentScore, EndpointIr, GraphDelta, RiskComponents, RiskResult, Verdict,
+    ComponentScore,
+    EndpointIr,
+    GraphDelta,
+    RiskComponents,
+    RiskResult,
+    Verdict,
 )
+from .policy import POLICY
 
-
-WEIGHTS = {
-    "reachability": 0.25,
-    "authorization_change": 0.20,
-    "data_sensitivity": 0.20,
-    "external_exposure": 0.15,
-    "privilege_impact": 0.10,
-    "exploitability": 0.10,
-}
+WEIGHTS = POLICY.weights
 SENSITIVITY_SCORES = {
-    "LOW": 20, "MODERATE": 40, "MEDIUM": 60, "HIGH": 80, "CRITICAL": 100,
+    "LOW": 20,
+    "MODERATE": 40,
+    "MEDIUM": 60,
+    "HIGH": 80,
+    "CRITICAL": 100,
 }
 
 
@@ -30,20 +32,43 @@ class RawScores:
 
 
 def score_risk(
-    before: list[EndpointIr], after: list[EndpointIr], graph_delta: GraphDelta,
+    before: list[EndpointIr],
+    after: list[EndpointIr],
+    graph_delta: GraphDelta,
 ) -> RiskResult:
     removed_auth = _authorization_removals(before, after)
-    before_scores = _state_scores(
-        before,
-        bool(anonymous_sensitive_paths(graph_delta.before, before)),
-    )
-    after_scores = _state_scores(
-        after,
-        bool(anonymous_sensitive_paths(graph_delta.after, after)),
-        removed_auth,
-    )
-    risk_before = _weighted_total(before_scores)
-    risk_after = _weighted_total(after_scores)
+    affected_routes = {
+        (path.nodes[1], path.target) for path in graph_delta.new_paths if len(path.nodes) > 1
+    }
+    if affected_routes:
+        candidates = []
+        for route_id, resource_id in sorted(affected_routes):
+            current = [
+                endpoint
+                for endpoint in after
+                if endpoint_node_id(endpoint) == route_id
+                and resource_node_id(endpoint.resource) == resource_id
+            ]
+            previous = [endpoint for endpoint in before if endpoint_node_id(endpoint) == route_id]
+            route_removal = {route_id} if route_id in removed_auth else set()
+            before_state = _state_scores(previous, _has_public_sensitive_endpoint(previous))
+            after_state = _state_scores(current, True, route_removal)
+            candidates.append(
+                (
+                    _weighted_total(after_state),
+                    _weighted_total(before_state),
+                    route_id,
+                    before_state,
+                    after_state,
+                )
+            )
+        _, risk_before, _, before_scores, after_scores = max(candidates)
+        risk_after = _weighted_total(after_scores)
+    else:
+        before_scores = _highest_state(before)
+        after_scores = _highest_state(after)
+        risk_before = _weighted_total(before_scores)
+        risk_after = _weighted_total(after_scores)
     return RiskResult(
         risk_before=risk_before,
         risk_after=risk_after,
@@ -51,16 +76,35 @@ def score_risk(
         category_before=category_for(risk_before),
         category_after=category_for(risk_after),
         components=_components(after_scores),
+        components_before=_components(before_scores),
+        policy_version=POLICY.version,
         evidence=_evidence(before, after, graph_delta, removed_auth),
     )
 
 
-def decide(risk: RiskResult, graph_delta: GraphDelta) -> Verdict:
-    if graph_delta.new_paths and risk.risk_after >= 61:
+def decide(risk: RiskResult, graph_delta: GraphDelta, insufficient: bool = False) -> Verdict:
+    if insufficient:
+        return "REVIEW"
+    if graph_delta.new_paths and risk.risk_after >= POLICY.block_after:
         return "BLOCK"
-    if risk.risk_after >= 41 or risk.risk_delta >= 21:
+    if risk.risk_after >= POLICY.review_after or risk.risk_delta >= POLICY.review_delta:
         return "REVIEW"
     return "ALLOW"
+
+
+def reason_codes(risk: RiskResult, delta: GraphDelta, insufficient: bool) -> list[str]:
+    reasons = []
+    if delta.new_paths:
+        reasons.append("NEW_ANONYMOUS_SENSITIVE_PATH")
+    if delta.removed_paths:
+        reasons.append("ANONYMOUS_SENSITIVE_PATH_REMOVED")
+    if risk.risk_after >= POLICY.review_after:
+        reasons.append("RISK_AFTER_REVIEW_THRESHOLD")
+    if risk.risk_delta >= POLICY.review_delta:
+        reasons.append("RISK_DELTA_REVIEW_THRESHOLD")
+    if insufficient:
+        reasons.append("INSUFFICIENT_EXTRACTION_EVIDENCE")
+    return reasons or ["NO_REVIEW_CONDITION"]
 
 
 def category_for(score: int) -> str:
@@ -76,11 +120,14 @@ def category_for(score: int) -> str:
 
 
 def _state_scores(
-    endpoints: list[EndpointIr], has_anonymous_path: bool, removed_auth: set[str] | None = None,
+    endpoints: list[EndpointIr],
+    has_anonymous_path: bool,
+    removed_auth: set[str] | None = None,
 ) -> RawScores:
     removed_auth = removed_auth or set()
     max_sensitivity = max(
-        (SENSITIVITY_SCORES[endpoint.sensitivity] for endpoint in endpoints), default=0,
+        (SENSITIVITY_SCORES[endpoint.sensitivity] for endpoint in endpoints),
+        default=0,
     )
     public_sensitive = _has_public_sensitive_endpoint(endpoints)
     has_sensitive_get = any(
@@ -89,7 +136,9 @@ def _state_scores(
     )
     # Fixed MVP rubric: auth removal has broad privilege impact (60), while an
     # unauthenticated sensitive GET is directly testable over HTTP (50).
-    exploitability = 50 if public_sensitive and has_sensitive_get else 20 if has_sensitive_get else 0
+    exploitability = (
+        50 if public_sensitive and has_sensitive_get else 20 if has_sensitive_get else 0
+    )
     return RawScores(
         reachability=100 if has_anonymous_path else 0,
         authorization_change=100 if removed_auth else 0,
@@ -98,6 +147,33 @@ def _state_scores(
         privilege_impact=60 if removed_auth else 0,
         exploitability=exploitability,
     )
+
+
+def _affected_endpoints(
+    endpoints: list[EndpointIr],
+    affected_routes: set[tuple[str, str]],
+) -> list[EndpointIr]:
+    """Limit impact scoring to the routes/resources proven newly anonymous.
+
+    Application-wide sensitivity is deliberately not a risk component. A separate
+    inventory metric can report global criticality without changing a finding's score.
+    """
+    return [
+        endpoint
+        for endpoint in endpoints
+        if (endpoint_node_id(endpoint), resource_node_id(endpoint.resource)) in affected_routes
+    ]
+
+
+def _highest_state(endpoints: list[EndpointIr]) -> RawScores:
+    """Return one coherent route state instead of mixing component maxima."""
+    if not endpoints:
+        return _state_scores([], False)
+    candidates = [
+        _state_scores([endpoint], _has_public_sensitive_endpoint([endpoint]))
+        for endpoint in endpoints
+    ]
+    return max(candidates, key=_weighted_total)
 
 
 def _authorization_removals(before: list[EndpointIr], after: list[EndpointIr]) -> set[str]:
@@ -135,7 +211,9 @@ def _components(scores: RawScores) -> RiskComponents:
 
 
 def _evidence(
-    before: list[EndpointIr], after: list[EndpointIr], graph_delta: GraphDelta,
+    before: list[EndpointIr],
+    after: list[EndpointIr],
+    graph_delta: GraphDelta,
     removed_auth: set[str],
 ) -> list[str]:
     evidence = []

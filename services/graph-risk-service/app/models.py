@@ -1,41 +1,78 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
-
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
 Sensitivity = Literal["LOW", "MODERATE", "MEDIUM", "HIGH", "CRITICAL"]
 NodeType = Literal[
-    "USER", "ROLE", "ENDPOINT", "CONTROLLER", "FUNCTION", "SERVICE",
-    "DATABASE", "DATA_RESOURCE", "EXTERNAL_SERVICE",
+    "USER",
+    "ROLE",
+    "ENDPOINT",
+    "CONTROLLER",
+    "FUNCTION",
+    "SERVICE",
+    "DATABASE",
+    "DATA_RESOURCE",
+    "EXTERNAL_SERVICE",
 ]
 Relationship = Literal[
-    "CAN_ACCESS", "CALLS", "READS", "WRITES", "REQUIRES_ROLE",
-    "CONNECTS_TO", "RETURNS", "HAS_ROLE",
+    "CAN_ACCESS",
+    "CALLS",
+    "READS",
+    "WRITES",
+    "REQUIRES_ROLE",
+    "CONNECTS_TO",
+    "RETURNS",
+    "HAS_ROLE",
 ]
 Category = Literal["LOW", "MODERATE", "MEDIUM", "HIGH", "CRITICAL"]
 Verdict = Literal["ALLOW", "REVIEW", "BLOCK"]
 
 
 class ContractModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
 
 class EndpointIr(ContractModel):
-    endpoint: str = Field(min_length=1)
+    endpoint: str = Field(min_length=1, max_length=512)
     method: HttpMethod
-    controller: str = Field(min_length=1)
+    controller: str = Field(min_length=1, max_length=512)
     authentication: bool
-    required_role: str | None
-    service: str | None
-    repository: str | None
-    resource: str = Field(min_length=1)
+    required_role: str | None = Field(max_length=256)
+    service: str | None = Field(max_length=512)
+    repository: str | None = Field(max_length=512)
+    resource: str = Field(min_length=1, max_length=512)
     sensitivity: Sensitivity
+
+    @model_validator(mode="after")
+    def consistent_auth(self):
+        if not self.endpoint.startswith("/") or (not self.authentication and self.required_role):
+            raise ValueError("Route must be absolute and public endpoints cannot require a role")
+        return self
+
+
+class Quality(ContractModel):
+    confidence: Literal["LOW", "MEDIUM", "HIGH"] = "HIGH"
+    coverage_ratio: float = Field(default=1, ge=0, le=1)
+    incomplete: bool = False
 
 
 class AnalysisRequest(ContractModel):
-    before: list[EndpointIr]
-    after: list[EndpointIr]
+    before: list[EndpointIr] = Field(max_length=2000)
+    after: list[EndpointIr] = Field(max_length=2000)
+    quality: Quality = Field(default_factory=Quality)
+
+    @model_validator(mode="after")
+    def unambiguous_routes(self):
+        for rows in (self.before, self.after):
+            seen = {}
+            for row in rows:
+                key = (row.method, row.endpoint)
+                auth = (row.authentication, row.required_role)
+                if key in seen and seen[key] != auth:
+                    raise ValueError("Conflicting authorization for the same route")
+                seen[key] = auth
+        return self
 
 
 class Node(ContractModel):
@@ -98,6 +135,8 @@ class RiskResult(ContractModel):
     category_after: Category
     components: RiskComponents
     evidence: list[str]
+    components_before: RiskComponents | None = None
+    policy_version: str = "1.0.0"
 
 
 class AnalysisResult(ContractModel):
@@ -105,3 +144,6 @@ class AnalysisResult(ContractModel):
     graph_delta: GraphDelta
     risk_result: RiskResult
     verdict: Verdict
+    schema_version: str = "1.1.0"
+    reason_codes: list[str] = Field(default_factory=list)
+    quality: Quality = Field(default_factory=Quality)

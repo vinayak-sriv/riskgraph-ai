@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "RiskGraph AI",
+          "version": "1.0.0",
+          "rules": [
+            {
+              "id": "RG001",
+              "shortDescription": {
+                "text": "New anonymous sensitive path"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "RG001",
+          "level": "error",
+          "message": {
+            "text": "New anonymous GET /admin/export path reaches resource:Payment. Validate in a local Docker sandbox."
+          },
+          "partialFingerprints": {
+            "riskgraph/v1": "20630d1b4f574d5ee01138a6df1276e3e5aa8b3a8e17824e05aac6233f230e14"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/main/java/demo/ExportController.java"
+                },
+                "region": {
+                  "startLine": 8,
+                  "endLine": 8
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "invocations": [
+        {
+          "executionSuccessful": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,9 +1,17 @@
+from urllib.parse import quote
+
 import networkx as nx
 
 from .models import (
-    Edge, EndpointIr, GraphDelta, Node, NodeType, PathEvidence, Relationship, SecurityGraph,
+    Edge,
+    EndpointIr,
+    GraphDelta,
+    Node,
+    NodeType,
+    PathEvidence,
+    Relationship,
+    SecurityGraph,
 )
-
 
 ANONYMOUS_NODE_ID = "user:anonymous"
 SENSITIVE_LEVELS = {"MEDIUM", "HIGH", "CRITICAL"}
@@ -24,7 +32,7 @@ def build_graph(endpoints: list[EndpointIr]) -> SecurityGraph:
 
     for endpoint in sorted(endpoints, key=lambda item: (item.endpoint, item.method)):
         endpoint_id = endpoint_node_id(endpoint)
-        controller_id = f"controller:{endpoint.controller}"
+        controller_id = scoped_id("controller", endpoint.controller, endpoint)
         resource_id = resource_node_id(endpoint.resource)
 
         add_node(endpoint_id, "ENDPOINT", f"{endpoint.method} {endpoint.endpoint}")
@@ -43,13 +51,13 @@ def build_graph(endpoints: list[EndpointIr]) -> SecurityGraph:
 
         previous_id = controller_id
         if endpoint.service:
-            service_id = f"service:{endpoint.service}"
+            service_id = scoped_id("service", endpoint.service, endpoint)
             add_node(service_id, "SERVICE", endpoint.service)
             add_edge(controller_id, service_id, "CALLS")
             previous_id = service_id
 
         if endpoint.repository:
-            repository_id = f"repository:{endpoint.repository}"
+            repository_id = scoped_id("repository", endpoint.repository, endpoint)
             add_node(repository_id, "DATABASE", endpoint.repository)
             add_edge(previous_id, repository_id, "READS")
             add_edge(repository_id, resource_id, "RETURNS")
@@ -58,7 +66,7 @@ def build_graph(endpoints: list[EndpointIr]) -> SecurityGraph:
 
     return SecurityGraph(
         nodes=[nodes[node_id] for node_id in sorted(nodes)],
-        edges=list(edges.values()),
+        edges=[edges[key] for key in sorted(edges)],
     )
 
 
@@ -71,7 +79,9 @@ def compare_graphs(before: list[EndpointIr], after: list[EndpointIr]) -> GraphDe
         before=before_graph,
         after=after_graph,
         new_paths=[after_paths[key] for key in sorted(after_paths.keys() - before_paths.keys())],
-        removed_paths=[before_paths[key] for key in sorted(before_paths.keys() - after_paths.keys())],
+        removed_paths=[
+            before_paths[key] for key in sorted(before_paths.keys() - after_paths.keys())
+        ],
     )
 
 
@@ -83,31 +93,74 @@ def resource_node_id(resource: str) -> str:
     return f"resource:{resource}"
 
 
+def scoped_id(kind: str, name: str, endpoint: EndpointIr) -> str:
+    # Route context prevents a public method inheriting another method's private
+    # repository access through a shared controller/service node. No source inference.
+    context = ":".join(
+        quote(value or "", safe="")
+        for value in (
+            endpoint.method,
+            endpoint.endpoint,
+            endpoint.controller,
+            endpoint.service,
+            endpoint.repository,
+            endpoint.resource,
+        )
+    )
+    return f"{kind}:{quote(name, safe='')}@{context}"
+
+
 def anonymous_sensitive_paths(
     graph: SecurityGraph,
     endpoints: list[EndpointIr],
-) -> dict[tuple[str, str], PathEvidence]:
+) -> dict[tuple[str, ...], PathEvidence]:
     nx_graph = nx.DiGraph()
     nx_graph.add_nodes_from(node.id for node in graph.nodes)
     for edge in graph.edges:
         nx_graph.add_edge(edge.source_id, edge.target_id, relationship=edge.relationship)
 
-    targets = {
-        resource_node_id(endpoint.resource)
-        for endpoint in endpoints
-        if endpoint.sensitivity in SENSITIVE_LEVELS
-    }
-    paths: dict[tuple[str, str], PathEvidence] = {}
-    for target in sorted(targets):
+    paths: dict[tuple[str, ...], PathEvidence] = {}
+    # Each row is a resolved call/resource path. BFS on its route-context nodes
+    # enumerates every represented path, including two routes to the same resource.
+    for endpoint in sorted(endpoints, key=lambda row: row.model_dump_json()):
+        target = resource_node_id(endpoint.resource)
+        if endpoint.authentication or endpoint.sensitivity not in SENSITIVE_LEVELS:
+            continue
+        node_chain = [
+            ANONYMOUS_NODE_ID,
+            endpoint_node_id(endpoint),
+            scoped_id("controller", endpoint.controller, endpoint),
+        ]
+        if endpoint.service:
+            node_chain.append(scoped_id("service", endpoint.service, endpoint))
+        if endpoint.repository:
+            node_chain.append(scoped_id("repository", endpoint.repository, endpoint))
+        node_chain.append(target)
+
+        # Build the bounded route slice explicitly. NetworkX subgraph views inspect
+        # the anonymous node's full adjacency for every endpoint, which turns a
+        # valid many-route request into quadratic work.
+        route_graph = nx.DiGraph()
+        route_graph.add_nodes_from(node_chain)
+        for source, destination in zip(node_chain, node_chain[1:], strict=False):
+            if nx_graph.has_edge(source, destination):
+                route_graph.add_edge(
+                    source,
+                    destination,
+                    relationship=nx_graph.edges[source, destination]["relationship"],
+                )
         try:
-            node_path = nx.shortest_path(nx_graph, ANONYMOUS_NODE_ID, target)
+            node_path = nx.shortest_path(route_graph, ANONYMOUS_NODE_ID, target)
         except (nx.NetworkXNoPath, nx.NodeNotFound):
             continue
         relationships = [
-            nx_graph.edges[source, destination]["relationship"]
-            for source, destination in zip(node_path, node_path[1:])
+            route_graph.edges[source, destination]["relationship"]
+            for source, destination in zip(node_path, node_path[1:], strict=False)
         ]
-        key = (ANONYMOUS_NODE_ID, target)
+        # Security identity is deliberately independent of implementation names.
+        # Refactoring a controller/service/repository must not create a new access
+        # path when the principal, route and resource are unchanged.
+        key = (ANONYMOUS_NODE_ID, endpoint_node_id(endpoint), target)
         paths[key] = PathEvidence(
             source=ANONYMOUS_NODE_ID,
             target=target,

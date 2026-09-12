@@ -1,0 +1,266 @@
+{
+  "scenario": "local-source",
+  "graph_delta": {
+    "before": {
+      "nodes": [
+        {
+          "id": "controller:OwnerController@GET:%2Fowners:OwnerController:::Owner",
+          "node_type": "CONTROLLER",
+          "name": "OwnerController"
+        },
+        {
+          "id": "endpoint:GET:/owners",
+          "node_type": "ENDPOINT",
+          "name": "GET /owners"
+        },
+        {
+          "id": "resource:Owner",
+          "node_type": "DATA_RESOURCE",
+          "name": "Owner"
+        },
+        {
+          "id": "user:anonymous",
+          "node_type": "USER",
+          "name": "Anonymous"
+        }
+      ],
+      "edges": [
+        {
+          "source_id": "controller:OwnerController@GET:%2Fowners:OwnerController:::Owner",
+          "target_id": "resource:Owner",
+          "relationship": "RETURNS"
+        },
+        {
+          "source_id": "endpoint:GET:/owners",
+          "target_id": "controller:OwnerController@GET:%2Fowners:OwnerController:::Owner",
+          "relationship": "CALLS"
+        },
+        {
+          "source_id": "user:anonymous",
+          "target_id": "endpoint:GET:/owners",
+          "relationship": "CAN_ACCESS"
+        }
+      ]
+    },
+    "after": {
+      "nodes": [
+        {
+          "id": "controller:OwnerController@GET:%2Fowners:OwnerController:::Owner",
+          "node_type": "CONTROLLER",
+          "name": "OwnerController"
+        },
+        {
+          "id": "endpoint:GET:/owners",
+          "node_type": "ENDPOINT",
+          "name": "GET /owners"
+        },
+        {
+          "id": "resource:Owner",
+          "node_type": "DATA_RESOURCE",
+          "name": "Owner"
+        },
+        {
+          "id": "user:anonymous",
+          "node_type": "USER",
+          "name": "Anonymous"
+        }
+      ],
+      "edges": [
+        {
+          "source_id": "controller:OwnerController@GET:%2Fowners:OwnerController:::Owner",
+          "target_id": "resource:Owner",
+          "relationship": "RETURNS"
+        },
+        {
+          "source_id": "endpoint:GET:/owners",
+          "target_id": "controller:OwnerController@GET:%2Fowners:OwnerController:::Owner",
+          "relationship": "CALLS"
+        },
+        {
+          "source_id": "user:anonymous",
+          "target_id": "endpoint:GET:/owners",
+          "relationship": "CAN_ACCESS"
+        }
+      ]
+    },
+    "new_paths": [],
+    "removed_paths": []
+  },
+  "risk_result": {
+    "risk_before": 8,
+    "risk_after": 8,
+    "risk_delta": 0,
+    "category_before": "LOW",
+    "category_after": "LOW",
+    "components": {
+      "reachability": {
+        "score": 0,
+        "weight": 0.25,
+        "weighted_score": 0.0
+      },
+      "authorization_change": {
+        "score": 0,
+        "weight": 0.2,
+        "weighted_score": 0.0
+      },
+      "data_sensitivity": {
+        "score": 40,
+        "weight": 0.2,
+        "weighted_score": 8.0
+      },
+      "external_exposure": {
+        "score": 0,
+        "weight": 0.15,
+        "weighted_score": 0.0
+      },
+      "privilege_impact": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      },
+      "exploitability": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      }
+    },
+    "evidence": [
+      "No new anonymous-to-sensitive-resource path detected"
+    ],
+    "components_before": {
+      "reachability": {
+        "score": 0,
+        "weight": 0.25,
+        "weighted_score": 0.0
+      },
+      "authorization_change": {
+        "score": 0,
+        "weight": 0.2,
+        "weighted_score": 0.0
+      },
+      "data_sensitivity": {
+        "score": 40,
+        "weight": 0.2,
+        "weighted_score": 8.0
+      },
+      "external_exposure": {
+        "score": 0,
+        "weight": 0.15,
+        "weighted_score": 0.0
+      },
+      "privilege_impact": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      },
+      "exploitability": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      }
+    },
+    "policy_version": "1.0.0"
+  },
+  "verdict": "REVIEW",
+  "schema_version": "1.0.0",
+  "reason_codes": [
+    "INSUFFICIENT_EXTRACTION_EVIDENCE"
+  ],
+  "quality": {
+    "confidence": "LOW",
+    "coverage_ratio": 0.0,
+    "incomplete": false
+  },
+  "provenance": {
+    "repository_path": "/analysis-repositories/external/spring-petclinic",
+    "repository_identity": "https://github.com/spring-projects/spring-petclinic.git",
+    "old_commit": "0f6e8614047bd74cf6223b4d8a858d2ed2824f8a",
+    "new_commit": "bb37aad8c332264723817d855e8b3b96b7c392bc"
+  },
+  "coverage": {
+    "java_files_considered": 2,
+    "controllers_discovered": 6,
+    "endpoints_emitted": 2,
+    "endpoints_with_service": 0,
+    "endpoints_with_repository": 0,
+    "coverage_ratio": 0.0
+  },
+  "diagnostics": [],
+  "source_evidence": {
+    "before": [
+      {
+        "endpoint": {
+          "endpoint": "/owners",
+          "method": "GET",
+          "controller": "OwnerController",
+          "authentication": false,
+          "required_role": null,
+          "service": null,
+          "repository": null,
+          "resource": "Owner",
+          "sensitivity": "MODERATE"
+        },
+        "source_location": {
+          "path": "src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java",
+          "start_line": 95,
+          "end_line": 119
+        },
+        "qualified_controller": "org.springframework.samples.petclinic.owner.OwnerController",
+        "method_signature": "processFindForm(int,org.springframework.samples.petclinic.owner.Owner,org.springframework.validation.BindingResult,org.springframework.ui.Model)",
+        "dependency_paths": [],
+        "sensitivity_evidence": {
+          "classification": "MODERATE",
+          "source": "classpath:sensitivity-policy.yml",
+          "matched_rule": "default@1.0.0"
+        },
+        "extraction_confidence": {
+          "route": "HIGH",
+          "authorization": "HIGH",
+          "call_resolution": "LOW",
+          "overall": "LOW"
+        }
+      }
+    ],
+    "after": [
+      {
+        "endpoint": {
+          "endpoint": "/owners",
+          "method": "GET",
+          "controller": "OwnerController",
+          "authentication": false,
+          "required_role": null,
+          "service": null,
+          "repository": null,
+          "resource": "Owner",
+          "sensitivity": "MODERATE"
+        },
+        "source_location": {
+          "path": "src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java",
+          "start_line": 95,
+          "end_line": 122
+        },
+        "qualified_controller": "org.springframework.samples.petclinic.owner.OwnerController",
+        "method_signature": "processFindForm(int,org.springframework.samples.petclinic.owner.Owner,org.springframework.validation.BindingResult,org.springframework.ui.Model)",
+        "dependency_paths": [],
+        "sensitivity_evidence": {
+          "classification": "MODERATE",
+          "source": "classpath:sensitivity-policy.yml",
+          "matched_rule": "default@1.0.0"
+        },
+        "extraction_confidence": {
+          "route": "HIGH",
+          "authorization": "HIGH",
+          "call_resolution": "LOW",
+          "overall": "LOW"
+        }
+      }
+    ]
+  },
+  "analyzer_version": "0.3.2",
+  "analysis_id": "a7eeaa9f9601c9c90b3c2d210dcc540ee76c9ce72e5c2083b3ba7d83aeb404d9",
+  "pre_validation_verdict": "REVIEW",
+  "validation_status": "NOT_RUN",
+  "final_verdict": "REVIEW",
+  "status": "DEGRADED",
+  "scan_id": "eb7f40a5718b83a4f84a24384dfc3845787338ac5f9165ba7840eeb235afc3d9"
+}

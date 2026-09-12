@@ -1,0 +1,377 @@
+{
+  "ai": {
+    "status": "DEGRADED",
+    "analysis": {
+      "finding": "Security change requires review",
+      "evidence": [
+        "ADMIN authorization removed from GET /admin/export",
+        "Anonymous user can newly reach sensitive resource Payment"
+      ],
+      "confidence": "LOW",
+      "hypothesis": "Unconfirmed: validate the deterministic reachability evidence in the local Docker sandbox.",
+      "recommended_test": "GET /admin/export without authentication"
+    },
+    "provider": "deterministic-fallback",
+    "confirmed": false,
+    "reason_code": "OLLAMA_UNAVAILABLE"
+  },
+  "status": "DEGRADED",
+  "quality": {
+    "confidence": "HIGH",
+    "incomplete": false,
+    "coverage_ratio": 1.0
+  },
+  "scan_id": "986e16ebf6c103bce1cc2e0b0b5838d81c131df2bb24fc321b8e2e6aab9a24c6",
+  "verdict": "BLOCK",
+  "coverage": {
+    "coverage_ratio": 1.0,
+    "endpoints_emitted": 2,
+    "java_files_considered": 1,
+    "controllers_discovered": 1,
+    "endpoints_with_service": 2,
+    "endpoints_with_repository": 2
+  },
+  "scenario": "local-source",
+  "provenance": {
+    "new_commit": "593c8cf10cb63c35867417273381ffa2dd610af5",
+    "old_commit": "cd798461fbbd4cc37e6e1c35313f726061b913cb",
+    "repository_path": "/analysis-repositories/mvp-v1/authorization-removal",
+    "repository_identity": "local-git:cd798461fbbd4cc37e6e1c35313f726061b913cb"
+  },
+  "analysis_id": "215904d7451de6038b894c02bee3ec18c14afc40e7a7ddc395abe2ce3eb2706a",
+  "diagnostics": [],
+  "graph_delta": {
+    "after": {
+      "edges": [
+        {
+          "source_id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "CALLS"
+        },
+        {
+          "source_id": "endpoint:GET:/admin/export",
+          "target_id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "CALLS"
+        },
+        {
+          "source_id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "resource:Payment",
+          "relationship": "RETURNS"
+        },
+        {
+          "source_id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "READS"
+        },
+        {
+          "source_id": "user:anonymous",
+          "target_id": "endpoint:GET:/admin/export",
+          "relationship": "CAN_ACCESS"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "name": "ExportController",
+          "node_type": "CONTROLLER"
+        },
+        {
+          "id": "endpoint:GET:/admin/export",
+          "name": "GET /admin/export",
+          "node_type": "ENDPOINT"
+        },
+        {
+          "id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "name": "PaymentRepository",
+          "node_type": "DATABASE"
+        },
+        {
+          "id": "resource:Payment",
+          "name": "Payment",
+          "node_type": "DATA_RESOURCE"
+        },
+        {
+          "id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "name": "ExportService",
+          "node_type": "SERVICE"
+        },
+        {
+          "id": "user:anonymous",
+          "name": "Anonymous",
+          "node_type": "USER"
+        }
+      ]
+    },
+    "before": {
+      "edges": [
+        {
+          "source_id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "CALLS"
+        },
+        {
+          "source_id": "endpoint:GET:/admin/export",
+          "target_id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "CALLS"
+        },
+        {
+          "source_id": "endpoint:GET:/admin/export",
+          "target_id": "role:ADMIN",
+          "relationship": "REQUIRES_ROLE"
+        },
+        {
+          "source_id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "resource:Payment",
+          "relationship": "RETURNS"
+        },
+        {
+          "source_id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "target_id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "relationship": "READS"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "name": "ExportController",
+          "node_type": "CONTROLLER"
+        },
+        {
+          "id": "endpoint:GET:/admin/export",
+          "name": "GET /admin/export",
+          "node_type": "ENDPOINT"
+        },
+        {
+          "id": "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "name": "PaymentRepository",
+          "node_type": "DATABASE"
+        },
+        {
+          "id": "resource:Payment",
+          "name": "Payment",
+          "node_type": "DATA_RESOURCE"
+        },
+        {
+          "id": "role:ADMIN",
+          "name": "ADMIN",
+          "node_type": "ROLE"
+        },
+        {
+          "id": "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "name": "ExportService",
+          "node_type": "SERVICE"
+        },
+        {
+          "id": "user:anonymous",
+          "name": "Anonymous",
+          "node_type": "USER"
+        }
+      ]
+    },
+    "new_paths": [
+      {
+        "edges": [
+          "CAN_ACCESS",
+          "CALLS",
+          "CALLS",
+          "READS",
+          "RETURNS"
+        ],
+        "nodes": [
+          "user:anonymous",
+          "endpoint:GET:/admin/export",
+          "controller:ExportController@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "service:ExportService@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "repository:PaymentRepository@GET:%2Fadmin%2Fexport:ExportController:ExportService:PaymentRepository:Payment",
+          "resource:Payment"
+        ],
+        "source": "user:anonymous",
+        "target": "resource:Payment"
+      }
+    ],
+    "removed_paths": []
+  },
+  "risk_result": {
+    "evidence": [
+      "ADMIN authorization removed from GET /admin/export",
+      "Anonymous user can newly reach sensitive resource Payment"
+    ],
+    "components": {
+      "reachability": {
+        "score": 100,
+        "weight": 0.25,
+        "weighted_score": 25.0
+      },
+      "exploitability": {
+        "score": 50,
+        "weight": 0.1,
+        "weighted_score": 5.0
+      },
+      "data_sensitivity": {
+        "score": 100,
+        "weight": 0.2,
+        "weighted_score": 20.0
+      },
+      "privilege_impact": {
+        "score": 60,
+        "weight": 0.1,
+        "weighted_score": 6.0
+      },
+      "external_exposure": {
+        "score": 100,
+        "weight": 0.15,
+        "weighted_score": 15.0
+      },
+      "authorization_change": {
+        "score": 100,
+        "weight": 0.2,
+        "weighted_score": 20.0
+      }
+    },
+    "risk_after": 91,
+    "risk_delta": 69,
+    "risk_before": 22,
+    "category_after": "CRITICAL",
+    "policy_version": "1.0.0",
+    "category_before": "MODERATE",
+    "components_before": {
+      "reachability": {
+        "score": 0,
+        "weight": 0.25,
+        "weighted_score": 0.0
+      },
+      "exploitability": {
+        "score": 20,
+        "weight": 0.1,
+        "weighted_score": 2.0
+      },
+      "data_sensitivity": {
+        "score": 100,
+        "weight": 0.2,
+        "weighted_score": 20.0
+      },
+      "privilege_impact": {
+        "score": 0,
+        "weight": 0.1,
+        "weighted_score": 0.0
+      },
+      "external_exposure": {
+        "score": 0,
+        "weight": 0.15,
+        "weighted_score": 0.0
+      },
+      "authorization_change": {
+        "score": 0,
+        "weight": 0.2,
+        "weighted_score": 0.0
+      }
+    }
+  },
+  "reason_codes": [
+    "NEW_ANONYMOUS_SENSITIVE_PATH",
+    "RISK_AFTER_REVIEW_THRESHOLD",
+    "RISK_DELTA_REVIEW_THRESHOLD"
+  ],
+  "final_verdict": "BLOCK",
+  "schema_version": "1.0.0",
+  "source_evidence": {
+    "after": [
+      {
+        "endpoint": {
+          "method": "GET",
+          "service": "ExportService",
+          "endpoint": "/admin/export",
+          "resource": "Payment",
+          "controller": "ExportController",
+          "repository": "PaymentRepository",
+          "sensitivity": "CRITICAL",
+          "required_role": null,
+          "authentication": false
+        },
+        "source_location": {
+          "path": "src/main/java/demo/ExportController.java",
+          "end_line": 8,
+          "start_line": 8
+        },
+        "dependency_paths": [
+          {
+            "service": "ExportService",
+            "resource": "Payment",
+            "repository": "PaymentRepository"
+          }
+        ],
+        "method_signature": "export()",
+        "qualified_controller": "demo.ExportController",
+        "sensitivity_evidence": {
+          "source": "classpath:sensitivity-policy.yml",
+          "matched_rule": "Payment@1.0.0",
+          "classification": "CRITICAL"
+        },
+        "extraction_confidence": {
+          "route": "HIGH",
+          "overall": "HIGH",
+          "authorization": "HIGH",
+          "call_resolution": "HIGH"
+        }
+      }
+    ],
+    "before": [
+      {
+        "endpoint": {
+          "method": "GET",
+          "service": "ExportService",
+          "endpoint": "/admin/export",
+          "resource": "Payment",
+          "controller": "ExportController",
+          "repository": "PaymentRepository",
+          "sensitivity": "CRITICAL",
+          "required_role": "ADMIN",
+          "authentication": true
+        },
+        "source_location": {
+          "path": "src/main/java/demo/ExportController.java",
+          "end_line": 9,
+          "start_line": 9
+        },
+        "dependency_paths": [
+          {
+            "service": "ExportService",
+            "resource": "Payment",
+            "repository": "PaymentRepository"
+          }
+        ],
+        "method_signature": "export()",
+        "qualified_controller": "demo.ExportController",
+        "sensitivity_evidence": {
+          "source": "classpath:sensitivity-policy.yml",
+          "matched_rule": "Payment@1.0.0",
+          "classification": "CRITICAL"
+        },
+        "extraction_confidence": {
+          "route": "HIGH",
+          "overall": "HIGH",
+          "authorization": "HIGH",
+          "call_resolution": "HIGH"
+        }
+      }
+    ]
+  },
+  "analyzer_version": "0.3.1",
+  "validation_status": "CONFIRMED",
+  "pre_validation_verdict": "BLOCK",
+  "validation": {
+    "status": "CONFIRMED",
+    "confirmed": true,
+    "actual_status": 200,
+    "expected_status": 200,
+    "evidence": [
+      "Anonymous GET /admin/export executed in the shipped local Docker sandbox"
+    ],
+    "reason_code": "HTTP_AUTH_PROBE",
+    "sandbox_revision": "vulnerable",
+    "container_image_id": "sha256:fb8eec6d8e8c968d3694ea32ca2cc4b5f505fbd061134bffef8172a38ad2a298",
+    "cleanup_complete": true,
+    "response_sha256": "a2f7c559de14ad0c4dc25f25af32c9c2964864fbf00942c949a6baf3690a48a3",
+    "source_commit": "593c8cf10cb63c35867417273381ffa2dd610af5"
+  }
+}

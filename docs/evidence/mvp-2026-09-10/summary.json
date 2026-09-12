@@ -1,0 +1,43 @@
+{
+  "authorization-removal": {
+    "risk_before": 22,
+    "risk_after": 91,
+    "verdict": "BLOCK",
+    "new_paths": 1,
+    "runtime_seconds": 4.0585876000113785,
+    "source_locations": 2,
+    "confidence": "HIGH",
+    "ai_status": "DEGRADED",
+    "validation_status": "CONFIRMED"
+  },
+  "safe-change": {
+    "risk_before": 22,
+    "risk_after": 22,
+    "verdict": "ALLOW",
+    "new_paths": 0,
+    "runtime_seconds": 3.083290799986571,
+    "source_locations": 2,
+    "confidence": "HIGH",
+    "ai_status": "NOT_RUN"
+  },
+  "new-public-sensitive-endpoint": {
+    "risk_before": 0,
+    "risk_after": 65,
+    "verdict": "BLOCK",
+    "new_paths": 1,
+    "runtime_seconds": 3.103821200085804,
+    "source_locations": 1,
+    "confidence": "HIGH",
+    "ai_status": "DEGRADED"
+  },
+  "sensitive-resource-exposure": {
+    "risk_before": 8,
+    "risk_after": 65,
+    "verdict": "BLOCK",
+    "new_paths": 1,
+    "runtime_seconds": 2.8789085999596864,
+    "source_locations": 2,
+    "confidence": "HIGH",
+    "ai_status": "DEGRADED"
+  }
+}

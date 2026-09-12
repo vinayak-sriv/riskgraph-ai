@@ -1,117 +1,554 @@
 openapi: 3.1.0
 info:
-  title: RiskGraph Graph Risk API
-  version: 0.1.0
+  title: RiskGraph Graph Risk Service
+  version: 0.2.0
 paths:
   /health:
     get:
-      summary: Health check
+      summary: Health
+      operationId: health_health_get
       responses:
-        "200":
-          description: Graph risk service is healthy
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Health Health Get
   /graph/delta:
     post:
-      summary: Build before/after graph delta from endpoint IR
+      summary: Graph Delta
+      operationId: graph_delta_graph_delta_post
+      parameters:
+      - name: X-RiskGraph-Service-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Riskgraph-Service-Token
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GraphDeltaRequest"
+              $ref: '#/components/schemas/AnalysisRequest'
       responses:
-        "200":
-          description: Graph delta result
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "../ir/graph-delta.schema.json"
+                $ref: '#/components/schemas/GraphDelta'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /risk/score:
     post:
-      summary: Compute deterministic risk before, after, and delta
+      summary: Risk Score
+      operationId: risk_score_risk_score_post
+      parameters:
+      - name: X-RiskGraph-Service-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Riskgraph-Service-Token
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RiskScoreRequest"
+              $ref: '#/components/schemas/RiskScoreRequest'
       responses:
-        "200":
-          description: Risk result
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "../ir/risk-result.schema.json"
+                $ref: '#/components/schemas/RiskResult'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /analysis:
     post:
-      summary: Build graph delta, score risk, and return a deterministic verdict
+      summary: Analyze
+      operationId: analyze_analysis_post
+      parameters:
+      - name: X-RiskGraph-Service-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Riskgraph-Service-Token
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GraphDeltaRequest"
+              $ref: '#/components/schemas/AnalysisRequest'
       responses:
-        "200":
-          description: Complete deterministic graph and risk analysis
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AnalysisResult"
+                $ref: '#/components/schemas/AnalysisResult'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
-    EndpointIr:
-      $ref: "../ir/endpoint-ir.schema.json"
-    GraphDeltaRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - before
-        - after
+    AnalysisRequest:
       properties:
         before:
-          type: array
           items:
-            $ref: "#/components/schemas/EndpointIr"
+            $ref: '#/components/schemas/EndpointIr'
+          type: array
+          maxItems: 2000
+          title: Before
         after:
-          type: array
           items:
-            $ref: "#/components/schemas/EndpointIr"
-    RiskScoreRequest:
-      type: object
+            $ref: '#/components/schemas/EndpointIr'
+          type: array
+          maxItems: 2000
+          title: After
+        quality:
+          $ref: '#/components/schemas/Quality'
       additionalProperties: false
+      type: object
       required:
-        - before
-        - after
-        - graph_delta
-      properties:
-        before:
-          type: array
-          items:
-            $ref: "#/components/schemas/EndpointIr"
-        after:
-          type: array
-          items:
-            $ref: "#/components/schemas/EndpointIr"
-        graph_delta:
-          $ref: "../ir/graph-delta.schema.json"
+      - before
+      - after
+      title: AnalysisRequest
     AnalysisResult:
-      type: object
-      additionalProperties: false
-      required:
-        - scenario
-        - graph_delta
-        - risk_result
-        - verdict
       properties:
         scenario:
           type: string
+          title: Scenario
         graph_delta:
-          $ref: "../ir/graph-delta.schema.json"
+          $ref: '#/components/schemas/GraphDelta'
         risk_result:
-          $ref: "../ir/risk-result.schema.json"
+          $ref: '#/components/schemas/RiskResult'
         verdict:
           type: string
           enum:
-            - ALLOW
-            - REVIEW
-            - BLOCK
+          - ALLOW
+          - REVIEW
+          - BLOCK
+          title: Verdict
+        schema_version:
+          type: string
+          title: Schema Version
+          default: 1.1.0
+        reason_codes:
+          items:
+            type: string
+          type: array
+          title: Reason Codes
+        quality:
+          $ref: '#/components/schemas/Quality'
+      additionalProperties: false
+      type: object
+      required:
+      - scenario
+      - graph_delta
+      - risk_result
+      - verdict
+      title: AnalysisResult
+    ComponentScore:
+      properties:
+        score:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Score
+        weight:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Weight
+        weighted_score:
+          type: number
+          maximum: 100.0
+          minimum: 0.0
+          title: Weighted Score
+      additionalProperties: false
+      type: object
+      required:
+      - score
+      - weight
+      - weighted_score
+      title: ComponentScore
+    Edge:
+      properties:
+        source_id:
+          type: string
+          title: Source Id
+        target_id:
+          type: string
+          title: Target Id
+        relationship:
+          type: string
+          enum:
+          - CAN_ACCESS
+          - CALLS
+          - READS
+          - WRITES
+          - REQUIRES_ROLE
+          - CONNECTS_TO
+          - RETURNS
+          - HAS_ROLE
+          title: Relationship
+      additionalProperties: false
+      type: object
+      required:
+      - source_id
+      - target_id
+      - relationship
+      title: Edge
+    EndpointIr:
+      properties:
+        endpoint:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Endpoint
+        method:
+          type: string
+          enum:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          title: Method
+        controller:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Controller
+        authentication:
+          type: boolean
+          title: Authentication
+        required_role:
+          anyOf:
+          - type: string
+            maxLength: 256
+          - type: 'null'
+          title: Required Role
+        service:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Service
+        repository:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Repository
+        resource:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Resource
+        sensitivity:
+          type: string
+          enum:
+          - LOW
+          - MODERATE
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+          title: Sensitivity
+      additionalProperties: false
+      type: object
+      required:
+      - endpoint
+      - method
+      - controller
+      - authentication
+      - required_role
+      - service
+      - repository
+      - resource
+      - sensitivity
+      title: EndpointIr
+    GraphDelta:
+      properties:
+        before:
+          $ref: '#/components/schemas/SecurityGraph'
+        after:
+          $ref: '#/components/schemas/SecurityGraph'
+        new_paths:
+          items:
+            $ref: '#/components/schemas/PathEvidence'
+          type: array
+          title: New Paths
+        removed_paths:
+          items:
+            $ref: '#/components/schemas/PathEvidence'
+          type: array
+          title: Removed Paths
+      additionalProperties: false
+      type: object
+      required:
+      - before
+      - after
+      - new_paths
+      - removed_paths
+      title: GraphDelta
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    Node:
+      properties:
+        id:
+          type: string
+          title: Id
+        node_type:
+          type: string
+          enum:
+          - USER
+          - ROLE
+          - ENDPOINT
+          - CONTROLLER
+          - FUNCTION
+          - SERVICE
+          - DATABASE
+          - DATA_RESOURCE
+          - EXTERNAL_SERVICE
+          title: Node Type
+        name:
+          type: string
+          title: Name
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - node_type
+      - name
+      title: Node
+    PathEvidence:
+      properties:
+        source:
+          type: string
+          title: Source
+        target:
+          type: string
+          title: Target
+        nodes:
+          items:
+            type: string
+          type: array
+          title: Nodes
+        edges:
+          items:
+            type: string
+          type: array
+          title: Edges
+      additionalProperties: false
+      type: object
+      required:
+      - source
+      - target
+      - nodes
+      - edges
+      title: PathEvidence
+    Quality:
+      properties:
+        confidence:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+          title: Confidence
+          default: HIGH
+        coverage_ratio:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Coverage Ratio
+          default: 1
+        incomplete:
+          type: boolean
+          title: Incomplete
+          default: false
+      additionalProperties: false
+      type: object
+      title: Quality
+    RiskComponents:
+      properties:
+        reachability:
+          $ref: '#/components/schemas/ComponentScore'
+        authorization_change:
+          $ref: '#/components/schemas/ComponentScore'
+        data_sensitivity:
+          $ref: '#/components/schemas/ComponentScore'
+        external_exposure:
+          $ref: '#/components/schemas/ComponentScore'
+        privilege_impact:
+          $ref: '#/components/schemas/ComponentScore'
+        exploitability:
+          $ref: '#/components/schemas/ComponentScore'
+      additionalProperties: false
+      type: object
+      required:
+      - reachability
+      - authorization_change
+      - data_sensitivity
+      - external_exposure
+      - privilege_impact
+      - exploitability
+      title: RiskComponents
+    RiskResult:
+      properties:
+        risk_before:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Risk Before
+        risk_after:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Risk After
+        risk_delta:
+          type: integer
+          maximum: 100.0
+          minimum: -100.0
+          title: Risk Delta
+        category_before:
+          type: string
+          enum:
+          - LOW
+          - MODERATE
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+          title: Category Before
+        category_after:
+          type: string
+          enum:
+          - LOW
+          - MODERATE
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+          title: Category After
+        components:
+          $ref: '#/components/schemas/RiskComponents'
+        evidence:
+          items:
+            type: string
+          type: array
+          title: Evidence
+        components_before:
+          anyOf:
+          - $ref: '#/components/schemas/RiskComponents'
+          - type: 'null'
+        policy_version:
+          type: string
+          title: Policy Version
+          default: 1.0.0
+      additionalProperties: false
+      type: object
+      required:
+      - risk_before
+      - risk_after
+      - risk_delta
+      - category_before
+      - category_after
+      - components
+      - evidence
+      title: RiskResult
+    RiskScoreRequest:
+      properties:
+        before:
+          items:
+            $ref: '#/components/schemas/EndpointIr'
+          type: array
+          title: Before
+        after:
+          items:
+            $ref: '#/components/schemas/EndpointIr'
+          type: array
+          title: After
+        graph_delta:
+          $ref: '#/components/schemas/GraphDelta'
+      additionalProperties: false
+      type: object
+      required:
+      - before
+      - after
+      - graph_delta
+      title: RiskScoreRequest
+    SecurityGraph:
+      properties:
+        nodes:
+          items:
+            $ref: '#/components/schemas/Node'
+          type: array
+          title: Nodes
+        edges:
+          items:
+            $ref: '#/components/schemas/Edge'
+          type: array
+          title: Edges
+      additionalProperties: false
+      type: object
+      required:
+      - nodes
+      - edges
+      title: SecurityGraph
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

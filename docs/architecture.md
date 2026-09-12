@@ -33,6 +33,29 @@ services/platform-api
 
 ## Core Rules
 
+```mermaid
+flowchart LR
+  UI[React dashboard] --> P[Spring platform]
+  PR[Immutable PR event] --> P
+  P --> J[Spoon source analysis]
+  J --> IR[Canonical IR + separate evidence]
+  IR --> G[NetworkX reachability]
+  G --> R[Versioned deterministic risk]
+  R --> P
+  P --> A[Ollama structured explanation]
+  P --> V[Registered Docker sandbox]
+  V --> D[Deterministic final decision]
+  D --> DB[(PostgreSQL / Flyway)]
+  DB --> UI
+  P --> Reports[Offline Check / SARIF / summary]
+```
+
+The local Docker worker accepts a fixed structured authorization probe, verifies
+image/commit identity, and creates an internal network with non-root, read-only,
+resource-limited containers. AI never supplies an executable shell command.
+User management/role enforcement is a remaining platform release gate; the current
+runtime is a trusted loopback-only mentor prototype.
+
 - `contracts/` is the source of truth for service communication.
 - `platform-api` is the only service that writes to PostgreSQL.
 - Analysis services should be stateless where possible.
