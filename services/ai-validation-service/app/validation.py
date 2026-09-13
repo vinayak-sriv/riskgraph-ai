@@ -17,6 +17,10 @@ from .reasoning import StrictModel
 
 VALIDATION_CONCURRENCY = max(1, int(os.environ.get("RISKGRAPH_VALIDATION_CONCURRENCY", "2")))
 VALIDATION_SEMAPHORE = asyncio.Semaphore(VALIDATION_CONCURRENCY)
+PROBE_IMAGE = os.environ.get(
+    "RISKGRAPH_VALIDATION_PROBE_IMAGE",
+    "python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a",
+)
 
 
 class ValidationRequest(StrictModel):
@@ -38,6 +42,7 @@ class ValidationResult(StrictModel):
     reason_code: str
     sandbox_revision: str
     container_image_id: str | None = None
+    probe_image_id: str | None = None
     cleanup_complete: bool = True
     response_sha256: str | None = None
     source_commit: str | None = None
@@ -143,7 +148,7 @@ class DockerRunner:
             source_commit = image.get("Config", {}).get("Labels", {}).get("ai.riskgraph.commit")
             if request.expected_commit and request.expected_commit != source_commit:
                 raise ValueError("Sandbox commit identity mismatch")
-            probe_image = json.loads(self.run(["image", "inspect", "python:3.12-alpine"]))[0]["Id"]
+            probe_image = json.loads(self.run(["image", "inspect", PROBE_IMAGE]))[0]["Id"]
             created = True  # Include timeout-after-create cases in cleanup.
             self.run(
                 [
@@ -195,6 +200,7 @@ class DockerRunner:
                 confirmed=payload["status"] == "CONFIRMED",
                 sandbox_revision=request.sandbox_revision,
                 container_image_id=image_id,
+                probe_image_id=probe_image,
                 source_commit=source_commit,
                 evidence=[
                     "Anonymous GET /admin/export executed in the shipped local Docker sandbox"

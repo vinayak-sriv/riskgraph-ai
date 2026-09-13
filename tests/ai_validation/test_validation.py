@@ -56,6 +56,7 @@ def test_isolation_status_and_cleanup(outcome):
     runner = FakeDocker(outcome)
     result = runner.validate(ValidationRequest(sandbox_revision="vulnerable"))
     assert result.status == outcome and result.cleanup_complete
+    assert result.probe_image_id == "sha256:" + "a" * 64
     assert result.confirmed == (outcome == "CONFIRMED")
     for command in (c for c in runner.calls if c[0] == "run"):
         assert all(

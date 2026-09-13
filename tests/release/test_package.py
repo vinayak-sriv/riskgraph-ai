@@ -5,6 +5,8 @@ import uuid
 import zipfile
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("release_package", ROOT / "tools/release/package.py")
 PACKAGE = importlib.util.module_from_spec(SPEC)
@@ -46,5 +48,26 @@ def test_release_archive_is_clean_and_byte_deterministic():
         with zipfile.ZipFile(first) as archive:
             assert archive.namelist() == [".env.example", "src/app.py"]
             assert all(info.date_time == PACKAGE.ARCHIVE_TIMESTAMP for info in archive.infolist())
+        assert PACKAGE.verify_archive(first) == {
+            "archive": "first.zip",
+            "entries": 2,
+            "sha256": hashlib.sha256(first.read_bytes()).hexdigest(),
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def test_release_archive_verifier_rejects_secret_and_traversal_entries():
+    work = ROOT / f".release-test-{uuid.uuid4().hex}"
+    archive_path = work / "unsafe.zip"
+    try:
+        work.mkdir()
+        with zipfile.ZipFile(archive_path, "w") as archive:
+            for name in ("../escape.txt", ".env"):
+                info = zipfile.ZipInfo(name, PACKAGE.ARCHIVE_TIMESTAMP)
+                archive.writestr(info, b"secret")
+
+        with pytest.raises(ValueError, match="Unsafe archive entry"):
+            PACKAGE.verify_archive(archive_path)
     finally:
         shutil.rmtree(work, ignore_errors=True)

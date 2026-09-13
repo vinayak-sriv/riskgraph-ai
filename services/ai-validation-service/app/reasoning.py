@@ -67,9 +67,7 @@ class OllamaProvider:
         self.transport = transport
         self.client: httpx.AsyncClient | None = None
         self.tags_checked_at = 0.0
-        self.max_concurrency = max(
-            1, int(os.environ.get("RISKGRAPH_AI_MAX_CONCURRENCY", "2"))
-        )
+        self.max_concurrency = max(1, int(os.environ.get("RISKGRAPH_AI_MAX_CONCURRENCY", "2")))
         self.queue_timeout = max(
             0.01, float(os.environ.get("RISKGRAPH_AI_QUEUE_TIMEOUT_SECONDS", "5"))
         )

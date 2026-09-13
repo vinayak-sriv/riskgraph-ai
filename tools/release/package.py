@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 EXCLUDED_DIRECTORIES = {
     ".git",
@@ -67,12 +69,51 @@ def build_archive(root: Path, output: Path) -> None:
             archive.writestr(info, path.read_bytes())
 
 
+def verify_archive(path: Path) -> dict[str, object]:
+    """Fail closed if a produced archive violates the release allowlist rules."""
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    with zipfile.ZipFile(path) as archive:
+        names = archive.namelist()
+        if names != sorted(names) or len(names) != len(set(names)):
+            raise ValueError("Archive entries must be unique and lexically ordered")
+        for info in archive.infolist():
+            relative = PurePosixPath(info.filename)
+            if (
+                relative.is_absolute()
+                or ".." in relative.parts
+                or "\\" in info.filename
+                or info.is_dir()
+            ):
+                raise ValueError(f"Unsafe archive entry: {info.filename}")
+            if info.date_time != ARCHIVE_TIMESTAMP:
+                raise ValueError(f"Non-deterministic timestamp: {info.filename}")
+            if any(part in EXCLUDED_DIRECTORIES for part in relative.parts):
+                raise ValueError(f"Excluded directory in archive: {info.filename}")
+            if relative.name in EXCLUDED_FILES or relative.suffix in EXCLUDED_SUFFIXES:
+                raise ValueError(f"Excluded file in archive: {info.filename}")
+            if relative.name.startswith(".env.") and relative.name != ".env.example":
+                raise ValueError(f"Environment secret candidate in archive: {info.filename}")
+        return {"archive": path.name, "entries": len(names), "sha256": digest}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument("--output", type=Path, default=Path("riskgraph-source.zip"))
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        help="Write verification metadata next to the archive as JSON",
+    )
     args = parser.parse_args()
-    build_archive(args.root, args.output.resolve())
+    output = args.output.resolve()
+    build_archive(args.root, output)
+    metadata = verify_archive(output)
+    if args.manifest:
+        args.manifest.resolve().write_text(
+            json.dumps(metadata, indent=2) + "\n", encoding="utf-8", newline="\n"
+        )
+    print(json.dumps(metadata, sort_keys=True))
 
 
 if __name__ == "__main__":

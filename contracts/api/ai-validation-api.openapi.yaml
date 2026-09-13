@@ -312,6 +312,11 @@ components:
           - type: string
           - type: 'null'
           title: Container Image Id
+        probe_image_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Probe Image Id
         cleanup_complete:
           type: boolean
           title: Cleanup Complete

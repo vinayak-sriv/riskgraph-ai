@@ -230,9 +230,7 @@ def test_new_resource_compares_the_same_route_resource_scope() -> None:
         "resource": "Customer",
         "sensitivity": "MEDIUM",
     }
-    request = AnalysisRequest.model_validate(
-        {"before": [existing], "after": [existing, added]}
-    )
+    request = AnalysisRequest.model_validate({"before": [existing], "after": [existing, added]})
     delta = compare_graphs(request.before, request.after)
     risk = score_risk(request.before, request.after, delta)
 

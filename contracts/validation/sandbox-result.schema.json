@@ -61,6 +61,18 @@
       "default": null,
       "title": "Container Image Id"
     },
+    "probe_image_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Probe Image Id"
+    },
     "cleanup_complete": {
       "default": true,
       "title": "Cleanup Complete",

@@ -74,6 +74,7 @@ docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile a
 | `RISKGRAPH_LOGIN_IP_MAX_FAILURES` | 50 failures per source IP before throttling username rotation |
 | `RISKGRAPH_AI_MAX_CONCURRENCY` | 2 model generations across the AI service process |
 | `RISKGRAPH_AI_QUEUE_TIMEOUT_SECONDS` | 5 seconds before returning deterministic degraded output under model saturation |
+| `RISKGRAPH_VALIDATION_PROBE_IMAGE` | Approved immutable Python probe image used only inside the private validation network |
 | `RISKGRAPH_RISK_POLICY` | Optional graph policy path; v1 formula/thresholds must remain exact |
 | `RISKGRAPH_SENSITIVITY_POLICY` | Optional analyzer resource-classification policy path |
 | `RISKGRAPH_BOOTSTRAP_PASSWORD_FILE` | Read once to create `admin` only when no enabled accounts exist; Compose mounts `tmp/local-auth/admin.password` |

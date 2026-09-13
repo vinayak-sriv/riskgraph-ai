@@ -5,7 +5,6 @@ from typing import Annotated
 from fastapi import HTTPException, Security
 from fastapi.security import APIKeyHeader
 
-
 SERVICE_TOKEN = APIKeyHeader(name="X-RiskGraph-Service-Token", auto_error=False)
 
 
