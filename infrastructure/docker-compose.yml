@@ -65,7 +65,8 @@ services:
 
   java-analyzer:
     build:
-      context: ../services/java-analyzer
+      context: ..
+      dockerfile: services/java-analyzer/Dockerfile
     profiles: ["app", "future-services"]
     environment:
       RISKGRAPH_ALLOWED_REPOSITORY_ROOTS: /analysis-repositories

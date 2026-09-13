@@ -1,7 +1,8 @@
 FROM maven:3.9.16-eclipse-temurin-21@sha256:a972570be789ee5c9fa23446a8914ac7327560b5c022f662cfa9452aef829f18 AS build
 WORKDIR /workspace
-COPY pom.xml .
-COPY src ./src
+COPY services/java-analyzer/pom.xml .
+COPY services/java-analyzer/src ./src
+COPY config/checkstyle.xml /config/checkstyle.xml
 RUN mvn -q -DskipTests package
 
 FROM eclipse-temurin:21.0.12_8-jre-noble@sha256:d35199d74a3b2dff1bfb435d9adde4ef974e74a7d2a4fcb3079063c55926edb5

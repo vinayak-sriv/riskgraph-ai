@@ -2,6 +2,7 @@ FROM maven:3.9.16-eclipse-temurin-21@sha256:a972570be789ee5c9fa23446a8914ac73275
 WORKDIR /workspace
 COPY services/platform-api/pom.xml .
 COPY services/platform-api/src ./src
+COPY config/checkstyle.xml /config/checkstyle.xml
 COPY contracts /contracts
 COPY infrastructure/db/migrations /infrastructure/db/migrations
 RUN mvn -q -DskipTests package
