@@ -85,7 +85,15 @@ jobs:
         run: |
           mkdir -p tmp/trivy-cache
           scan_status=0
-          for image_id in $(docker compose -p riskgraph-ci -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app images -q | sort -u); do
+          image_ids=$(
+            {
+              docker compose -p riskgraph-ci -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app images -q
+              for validation_image in riskgraph-sandbox-protected:local riskgraph-sandbox-vulnerable:local riskgraph-sandbox:local riskgraph-validation-probe:local; do
+                docker image inspect --format '{{.Id}}' "$validation_image"
+              done
+            } | sort -u
+          )
+          for image_id in $image_ids; do
             image_name=$(docker image inspect --format '{{if .RepoTags}}{{join .RepoTags ", "}}{{else}}{{.Id}}{{end}}' "$image_id")
             printf '::group::Trivy scan: %s\n' "$image_name"
             if ! docker run --rm \

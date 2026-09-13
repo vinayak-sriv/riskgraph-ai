@@ -2,7 +2,7 @@
 # host Docker socket is deliberately not mounted into an application container.
 services:
   validation-docker:
-    image: docker:27.5.1-dind@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce
+    image: docker:29.8.0-dind@sha256:5efed980cba3fc126cf54e21a5a6ff8849d05b6e0623d6e7612f48e9cd6cd17e
     privileged: true
     environment:
       DOCKER_TLS_CERTDIR: ""
@@ -23,7 +23,7 @@ services:
     pids_limit: 256
 
   validation-image-loader:
-    image: docker:27.5.1-cli@sha256:851f91d241214e7c6db86513b270d58776379aacc5eb9c4a87e5b47115e3065c
+    image: docker:29.8.0-cli@sha256:eccaacfeed644c7de222ff047483568cb988dde95476fbaaf10ea2d04921bb66
     depends_on:
       validation-docker:
         condition: service_healthy
