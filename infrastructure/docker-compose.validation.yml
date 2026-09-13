@@ -6,10 +6,13 @@ services:
     privileged: true
     environment:
       DOCKER_TLS_CERTDIR: ""
-    command: ["--host=tcp://0.0.0.0:2375", "--host=unix:///var/run/docker.sock"]
+    command: ["--tls=false", "--host=tcp://0.0.0.0:2375", "--host=unix:///var/run/docker.sock"]
     volumes:
       - riskgraph-validation-docker:/var/lib/docker
-    networks: [validation-engine, validation-egress]
+    networks:
+      validation-engine: {}
+      validation-egress:
+        gw_priority: 1
     healthcheck:
       test: ["CMD", "docker", "info"]
       interval: 5s
