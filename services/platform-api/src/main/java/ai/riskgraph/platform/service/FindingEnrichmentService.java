@@ -50,12 +50,19 @@ public class FindingEnrichmentService {
     }
 
     public void enrich(ObjectNode result, String aiUrl, int maxAiFindings, int aiConcurrency) {
-        List<ObjectNode> findings = new ArrayList<>();
+        List<ObjectNode> findings = new ArrayList<>(result.path("findings").size());
         result.path("findings").forEach(value -> findings.add((ObjectNode) value));
         int liveCount = Math.min(Math.max(0, maxAiFindings), findings.size());
+        if (liveCount == 0) {
+            applyExplanations(result, findings, List.of(), 0);
+            if (!findings.isEmpty()) {
+                result.set("ai", result.at("/findings/0/ai").deepCopy());
+            }
+            return;
+        }
         int workers = Math.max(1, Math.min(aiConcurrency, Math.max(1, liveCount)));
         ExecutorService executor = Executors.newFixedThreadPool(workers);
-        List<Future<JsonNode>> futures = new ArrayList<>();
+        List<Future<JsonNode>> futures = new ArrayList<>(liveCount);
         for (int index = 0; index < liveCount; index++) {
             ObjectNode finding = findings.get(index);
             futures.add(executor.submit(() -> explainFinding(finding, aiUrl)));

@@ -57,10 +57,9 @@ class Quality(ContractModel):
     incomplete: bool = False
 
 
-class AnalysisRequest(ContractModel):
+class EndpointPair(ContractModel):
     before: list[EndpointIr] = Field(max_length=2000)
     after: list[EndpointIr] = Field(max_length=2000)
-    quality: Quality = Field(default_factory=Quality)
 
     @model_validator(mode="after")
     def unambiguous_routes(self):
@@ -73,6 +72,10 @@ class AnalysisRequest(ContractModel):
                     raise ValueError("Conflicting authorization for the same route")
                 seen[key] = auth
         return self
+
+
+class AnalysisRequest(EndpointPair):
+    quality: Quality = Field(default_factory=Quality)
 
 
 class Node(ContractModel):
@@ -106,9 +109,7 @@ class GraphDelta(ContractModel):
     removed_paths: list[PathEvidence]
 
 
-class RiskScoreRequest(ContractModel):
-    before: list[EndpointIr]
-    after: list[EndpointIr]
+class RiskScoreRequest(EndpointPair):
     graph_delta: GraphDelta
 
 

@@ -493,11 +493,13 @@ components:
           items:
             $ref: '#/components/schemas/EndpointIr'
           type: array
+          maxItems: 2000
           title: Before
         after:
           items:
             $ref: '#/components/schemas/EndpointIr'
           type: array
+          maxItems: 2000
           title: After
         graph_delta:
           $ref: '#/components/schemas/GraphDelta'

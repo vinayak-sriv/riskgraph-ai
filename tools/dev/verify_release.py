@@ -36,7 +36,7 @@ def main():
         ),
         (
             "analyzer",
-            ["mvn", "--batch-mode", "-f", "services/java-analyzer/pom.xml", "verify"],
+            ["mvn", "--batch-mode", "-f", "services/java-analyzer/pom.xml", "clean", "verify"],
             ROOT,
         ),
         (
@@ -48,6 +48,7 @@ def main():
                 "services/ai-validation-service",
                 "tests",
                 "tools",
+                "datasets/risk-corpus/tools",
             ],
             ROOT,
         ),
@@ -61,12 +62,13 @@ def main():
                 "services/ai-validation-service",
                 "tests",
                 "tools",
+                "datasets/risk-corpus/tools",
             ],
             ROOT,
         ),
         (
             "platform",
-            ["mvn", "--batch-mode", "-f", "services/platform-api/pom.xml", "verify"],
+            ["mvn", "--batch-mode", "-f", "services/platform-api/pom.xml", "clean", "verify"],
             ROOT,
         ),
         ("frontend-tests", ["npm", "test"], ROOT / "apps/dashboard"),

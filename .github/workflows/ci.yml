@@ -29,11 +29,11 @@ jobs:
           cache: npm
           cache-dependency-path: apps/dashboard/package-lock.json
       - run: pip install -r requirements-dev.txt
-      - run: ruff check services/graph-risk-service services/ai-validation-service tests tools
-      - run: ruff format --check services/graph-risk-service services/ai-validation-service tests tools
+      - run: ruff check services/graph-risk-service services/ai-validation-service tests tools datasets/risk-corpus/tools
+      - run: ruff format --check services/graph-risk-service services/ai-validation-service tests tools datasets/risk-corpus/tools
       - run: python -m pytest tests -q --cov=services/graph-risk-service/app --cov=services/ai-validation-service/app
-      - run: mvn -f services/java-analyzer/pom.xml verify
-      - run: mvn -f services/platform-api/pom.xml verify
+      - run: mvn -f services/java-analyzer/pom.xml clean verify
+      - run: mvn -f services/platform-api/pom.xml clean verify
       - run: docker compose -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app config --quiet
       - run: npm ci
         working-directory: apps/dashboard

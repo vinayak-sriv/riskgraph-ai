@@ -41,15 +41,18 @@ def score_risk(
         (path.nodes[1], path.target) for path in graph_delta.new_paths if len(path.nodes) > 1
     }
     if affected_routes:
+        before_by_route: dict[str, list[EndpointIr]] = {}
+        after_by_route_resource: dict[tuple[str, str], list[EndpointIr]] = {}
+        for endpoint in before:
+            before_by_route.setdefault(endpoint_node_id(endpoint), []).append(endpoint)
+        for endpoint in after:
+            key = (endpoint_node_id(endpoint), resource_node_id(endpoint.resource))
+            after_by_route_resource.setdefault(key, []).append(endpoint)
+
         candidates = []
         for route_id, resource_id in sorted(affected_routes):
-            current = [
-                endpoint
-                for endpoint in after
-                if endpoint_node_id(endpoint) == route_id
-                and resource_node_id(endpoint.resource) == resource_id
-            ]
-            previous = [endpoint for endpoint in before if endpoint_node_id(endpoint) == route_id]
+            current = after_by_route_resource.get((route_id, resource_id), [])
+            previous = before_by_route.get(route_id, [])
             route_removal = {route_id} if route_id in removed_auth else set()
             before_state = _state_scores(previous, _has_public_sensitive_endpoint(previous))
             after_state = _state_scores(current, True, route_removal)
@@ -147,22 +150,6 @@ def _state_scores(
         privilege_impact=60 if removed_auth else 0,
         exploitability=exploitability,
     )
-
-
-def _affected_endpoints(
-    endpoints: list[EndpointIr],
-    affected_routes: set[tuple[str, str]],
-) -> list[EndpointIr]:
-    """Limit impact scoring to the routes/resources proven newly anonymous.
-
-    Application-wide sensitivity is deliberately not a risk component. A separate
-    inventory metric can report global criticality without changing a finding's score.
-    """
-    return [
-        endpoint
-        for endpoint in endpoints
-        if (endpoint_node_id(endpoint), resource_node_id(endpoint.resource)) in affected_routes
-    ]
 
 
 def _highest_state(endpoints: list[EndpointIr]) -> RawScores:

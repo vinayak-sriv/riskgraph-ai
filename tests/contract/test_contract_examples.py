@@ -76,14 +76,6 @@ def test_openapi_and_compose_yaml_parse() -> None:
         assert isinstance(parsed, dict), f"{yaml_path} should parse to a YAML mapping"
 
 
-def test_platform_demo_fixtures_match_canonical_ir_examples() -> None:
-    canonical = ROOT / "contracts" / "ir" / "examples"
-    packaged = ROOT / "services" / "platform-api" / "src" / "main" / "resources" / "demo"
-
-    for filename in ("auth-removal-before.json", "auth-removal-after.json"):
-        assert load_json(packaged / filename) == load_json(canonical / filename)
-
-
 def test_all_json_schemas_are_valid():
     for path in (ROOT / "contracts").rglob("*.schema.json"):
         Draft202012Validator.check_schema(load_json(path))

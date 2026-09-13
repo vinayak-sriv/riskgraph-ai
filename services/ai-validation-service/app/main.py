@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 
@@ -6,8 +7,16 @@ from .reasoning import EvidenceRequest, Explanation, OllamaProvider, explain
 from .service_auth import require_service_token
 from .validation import ValidationRequest, ValidationResult, validate
 
-app = FastAPI(title="RiskGraph AI Validation Service", version="0.1.0")
 ollama = OllamaProvider()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    yield
+    await ollama.close()
+
+
+app = FastAPI(title="RiskGraph AI Validation Service", version="0.1.0", lifespan=lifespan)
 
 
 @app.get("/health")

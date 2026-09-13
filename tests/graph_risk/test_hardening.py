@@ -2,6 +2,7 @@ import itertools
 import time
 
 import app.graph_engine as graph_engine
+import app.risk_engine as risk_engine
 import pytest
 from app.graph_engine import anonymous_sensitive_paths, compare_graphs
 from app.main import analyze
@@ -110,3 +111,18 @@ def test_maximum_contract_graph_does_not_regress_to_quadratic_runtime():
 
     assert len(delta.new_paths) == 2_000
     assert elapsed < 2.5
+
+    endpoint_id_calls = 0
+    original = risk_engine.endpoint_node_id
+
+    def counted(endpoint):
+        nonlocal endpoint_id_calls
+        endpoint_id_calls += 1
+        return original(endpoint)
+
+    risk_engine.endpoint_node_id = counted
+    try:
+        risk_engine.score_risk(request.before, request.after, delta)
+    finally:
+        risk_engine.endpoint_node_id = original
+    assert endpoint_id_calls <= 4 * len(rows)

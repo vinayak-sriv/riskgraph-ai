@@ -30,7 +30,7 @@ def build_graph(endpoints: list[EndpointIr]) -> SecurityGraph:
         key = (source_id, target_id, relationship)
         edges[key] = Edge(source_id=source_id, target_id=target_id, relationship=relationship)
 
-    for endpoint in sorted(endpoints, key=lambda item: (item.endpoint, item.method)):
+    for endpoint in sorted(endpoints, key=endpoint_sort_key):
         endpoint_id = endpoint_node_id(endpoint)
         controller_id = scoped_id("controller", endpoint.controller, endpoint)
         resource_id = resource_node_id(endpoint.resource)
@@ -110,6 +110,21 @@ def scoped_id(kind: str, name: str, endpoint: EndpointIr) -> str:
     return f"{kind}:{quote(name, safe='')}@{context}"
 
 
+def endpoint_sort_key(endpoint: EndpointIr) -> tuple[str | bool, ...]:
+    """Provide deterministic ordering without serializing every IR row to JSON."""
+    return (
+        endpoint.endpoint,
+        endpoint.method,
+        endpoint.controller,
+        endpoint.authentication,
+        endpoint.required_role or "",
+        endpoint.service or "",
+        endpoint.repository or "",
+        endpoint.resource,
+        endpoint.sensitivity,
+    )
+
+
 def anonymous_sensitive_paths(
     graph: SecurityGraph,
     endpoints: list[EndpointIr],
@@ -122,7 +137,7 @@ def anonymous_sensitive_paths(
     paths: dict[tuple[str, ...], PathEvidence] = {}
     # Each row is a resolved call/resource path. BFS on its route-context nodes
     # enumerates every represented path, including two routes to the same resource.
-    for endpoint in sorted(endpoints, key=lambda row: row.model_dump_json()):
+    for endpoint in sorted(endpoints, key=endpoint_sort_key):
         target = resource_node_id(endpoint.resource)
         if endpoint.authentication or endpoint.sensitivity not in SENSITIVE_LEVELS:
             continue

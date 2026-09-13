@@ -58,6 +58,6 @@ require the `X-RiskGraph-Service-Token` header and should not be published direc
 
 ```powershell
 cd apps/dashboard
-npm install
+npm ci
 npm run dev
 ```

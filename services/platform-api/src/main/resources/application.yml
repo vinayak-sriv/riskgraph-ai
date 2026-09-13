@@ -15,10 +15,6 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/riskgraph}
     username: ${POSTGRES_USER:riskgraph}
     password: ${POSTGRES_PASSWORD:riskgraph_dev_password}
-  jpa:
-    open-in-view: false
-    hibernate:
-      ddl-auto: none
   security:
     oauth2:
       client:

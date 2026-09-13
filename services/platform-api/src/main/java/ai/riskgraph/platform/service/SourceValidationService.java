@@ -150,7 +150,7 @@ public class SourceValidationService {
                 .put("sandbox_revision", "source-bound").put("cleanup_complete", cleanupComplete);
         if (status.equals("CONFIRMED")) summary.put("actual_status", 200);
         if (status.equals("REJECTED")) summary.put("actual_status", 403);
-        if (result.at("/provenance/new_commit").isTextual()) {
+        if (result.at("/provenance/new_commit").isString()) {
             summary.put("source_commit", result.at("/provenance/new_commit").asString());
         }
         summary.putArray("evidence").add("Summary of " + validations.size() + " finding validations");

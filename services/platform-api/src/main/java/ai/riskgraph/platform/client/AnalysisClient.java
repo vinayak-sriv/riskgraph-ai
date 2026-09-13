@@ -1,6 +1,7 @@
 package ai.riskgraph.platform.client;
 
 import ai.riskgraph.platform.service.PipelineException;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.ResourceAccessException;
@@ -13,6 +14,7 @@ import tools.jackson.databind.ObjectMapper;
 public class AnalysisClient {
     private final RestClient.Builder builder;
     private final ObjectMapper mapper;
+    private final ConcurrentHashMap<String, RestClient> clients = new ConcurrentHashMap<>();
     @Value("${RISKGRAPH_SERVICE_TOKEN:}")
     private String serviceToken = "";
     @Value("${RISKGRAPH_MAX_DEPENDENCY_RESPONSE_BYTES:33554432}")
@@ -23,7 +25,8 @@ public class AnalysisClient {
     }
     public JsonNode post(String baseUrl, String route, JsonNode body) {
         try {
-            return builder.clone().baseUrl(baseUrl).build().post().uri(route)
+            return clients.computeIfAbsent(baseUrl,
+                    url -> builder.clone().baseUrl(url).build()).post().uri(route)
                 .header("X-RiskGraph-Service-Token", serviceToken)
                 .contentType(MediaType.APPLICATION_JSON).body(body.toString()).exchange((request, response) -> {
                     if (!response.getStatusCode().is2xxSuccessful()) {

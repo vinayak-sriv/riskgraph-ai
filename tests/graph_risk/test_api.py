@@ -77,3 +77,17 @@ def test_risk_endpoint_requires_source_ir(authorization_removal_payload: dict) -
     response = post("/risk/score", {"graph_delta": graph})
 
     assert response.status_code == 422
+
+
+def test_risk_endpoint_enforces_the_contract_size_limit(
+    authorization_removal_payload: dict,
+) -> None:
+    graph = post("/graph/delta", authorization_removal_payload).json()
+    oversized = [authorization_removal_payload["before"][0]] * 2_001
+
+    response = post(
+        "/risk/score",
+        {"before": oversized, "after": [], "graph_delta": graph},
+    )
+
+    assert response.status_code == 422

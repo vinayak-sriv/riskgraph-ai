@@ -25,8 +25,8 @@ public class DemoScenarioService {
 
     public JsonNode analyzeScenario(String scenario) {
         ObjectNode request = objectMapper.createObjectNode();
-        ObjectNode protectedRow = (ObjectNode) readFixture("demo/auth-removal-before.json");
-        ObjectNode publicRow = (ObjectNode) readFixture("demo/auth-removal-after.json");
+        ObjectNode protectedRow = (ObjectNode) readFixture("contracts/ir/examples/auth-removal-before.json");
+        ObjectNode publicRow = (ObjectNode) readFixture("contracts/ir/examples/auth-removal-after.json");
         var before = request.putArray("before");
         var after = request.putArray("after");
         switch (scenario) {

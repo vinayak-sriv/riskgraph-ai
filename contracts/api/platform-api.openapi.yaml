@@ -64,7 +64,7 @@ paths:
   /demo/authorization-removal:
     get:
       summary: Run the canonical authorization-removal mentor demo
-      responses: &id003
+      responses: &id004
         '200':
           description: Deterministic graph, risk, and verdict result
           content:
@@ -185,23 +185,28 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [username, access]
+              required:
+              - username
+              - access
               properties:
                 username:
                   type: string
-                  pattern: '^[a-z][a-z0-9_.-]{2,63}$'
+                  pattern: ^[a-z][a-z0-9_.-]{2,63}$
                 access:
                   type: string
-                  enum: [VIEW, VALIDATE]
+                  enum:
+                  - VIEW
+                  - VALIDATE
       responses:
         '200':
           description: Access granted
-        '400': *id001
+        '400': &id003
+          description: Structured failure; never implies ALLOW
         '401':
           description: Authentication required
         '403':
-          description: Caller does not have validation access to this scan
-        '404': *id001
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+        '404': *id003
   /demo/scenarios/{scenario}:
     get:
       parameters:
@@ -210,7 +215,7 @@ paths:
         required: true
         schema:
           type: string
-      responses: *id003
+      responses: *id004
       security: []
   /analyses/{id}/validation:
     post:
@@ -521,14 +526,14 @@ components:
       - role
       additionalProperties: false
       properties:
-        username: &id004
+        username: &id005
           type: string
           pattern: ^[a-z][a-z0-9_.-]{2,63}$
-        name: &id005
+        name: &id006
           type: string
           minLength: 1
           maxLength: 120
-        role: &id006
+        role: &id007
           type: string
           enum:
           - DEVELOPER
@@ -543,9 +548,9 @@ components:
       - password
       additionalProperties: false
       properties:
-        username: *id004
-        name: *id005
-        role: *id006
+        username: *id005
+        name: *id006
+        role: *id007
         password:
           type: string
           minLength: 12

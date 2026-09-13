@@ -41,6 +41,27 @@ def test_ollama_receives_schema_and_only_structured_evidence():
     assert result.status == "AVAILABLE" and result.confirmed is False
 
 
+def test_ollama_reuses_connections_and_cached_model_probe():
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": []})
+        return httpx.Response(200, json={"response": json.dumps(VALID)})
+
+    async def run():
+        provider = OllamaProvider(httpx.MockTransport(handler))
+        await explain(REQUEST, provider)
+        await explain(REQUEST, provider)
+        assert provider.client is not None
+        await provider.close()
+        assert provider.client is None
+
+    asyncio.run(run())
+    assert calls == ["/api/tags", "/api/generate", "/api/generate"]
+
+
 def test_invalid_invented_and_authoritative_output_is_rejected():
     for output in [
         "free text",
