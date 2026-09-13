@@ -83,9 +83,21 @@ jobs:
         run: python tools/dev/verify_mvp.py --compose --validation
       - name: Reject critical vulnerabilities in built application images
         run: |
+          mkdir -p tmp/trivy-cache
+          scan_status=0
           for image_id in $(docker compose -p riskgraph-ci -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app images -q | sort -u); do
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 image --exit-code 1 --ignore-unfixed --severity CRITICAL "$image_id"
+            image_name=$(docker image inspect --format '{{if .RepoTags}}{{join .RepoTags ", "}}{{else}}{{.Id}}{{end}}' "$image_id")
+            printf '::group::Trivy scan: %s\n' "$image_name"
+            if ! docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$PWD/tmp/trivy-cache:/root/.cache/trivy" \
+              aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 \
+              image --exit-code 1 --ignore-unfixed --severity CRITICAL "$image_id"; then
+              scan_status=1
+            fi
+            printf '::endgroup::\n'
           done
+          exit "$scan_status"
       - name: Capture service logs on failure
         if: failure()
         run: docker compose -p riskgraph-ci -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app logs --no-color
