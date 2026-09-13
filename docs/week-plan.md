@@ -1,8 +1,8 @@
 # RiskGraph AI Delivery Plan
 
-> **Current week: 7**
-> Weeks 1–6 are complete. The Java analyzer now accepts a local repository and two
-> immutable commits, extracts the changed Spring surface, and emits traceable IR.
+> **Current week: 8**
+> Weeks 1–7 are complete. Stable repository identities, pair-scoped risk comparison,
+> confidence reporting, concurrency preservation, and their regression tests now pass.
 
 ## Delivery Principle
 
@@ -20,8 +20,8 @@ tests, and demo procedure must all work from a clean checkout.
 | 4 | Complete | Read a local Git repository at two commit SHAs, safely materialize both revisions, compute changed Java files/method candidates, and attach repository/commit provenance | Repeatable diff results; invalid paths/SHAs fail cleanly; temporary workspaces are cleaned |
 | 5 | Complete | Use Spoon to extract Spring routes, HTTP methods, controllers, and `@PreAuthorize` requirements with file/line evidence | Tests cover class/method mappings, auth removal, multiple paths, overload-safe traversal, and unsupported authorization expressions |
 | 6 | Complete | Resolve controller → service → repository → resource paths and emit schema-valid IR for the changed surface | Generated auth-removal commits produce expected before/after IR without hand-authored analyzer fixtures |
-| 7 | Current | Harden graph identity, provenance, reachability, score calibration, and confidence/coverage reporting | Unit, integration, metamorphic, and negative tests demonstrate deterministic behavior |
-| 8 | Planned | Run one real Java commit pair end to end from source to the dashboard | One-command mentor demo shows source evidence, new attack path, 22 → 91, and BLOCK |
+| 7 | Complete | Harden graph identity, provenance, reachability, score calibration, and confidence/coverage reporting | Unit, integration, metamorphic, and negative tests demonstrate deterministic behavior |
+| 8 | Current | Run one real Java commit pair end to end from source to the dashboard | One-command mentor demo shows source evidence, new attack path, 22 → 91, and BLOCK |
 | 9 | Planned | Add Ollama-backed structured explanations and HTTP-test proposals behind a swappable interface | JSON Schema constrained output validates; unavailable Ollama degrades clearly without changing the deterministic verdict |
 | 10 | Planned | Execute the proposed authorization test only inside a hardened Docker sandbox and combine evidence into the decision engine | Egress-restricted test run is time/resource bounded, logged, repeatable, and incapable of targeting public systems |
 | 11 | Planned | Analyze pull requests through GitHub and publish Checks, SARIF, fingerprints, and concise evidence | A real test PR receives stable inline findings and a rerun does not duplicate them |

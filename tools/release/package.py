@@ -34,7 +34,7 @@ ARCHIVE_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 EXCLUDED_PATH_PREFIXES = {
     ("samples", "generated"),
 }
-EXCLUDED_DIRECTORY_PREFIXES = ("pytest-cache-files-",)
+EXCLUDED_DIRECTORY_PREFIXES = ("pytest-cache-files-", ".chart-data-")
 
 
 def included_files(root: Path) -> list[Path]:

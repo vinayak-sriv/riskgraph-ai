@@ -39,6 +39,7 @@ jobs:
           RISKGRAPH_ALLOWED_REPOSITORY_ROOTS: ${{ github.workspace }}/target
           SPRING_PROFILES_ACTIVE: local
           RISKGRAPH_BOOTSTRAP_PASSWORD_FILE: ${{ github.workspace }}/engine/tmp/local-auth/admin.password
+          RISKGRAPH_REQUIRE_GITHUB_CONNECTION: 'false'
           # Ephemeral per-job credential; this is not a deployment secret.
           RISKGRAPH_SERVICE_TOKEN: ci-internal-service-token-${{ github.run_id }}-${{ github.run_attempt }}
         run: |

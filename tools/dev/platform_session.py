@@ -67,7 +67,10 @@ class PlatformSession:
                 return json.load(response)
         except urllib.error.HTTPError as error:
             if error.code != 401:
-                raise
+                detail = error.read().decode("utf-8", errors="replace")[:2_000]
+                raise RuntimeError(
+                    f"Local platform request {route} failed with HTTP {error.code}: {detail}"
+                ) from error
             # Platform restart invalidates sessions; reauthenticate once, never loop.
             self.login()
             if payload is not None:

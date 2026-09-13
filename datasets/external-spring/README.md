@@ -27,6 +27,9 @@ python tools/evaluation/external_spring.py --compose
 The second command requires the local Compose platform. It checks repeated
 deterministic evidence, writes both scans and measured results under
 `tmp/external-evaluation`, and never runs HTTP security tests on these repositories.
+The latest checked-in automated summary is `observed-results-2026-09-13.json`.
+Use `HUMAN_REVIEW.md` for the independent review step; manifest validation prevents
+an unattributed `human_reviewed` claim.
 Precision/recall/F1 for vulnerabilities and sensitivity accuracy are unset: two
 negative, unconfirmed examples do not support those claims. Human review and a
 broader positive/negative external corpus remain release gates.

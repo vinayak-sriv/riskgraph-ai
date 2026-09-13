@@ -47,6 +47,7 @@ services:
       RISKGRAPH_SECURE_COOKIE: ${RISKGRAPH_SECURE_COOKIE:-false}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-riskgraph-oauth-disabled}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-riskgraph-oauth-disabled}
+      RISKGRAPH_REQUIRE_GITHUB_CONNECTION: ${RISKGRAPH_REQUIRE_GITHUB_CONNECTION:-false}
       RISKGRAPH_SERVICE_TOKEN: ${RISKGRAPH_SERVICE_TOKEN:?Set RISKGRAPH_SERVICE_TOKEN to a random secret}
     volumes:
       - ${ANALYZER_REPOSITORY_ROOT:-../samples/generated}:/analysis-repositories:ro

@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0.0",
+  "regression_id": "confirmed:473fb8b6ffbfd649e48da8642e320f4b171f6c3b5c589d7bf0599c1a46c6c8df",
+  "source": {
+    "scan_id": "473fb8b6ffbfd649e48da8642e320f4b171f6c3b5c589d7bf0599c1a46c6c8df",
+    "repository_identity": "local-git:cd798461fbbd4cc37e6e1c35313f726061b913cb",
+    "old_commit": "cd798461fbbd4cc37e6e1c35313f726061b913cb",
+    "new_commit": "593c8cf10cb63c35867417273381ffa2dd610af5",
+    "identity_provenance": "LEGACY_COMMIT_DERIVED"
+  },
+  "before": [
+    {
+      "method": "GET",
+      "service": "ExportService",
+      "endpoint": "/admin/export",
+      "resource": "Payment",
+      "controller": "ExportController",
+      "repository": "PaymentRepository",
+      "sensitivity": "CRITICAL",
+      "required_role": "ADMIN",
+      "authentication": true
+    }
+  ],
+  "after": [
+    {
+      "method": "GET",
+      "service": "ExportService",
+      "endpoint": "/admin/export",
+      "resource": "Payment",
+      "controller": "ExportController",
+      "repository": "PaymentRepository",
+      "sensitivity": "CRITICAL",
+      "required_role": null,
+      "authentication": false
+    }
+  ],
+  "expected": {
+    "risk_before": 22,
+    "risk_after": 91,
+    "risk_delta": 69,
+    "verdict": "BLOCK",
+    "new_paths": 1
+  },
+  "confirmation": {
+    "status": "CONFIRMED",
+    "container_image_id": "sha256:fb8eec6d8e8c968d3694ea32ca2cc4b5f505fbd061134bffef8172a38ad2a298",
+    "probe_image_id": null,
+    "probe_provenance": "LEGACY_MISSING",
+    "response_sha256": "a2f7c559de14ad0c4dc25f25af32c9c2964864fbf00942c949a6baf3690a48a3",
+    "source_commit": "593c8cf10cb63c35867417273381ffa2dd610af5",
+    "cleanup_complete": true
+  },
+  "content_sha256": "23d7b411971452593f621fe24d6424c85d8c07eb5c662f39f8e05b1185046241"
+}

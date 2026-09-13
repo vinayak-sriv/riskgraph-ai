@@ -31,6 +31,7 @@ def test_release_archive_is_clean_and_byte_deterministic():
             ".test-tmp/output.json": b"generated\n",
             ".review-logic-pytest/result.json": b"generated\n",
             "pytest-cache-files-abc/cache": b"generated\n",
+            ".chart-data-abc/chart.xlsx": b"generated\n",
             "samples/generated/demo/Application.java": b"generated\n",
             "apps/dashboard.zip": b"generated\n",
         }.items():

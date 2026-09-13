@@ -74,6 +74,10 @@ def main():
         AI_VALIDATION_BASE_URL="http://127.0.0.1:8083",
         RISKGRAPH_ANALYZER_PROCESS_ISOLATION="true",
         RISKGRAPH_ANALYZER_EXECUTABLE_JAR=str(RUNTIME / "java-analyzer.jar"),
+        # This launcher binds only to localhost over plain HTTP. A Secure cookie
+        # would be accepted at login but never returned by verification clients.
+        RISKGRAPH_SECURE_COOKIE="false",
+        RISKGRAPH_REQUIRE_GITHUB_CONNECTION="false",
     )
     java = (
         str(Path(env["JAVA_HOME"]) / "bin/java.exe")

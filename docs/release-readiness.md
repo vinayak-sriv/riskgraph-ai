@@ -18,6 +18,13 @@ not establish that every weekly quality gate has passed.
 - [x] Live PostgreSQL migrations and normalized scan/graph persistence
 - [x] Restart roundtrip and consistent retained validation across repeat scans
 - [x] Complete Compose build/start verified on this host
+- [x] Week 7 risk-scope, repository identity and project uniqueness hardening
+- [x] Concurrent validation preservation and provider-wide AI backpressure
+- [x] Digest-pinned runtime/probe images and non-root application containers
+- [x] CI full-stack/DinD smoke and filesystem/container vulnerability scans
+- [x] Deterministic release archive verification and SHA-256 manifest
+- [x] Confirmed-finding regression generator and permanent 22 → 91 regression
+- [x] Final presentation structurally validated and visually reviewed
 - [ ] Reviewed evaluation on 2–4 external Spring Boot repositories with licenses
 - [x] Two pinned, licensed external-source regressions with provisional AI source review
 - [x] Platform user authentication and Developer/Analyst/Admin authorization on implemented APIs

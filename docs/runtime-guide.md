@@ -61,6 +61,7 @@ docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile a
 | `RISKGRAPH_ANALYZER_PROCESS_ISOLATION` | `false` natively; Compose sets `true` so analyzer deadlines kill a separate JVM |
 | `RISKGRAPH_ANALYZER_EXECUTABLE_JAR` | Packaged analyzer jar used by isolated worker mode |
 | `RISKGRAPH_VALIDATION_DOCKER_HOST` | Dedicated daemon only; the sole accepted configured value is `tcp://validation-docker:2375` |
+| `RISKGRAPH_REQUIRE_GITHUB_CONNECTION` | `false` only for local launcher/Compose; set `true` in connected deployments |
 | `RISKGRAPH_MAX_JAVA_FILES` | 5000 |
 | `RISKGRAPH_MAX_JAVA_FILE_BYTES` | 2097152 |
 | `RISKGRAPH_MAX_TOTAL_JAVA_BYTES` | 52428800 |
