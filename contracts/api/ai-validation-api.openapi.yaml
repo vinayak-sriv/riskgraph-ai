@@ -21,21 +21,12 @@ paths:
     post:
       summary: Analyze
       operationId: analyze_ai_analyze_post
-      parameters:
-      - name: X-RiskGraph-Service-Token
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: X-Riskgraph-Service-Token
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/EvidenceRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -49,25 +40,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
   /ai/test-suggestion:
     post:
       summary: Test Suggestion
       operationId: test_suggestion_ai_test_suggestion_post
-      parameters:
-      - name: X-RiskGraph-Service-Token
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: X-Riskgraph-Service-Token
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/EvidenceRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -81,25 +65,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
   /validation/http:
     post:
       summary: Validate Http
       operationId: validate_http_validation_http_post
-      parameters:
-      - name: X-RiskGraph-Service-Token
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: X-Riskgraph-Service-Token
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ValidationRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -113,6 +90,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
 components:
   schemas:
     AIAnalysis:
@@ -354,3 +333,8 @@ components:
       - reason_code
       - sandbox_revision
       title: ValidationResult
+  securitySchemes:
+    APIKeyHeader:
+      type: apiKey
+      in: header
+      name: X-RiskGraph-Service-Token

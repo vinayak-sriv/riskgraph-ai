@@ -1,12 +1,14 @@
 package ai.riskgraph.platform.service;
 
 import java.util.HashMap;
+import java.util.function.UnaryOperator;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 @Component @Profile("!local")
 public class PostgresScanStore implements ScanStore {
@@ -28,8 +30,11 @@ public class PostgresScanStore implements ScanStore {
         }
         JsonNode provenance=result.path("provenance");
         String repository=provenance.path("repository_identity").asString();
-        var projects=db.queryForList("SELECT id FROM projects WHERE repository=? ORDER BY id LIMIT 1",Long.class,repository);
-        Long project=projects.isEmpty() ? db.queryForObject("INSERT INTO projects(repository,framework) VALUES (?, 'Spring Boot') RETURNING id",Long.class,repository) : projects.getFirst();
+        Long project=db.queryForObject("""
+            INSERT INTO projects(repository,framework) VALUES (?, 'Spring Boot')
+            ON CONFLICT (repository) DO UPDATE SET repository=excluded.repository
+            RETURNING id
+            """,Long.class,repository);
         Long pr=db.queryForObject("INSERT INTO pull_requests(project_id,old_commit,new_commit) VALUES (?,?,?) RETURNING id",Long.class,
             project,provenance.path("old_commit").asString(),provenance.path("new_commit").asString());
         Long scan=db.queryForObject("INSERT INTO scans(pull_request_id,status,risk_before,risk_after,external_id,result_json,pre_validation_verdict,final_verdict,validation_status) VALUES (?,?,?,?,?,?::jsonb,?,?,?) RETURNING id",Long.class,
@@ -107,5 +112,20 @@ public class PostgresScanStore implements ScanStore {
     public JsonNode get(String id) {
         var values=db.queryForList("SELECT result_json::text FROM scans WHERE external_id=?",String.class,id);
         return values.isEmpty()?null:mapper.readTree(values.getFirst());
+    }
+
+    @Transactional
+    public JsonNode update(String id, UnaryOperator<ObjectNode> mutation) {
+        db.queryForList("SELECT pg_advisory_xact_lock(hashtext(?))", id);
+        var values=db.queryForList(
+                "SELECT result_json::text FROM scans WHERE external_id=? FOR UPDATE",String.class,id);
+        if (values.isEmpty()) return null;
+        ObjectNode updated=mutation.apply((ObjectNode) mapper.readTree(values.getFirst()));
+        Long scan=db.queryForObject("SELECT id FROM scans WHERE external_id=?",Long.class,id);
+        db.update("UPDATE scans SET result_json=?::jsonb, status=?, final_verdict=?, validation_status=?, updated_at=now() WHERE id=?",
+                updated.toString(),updated.path("final_verdict").asString(),
+                updated.path("final_verdict").asString(),updated.path("validation_status").asString(),scan);
+        persistFindings(scan, updated);
+        return updated.deepCopy();
     }
 }

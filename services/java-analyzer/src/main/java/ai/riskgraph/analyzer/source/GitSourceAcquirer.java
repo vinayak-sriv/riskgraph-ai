@@ -4,10 +4,14 @@ import static ai.riskgraph.analyzer.model.AnalysisModels.ChangedFile;
 import static ai.riskgraph.analyzer.model.AnalysisModels.ChangedRange;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -93,14 +97,14 @@ public class GitSourceAcquirer {
                 List<ChangedFile> changedFiles = diff(repository, oldCommit, newCommit);
                 String identity = repository.getConfig().getString("remote", "origin", "url");
                 if (identity == null || identity.isBlank()) {
-                    identity = "local-git:" + oldCommit.getName();
+                    identity = localRepositoryIdentity(repositoryPath);
                 } else if (identity.contains("://")) {
                     try {
                         var uri = java.net.URI.create(identity);
                         identity = new java.net.URI(uri.getScheme(), null, uri.getHost(), uri.getPort(),
                             uri.getPath(), null, null).toString();
                     } catch (Exception error) {
-                        identity = "local-git:" + oldCommit.getName();
+                        identity = localRepositoryIdentity(repositoryPath);
                     }
                 }
                 return new AcquiredRevisions(repository, repositoryPath, identity,
@@ -115,6 +119,16 @@ public class GitSourceAcquirer {
             throw error;
         } catch (IOException error) {
             throw new SourceAcquisitionException("SOURCE_ACQUISITION_FAILED", error.getMessage());
+        }
+    }
+
+    private String localRepositoryIdentity(Path repositoryPath) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(
+                    repositoryPath.toUri().normalize().toASCIIString().getBytes(StandardCharsets.UTF_8));
+            return "local-git:" + HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 is unavailable", error);
         }
     }
 

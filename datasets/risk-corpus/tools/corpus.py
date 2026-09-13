@@ -274,7 +274,7 @@ def generate():
                 before_by_route[key]
                 for key in sorted(before_by_route.keys() - after_by_route.keys())
             ]
-            before_rows = affected_rows(before, added, match_resource=False) if added else before
+            before_rows = affected_rows(before, added) if added else before
             after_rows = affected_rows(after, added) if added else after
             b = coherent_scores(before_rows)
             a = coherent_scores(after_rows, kind == "authorization-removal")

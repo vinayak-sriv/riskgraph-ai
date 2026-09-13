@@ -21,21 +21,12 @@ paths:
     post:
       summary: Graph Delta
       operationId: graph_delta_graph_delta_post
-      parameters:
-      - name: X-RiskGraph-Service-Token
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: X-Riskgraph-Service-Token
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AnalysisRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -49,25 +40,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
   /risk/score:
     post:
       summary: Risk Score
       operationId: risk_score_risk_score_post
-      parameters:
-      - name: X-RiskGraph-Service-Token
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: X-Riskgraph-Service-Token
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RiskScoreRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -81,25 +65,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
   /analysis:
     post:
       summary: Analyze
       operationId: analyze_analysis_post
-      parameters:
-      - name: X-RiskGraph-Service-Token
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: X-Riskgraph-Service-Token
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AnalysisRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -113,6 +90,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
 components:
   schemas:
     AnalysisRequest:
@@ -554,3 +533,8 @@ components:
       - msg
       - type
       title: ValidationError
+  securitySchemes:
+    APIKeyHeader:
+      type: apiKey
+      in: header
+      name: X-RiskGraph-Service-Token

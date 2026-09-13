@@ -45,6 +45,10 @@ class LLMProvider(Protocol):
     async def generate(self, evidence: dict, schema: dict) -> dict: ...
 
 
+class InferenceCapacityExceeded(Exception):
+    """The local model queue could not accept more work within its bounded wait."""
+
+
 def redact(value: str) -> str:
     value = re.sub(
         r"(?i)(bearer\s+|(?:password|token|secret|api[_-]?key)\s*[=:]\s*)\S+",
@@ -63,6 +67,13 @@ class OllamaProvider:
         self.transport = transport
         self.client: httpx.AsyncClient | None = None
         self.tags_checked_at = 0.0
+        self.max_concurrency = max(
+            1, int(os.environ.get("RISKGRAPH_AI_MAX_CONCURRENCY", "2"))
+        )
+        self.queue_timeout = max(
+            0.01, float(os.environ.get("RISKGRAPH_AI_QUEUE_TIMEOUT_SECONDS", "5"))
+        )
+        self.inference_slots = asyncio.Semaphore(self.max_concurrency)
 
     def _client(self) -> httpx.AsyncClient:
         if self.client is None:
@@ -79,6 +90,16 @@ class OllamaProvider:
             self.client = None
 
     async def generate(self, evidence: dict, schema: dict) -> dict:
+        try:
+            await asyncio.wait_for(self.inference_slots.acquire(), timeout=self.queue_timeout)
+        except TimeoutError as error:
+            raise InferenceCapacityExceeded from error
+        try:
+            return await self._generate(evidence, schema)
+        finally:
+            self.inference_slots.release()
+
+    async def _generate(self, evidence: dict, schema: dict) -> dict:
         # Tighter generation limits keep llama.cpp's grammar expansion bounded.
         # The full public Pydantic contract is still validated after generation.
         generation_schema = copy.deepcopy(schema)
@@ -160,6 +181,8 @@ async def explain(request: EvidenceRequest, provider: LLMProvider | None = None)
                 }
             ),
         )
+    except InferenceCapacityExceeded:
+        reason = "OLLAMA_CAPACITY_EXCEEDED"
     except (ValueError, KeyError, ValidationError):
         reason = "INVALID_AI_OUTPUT"
     except (httpx.HTTPError, TimeoutError, OSError):

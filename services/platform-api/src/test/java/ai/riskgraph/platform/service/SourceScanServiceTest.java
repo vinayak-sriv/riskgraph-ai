@@ -144,6 +144,11 @@ class SourceScanServiceTest {
         assertThat(result.at("/findings/0/finding_id")).isNotEqualTo(result.at("/findings/1/finding_id"));
         assertThat(result.at("/findings/0/ai/analysis/hypothesis").asString()).contains("/one");
         assertThat(result.at("/findings/1/ai/analysis/hypothesis").asString()).contains("/two");
+        JsonNode repeated = service.analyze(root.toString(),
+                envelope.at("/provenance/old_commit").asString(),
+                envelope.at("/provenance/new_commit").asString());
+        assertThat(repeated.at("/findings/0/ai")).isEqualTo(result.at("/findings/0/ai"));
+        assertThat(repeated.at("/findings/1/ai")).isEqualTo(result.at("/findings/1/ai"));
         verify(client, times(2)).post(any(), eq("/ai/analyze"), any());
     }
 
@@ -169,6 +174,70 @@ class SourceScanServiceTest {
             second.get(5, TimeUnit.SECONDS);
         }
         assertThat(entered.getCount()).isZero();
+    }
+
+    @Test void concurrentValidationPatchesPreserveBothResultsInEitherCompletionOrder() throws Exception {
+        for (boolean sandboxFirst : new boolean[]{true, false}) {
+            var client = mock(AnalysisClient.class);
+            var validations = mock(SourceValidationService.class);
+            var store = new MemoryScanStore();
+            ObjectNode initial = mapper.createObjectNode().put("scan_id", "scan")
+                    .put("validation_status", "NOT_RUN").put("final_verdict", "BLOCK");
+            store.save(initial);
+            CountDownLatch entered = new CountDownLatch(2);
+            CountDownLatch releaseSandbox = new CountDownLatch(1);
+            CountDownLatch releaseSource = new CountDownLatch(1);
+            ObjectNode sandboxResult = mapper.createObjectNode().put("status", "REJECTED");
+            ObjectNode sourceResult = mapper.createObjectNode().put("status", "CONFIRMED");
+            when(validations.validateSandbox(any(), eq("protected"), any())).thenAnswer(call -> {
+                entered.countDown();
+                assertThat(releaseSandbox.await(2, TimeUnit.SECONDS)).isTrue();
+                return new SourceValidationService.ValidationPatch(sandboxResult, java.util.Map.of(), null);
+            });
+            when(validations.validateSource(any(), any(), any())).thenAnswer(call -> {
+                entered.countDown();
+                assertThat(releaseSource.await(2, TimeUnit.SECONDS)).isTrue();
+                return new SourceValidationService.ValidationPatch(null, java.util.Map.of(), sourceResult);
+            });
+            doAnswer(call -> {
+                ObjectNode latest = call.getArgument(0);
+                SourceValidationService.ValidationPatch update = call.getArgument(1);
+                if (update.sandboxDemonstration() != null) {
+                    latest.set("sandbox_demonstration", update.sandboxDemonstration().deepCopy());
+                }
+                if (update.standaloneValidation() != null) {
+                    latest.set("validation", update.standaloneValidation().deepCopy());
+                    latest.put("validation_status", "CONFIRMED");
+                }
+                return null;
+            }).when(validations).apply(any(), any());
+            var service = new SourceScanService(client, mock(ContractValidator.class), mapper,
+                    "analyzer", "graph", root.toString(), store,
+                    mock(FindingEnrichmentService.class), validations);
+
+            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                var sandbox = executor.submit(() -> service.validateSandbox("scan", "protected"));
+                var source = executor.submit(() -> service.validateSource("scan"));
+                assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
+                if (sandboxFirst) {
+                    releaseSandbox.countDown();
+                    sandbox.get(2, TimeUnit.SECONDS);
+                    releaseSource.countDown();
+                    source.get(2, TimeUnit.SECONDS);
+                } else {
+                    releaseSource.countDown();
+                    source.get(2, TimeUnit.SECONDS);
+                    releaseSandbox.countDown();
+                    sandbox.get(2, TimeUnit.SECONDS);
+                }
+            }
+
+            JsonNode persisted = service.get("scan");
+            assertThat(persisted.at("/sandbox_demonstration/status").asString())
+                    .isEqualTo("REJECTED");
+            assertThat(persisted.at("/validation/status").asString()).isEqualTo("CONFIRMED");
+            assertThat(persisted.path("validation_status").asString()).isEqualTo("CONFIRMED");
+        }
     }
 
     private ObjectNode envelopeForRoot() throws Exception {

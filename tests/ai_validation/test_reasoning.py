@@ -106,3 +106,42 @@ def test_generation_budget_rejects_oversized_evidence_without_sending_it():
         )
     )
     assert result.status == "DEGRADED" and result.reason_code == "INVALID_AI_OUTPUT"
+
+
+def test_ollama_enforces_one_global_inference_budget(monkeypatch):
+    monkeypatch.setenv("RISKGRAPH_AI_MAX_CONCURRENCY", "2")
+    monkeypatch.setenv("RISKGRAPH_AI_QUEUE_TIMEOUT_SECONDS", "0.05")
+
+    class SlowProvider(OllamaProvider):
+        def __init__(self):
+            super().__init__()
+            self.active = 0
+            self.maximum_active = 0
+            self.started = asyncio.Event()
+            self.release = asyncio.Event()
+
+        async def _generate(self, evidence, schema):
+            self.active += 1
+            self.maximum_active = max(self.maximum_active, self.active)
+            if self.active == 2:
+                self.started.set()
+            try:
+                await self.release.wait()
+                return VALID
+            finally:
+                self.active -= 1
+
+    async def run():
+        provider = SlowProvider()
+        first = asyncio.create_task(explain(REQUEST, provider))
+        second = asyncio.create_task(explain(REQUEST, provider))
+        await provider.started.wait()
+        overloaded = await explain(REQUEST, provider)
+        provider.release.set()
+        completed = await asyncio.gather(first, second)
+        assert overloaded.status == "DEGRADED"
+        assert overloaded.reason_code == "OLLAMA_CAPACITY_EXCEEDED"
+        assert all(result.status == "AVAILABLE" for result in completed)
+        assert provider.maximum_active == 2
+
+    asyncio.run(run())

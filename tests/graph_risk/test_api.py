@@ -39,6 +39,18 @@ def test_internal_routes_reject_missing_service_credentials(
     assert post("/analysis", authorization_removal_payload, authenticated=False).status_code == 401
 
 
+def test_openapi_requires_internal_service_authentication() -> None:
+    schema = app.openapi()
+    scheme = schema["components"]["securitySchemes"]["APIKeyHeader"]
+    assert scheme == {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-RiskGraph-Service-Token",
+    }
+    for route in ("/analysis", "/graph/delta", "/risk/score"):
+        assert schema["paths"][route]["post"]["security"] == [{"APIKeyHeader": []}]
+
+
 def test_graph_and_risk_responses_match_locked_json_schemas(
     authorization_removal_payload: dict,
 ) -> None:

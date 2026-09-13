@@ -26,7 +26,7 @@ public class SourceValidationService {
         this.mapper = mapper;
     }
 
-    public void validateSandbox(ObjectNode result, String revision, String aiUrl) {
+    public ValidationPatch validateSandbox(JsonNode result, String revision, String aiUrl) {
         boolean compatible = false;
         for (JsonNode row : result.at("/source_evidence/after")) {
             compatible |= row.at("/endpoint/endpoint").asString().equals("/admin/export")
@@ -44,10 +44,10 @@ public class SourceValidationService {
             validation = errorResult(error.code, revision);
         }
         // Shipped demonstration evidence never confirms an arbitrary source repository.
-        result.set("sandbox_demonstration", validation);
+        return new ValidationPatch(validation.deepCopy(), Map.of(), null);
     }
 
-    public void validateSource(ObjectNode result, String sandboxManifest, String aiUrl) {
+    public ValidationPatch validateSource(JsonNode result, String sandboxManifest, String aiUrl) {
         JsonNode registered = registeredScenario(sandboxManifest);
         if (!registered.path("new_commit").equals(result.at("/provenance/new_commit"))
                 || !registered.path("old_commit").equals(result.at("/provenance/old_commit"))
@@ -58,9 +58,25 @@ public class SourceValidationService {
         }
         String commit = registered.path("new_commit").asString();
         if (result.path("findings").isEmpty()) {
-            result.set("validation", runSourceValidation(commit, "GET", "/admin/export", aiUrl));
-        } else {
-            applyFindingValidations(result, commit, aiUrl);
+            return new ValidationPatch(null, Map.of(),
+                    runSourceValidation(commit, "GET", "/admin/export", aiUrl));
+        }
+        return new ValidationPatch(null, findingValidations(result, commit, aiUrl), null);
+    }
+
+    public void apply(ObjectNode result, ValidationPatch patch) {
+        if (patch.sandboxDemonstration() != null) {
+            result.set("sandbox_demonstration", patch.sandboxDemonstration().deepCopy());
+            return;
+        }
+        if (patch.standaloneValidation() != null) {
+            result.set("validation", patch.standaloneValidation().deepCopy());
+        }
+        for (JsonNode value : result.path("findings")) {
+            ObjectNode finding = (ObjectNode) value;
+            JsonNode validation = patch.findingValidations().get(
+                    finding.path("finding_id").asString());
+            if (validation != null) finding.set("validation", validation.deepCopy());
         }
         updateSummary(result);
     }
@@ -89,10 +105,11 @@ public class SourceValidationService {
         }
     }
 
-    private void applyFindingValidations(ObjectNode result, String commit, String aiUrl) {
+    private Map<String, JsonNode> findingValidations(JsonNode result, String commit, String aiUrl) {
         Map<String, JsonNode> routeResults = new HashMap<>();
+        Map<String, JsonNode> findingResults = new HashMap<>();
         for (JsonNode value : result.path("findings")) {
-            ObjectNode finding = (ObjectNode) value;
+            JsonNode finding = value;
             String method = finding.path("method").asString();
             String path = finding.path("path").asString();
             String routeKey = method + " " + path;
@@ -102,8 +119,9 @@ public class SourceValidationService {
                     : mapper.createObjectNode().put("status", "NOT_RUN").put("confirmed", false)
                             .put("reason_code", "UNSUPPORTED_SOURCE_VALIDATION")
                             .put("sandbox_revision", "source-bound");
-            finding.set("validation", validation);
+            findingResults.put(finding.path("finding_id").asString(), validation.deepCopy());
         }
+        return Map.copyOf(findingResults);
     }
 
     private JsonNode runSourceValidation(String commit, String method, String path, String aiUrl) {
@@ -172,5 +190,11 @@ public class SourceValidationService {
     private ObjectNode errorResult(String reasonCode, String revision) {
         return mapper.createObjectNode().put("status", "ERROR").put("confirmed", false)
                 .put("reason_code", reasonCode).put("sandbox_revision", revision);
+    }
+
+    public record ValidationPatch(
+            JsonNode sandboxDemonstration,
+            Map<String, JsonNode> findingValidations,
+            JsonNode standaloneValidation) {
     }
 }

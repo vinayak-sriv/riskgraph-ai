@@ -30,6 +30,18 @@ def test_internal_routes_reject_missing_service_credentials():
     )
 
 
+def test_openapi_requires_internal_service_authentication():
+    schema = app.openapi()
+    scheme = schema["components"]["securitySchemes"]["APIKeyHeader"]
+    assert scheme == {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-RiskGraph-Service-Token",
+    }
+    for route in ("/ai/analyze", "/ai/test-suggestion", "/validation/http"):
+        assert schema["paths"][route]["post"]["security"] == [{"APIKeyHeader": []}]
+
+
 def test_invalid_public_target_fails_before_runner():
     response = call(
         "POST",

@@ -70,7 +70,10 @@ docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile a
 | `RISKGRAPH_SERVICE_TOKEN` | Required shared internal-service secret; native launcher generates one when absent |
 | `RISKGRAPH_VALIDATION_CONCURRENCY` | 2; bounds local Docker workers |
 | `RISKGRAPH_MAX_DEPENDENCY_RESPONSE_BYTES` | 33554432; bounded response size aligned with the 2,000-row contract |
-| `RISKGRAPH_LOGIN_MAX_FAILURES` | 5 failures per username and source IP before throttling |
+| `RISKGRAPH_LOGIN_MAX_FAILURES` | 5 failures per username before throttling |
+| `RISKGRAPH_LOGIN_IP_MAX_FAILURES` | 50 failures per source IP before throttling username rotation |
+| `RISKGRAPH_AI_MAX_CONCURRENCY` | 2 model generations across the AI service process |
+| `RISKGRAPH_AI_QUEUE_TIMEOUT_SECONDS` | 5 seconds before returning deterministic degraded output under model saturation |
 | `RISKGRAPH_RISK_POLICY` | Optional graph policy path; v1 formula/thresholds must remain exact |
 | `RISKGRAPH_SENSITIVITY_POLICY` | Optional analyzer resource-classification policy path |
 | `RISKGRAPH_BOOTSTRAP_PASSWORD_FILE` | Read once to create `admin` only when no enabled accounts exist; Compose mounts `tmp/local-auth/admin.password` |
