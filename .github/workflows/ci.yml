@@ -76,7 +76,10 @@ jobs:
             riskgraph-sandbox-vulnerable:local \
             riskgraph-sandbox:local \
             riskgraph-validation-probe:local
-          echo "RISKGRAPH_VALIDATION_PROBE_IMAGE=$probe_id" >> "$GITHUB_ENV"
+          # Docker 29's containerd image store assigns a daemon-local image ID
+          # after load. Resolve this controlled local tag to that immutable ID
+          # inside the validation service immediately before every probe.
+          echo "RISKGRAPH_VALIDATION_PROBE_IMAGE=riskgraph-validation-probe:local" >> "$GITHUB_ENV"
       - name: Build and start the complete isolated stack
         run: docker compose -p riskgraph-ci -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app up -d --build --wait
       - name: Exercise source, graph, AI-degraded, validation, and decision stages
