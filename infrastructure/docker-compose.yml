@@ -45,7 +45,7 @@ services:
       DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-http://localhost:5173}
       DASHBOARD_ALLOWED_ORIGINS: ${DASHBOARD_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       RISKGRAPH_ALLOWED_REPOSITORY_ROOTS: /analysis-repositories
-      RISKGRAPH_SANDBOX_MANIFEST: /analysis-repositories/mvp-v1/manifest.compose.json
+      RISKGRAPH_SANDBOX_MANIFEST: /analysis-repositories/mvp-v2/manifest.compose.json
       RISKGRAPH_BOOTSTRAP_PASSWORD_FILE: /run/riskgraph-auth/admin.password
       RISKGRAPH_SECURE_COOKIE: ${RISKGRAPH_SECURE_COOKIE:-false}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-riskgraph-oauth-disabled}

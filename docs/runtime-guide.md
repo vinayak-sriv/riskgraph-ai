@@ -47,7 +47,7 @@ docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile a
 | Variable | Native default / purpose |
 |---|---|
 | `RISKGRAPH_ALLOWED_REPOSITORY_ROOTS` | `./samples/generated`; OS path-separated real roots; Compose fixes `/analysis-repositories` |
-| `RISKGRAPH_SANDBOX_MANIFEST` | `./samples/generated/mvp-v1/manifest.json`; Compose uses mapped manifest |
+| `RISKGRAPH_SANDBOX_MANIFEST` | `./samples/generated/mvp-v2/manifest.json`; Compose uses mapped manifest |
 | `JAVA_ANALYZER_BASE_URL` | `http://localhost:8081` |
 | `GRAPH_RISK_BASE_URL` | `http://localhost:8082` |
 | `AI_VALIDATION_BASE_URL` | `http://localhost:8083` |
@@ -128,13 +128,13 @@ See `contracts/api/platform-api.openapi.yaml` and `docs/decision-policy.md`.
 To reproduce a PR event with native services:
 
 ```powershell
-python tools/reporting/submit_event.py contracts/github/examples/pull-request.json samples/generated/mvp-v1/authorization-removal
+python tools/reporting/submit_event.py contracts/github/examples/pull-request.json samples/generated/mvp-v2/authorization-removal
 ```
 
 For Compose, submit the same event with the mapped repository path:
 
 ```powershell
-python tools/reporting/submit_event.py contracts/github/examples/pull-request.json samples/generated/mvp-v1/authorization-removal --container-repository /analysis-repositories/mvp-v1/authorization-removal
+python tools/reporting/submit_event.py contracts/github/examples/pull-request.json samples/generated/mvp-v2/authorization-removal --container-repository /analysis-repositories/mvp-v2/authorization-removal
 ```
 
 Outputs are an offline Check payload, PR summary and SARIF 2.1.0 with stable finding

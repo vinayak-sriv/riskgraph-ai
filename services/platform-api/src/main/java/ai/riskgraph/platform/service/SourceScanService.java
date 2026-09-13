@@ -31,8 +31,8 @@ public class SourceScanService {
     private final String allowedRoots;
     @Value("${AI_VALIDATION_BASE_URL:http://localhost:8083}")
     private String aiUrl = "http://localhost:8083";
-    @Value("${RISKGRAPH_SANDBOX_MANIFEST:./samples/generated/mvp-v1/manifest.json}")
-    private String sandboxManifest = "./samples/generated/mvp-v1/manifest.json";
+    @Value("${RISKGRAPH_SANDBOX_MANIFEST:./samples/generated/mvp-v2/manifest.json}")
+    private String sandboxManifest = "./samples/generated/mvp-v2/manifest.json";
     @Value("${RISKGRAPH_MAX_AI_FINDINGS:4}")
     private int maxAiFindings = 4;
     @Value("${RISKGRAPH_AI_CONCURRENCY:4}")

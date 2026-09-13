@@ -45,7 +45,7 @@ def main():
     summary = {}
     manifest = create()
     if args.compose:
-        manifest = json.loads((ROOT / "samples/generated/mvp-v1/manifest.compose.json").read_text())
+        manifest = json.loads((ROOT / "samples/generated/mvp-v2/manifest.compose.json").read_text())
     extraction_count = 0
     protected = dict(
         endpoint="/admin/export",

@@ -43,7 +43,7 @@ validation bound to the scanned commit. AI text alone never confirms a finding.
 ## Source Walkthrough
 
 1. Select all four fixture scenarios first. Explain their saved-demonstration label.
-2. Open `samples/generated/mvp-v1/manifest.compose.json`. Copy the authorization-removal
+2. Open `samples/generated/mvp-v2/manifest.compose.json`. Copy the authorization-removal
    repository path and immutable SHAs into the dashboard and click **Run Analysis**.
    Native mode uses paths in `manifest.json` instead.
 3. Show **22 → 91, delta +69, BLOCK**; toggle Before, After and Compare. Select graph

@@ -15,6 +15,20 @@ PROBE_IMAGE = os.environ.get(
     "python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a",
 )
 
+VALIDATION_SECURITY_HARNESS = """package demo;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+@Configuration
+class ValidationSecurityHarness {
+    @Bean SecurityFilterChain validationFilters(HttpSecurity http) throws Exception {
+        return http.csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();
+    }
+}
+"""
+
 
 def main():
     unknown = set(sys.argv[1:]) - {"--prepare-only"}
@@ -43,6 +57,11 @@ def main():
             target = context / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text, encoding="utf-8", newline="\n")
+        # The analyzed fixture stays annotation-only. This local-only harness
+        # removes Spring Boot's default request authentication so the sandbox
+        # can isolate and validate the method annotation hypothesis.
+        harness = context / SOURCE / "ValidationSecurityHarness.java"
+        harness.write_text(VALIDATION_SECURITY_HARNESS, encoding="utf-8", newline="\n")
         resources = context / "src/main/resources"
         resources.mkdir(parents=True, exist_ok=True)
         shutil.copy2(
