@@ -24,7 +24,7 @@ repository labels, and release approval.
 | PERF-001 | Prior finding enrichment is merged before inference | Repeated scan avoids duplicate AI calls |
 | PERF-002 | Ollama calls use a provider-wide semaphore and bounded queue | Concurrent overload/degraded-mode test |
 | DEP-001/002 | Runtime and validation images use patch-level tags plus immutable digests | Compose validation and CI builds |
-| DEP-003 | Pinned Trivy filesystem and image scans added to CI | GitHub Actions release and container jobs |
+| DEP-003 | Pinned Trivy secret/config scan plus built-image dependency/OS scans added to CI | GitHub Actions release and container jobs |
 | OPS-002 | Main application containers run as UID/GID 10001 | Dockerfile inspection and CI build |
 | OPS-003 | CI boots the full Compose + DinD validation stack and runs the four scenarios | `container-smoke` job |
 | SEC-001/CLEAN-001 | Deterministic packager independently rejects secrets/traversal and emits SHA-256 manifest | Release packaging tests and artifact job |
