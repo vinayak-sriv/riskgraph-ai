@@ -57,8 +57,9 @@ validation bound to the scanned commit. AI text alone never confirms a finding.
    expected HTTP 200 marker, becomes CONFIRMED, and retains BLOCK. The protected
    revision returns 403. Only the authored registered app has a sandbox adapter.
 7. Run the other manifest pairs: safe **22 → 22 ALLOW**, new public endpoint
-   **0 → 65 BLOCK**, sensitive resource exposure **8 → 65 BLOCK**. The legacy exposure
-   fixture starts at 4 (LOW input); the real Catalog source is MODERATE and starts at 8.
+   **0 → 65 BLOCK**, sensitive resource exposure **0 → 65 BLOCK**. Exposure compares
+   the newly affected route/Payment identity; the prior Catalog resource is deliberately
+   not blended into Payment's baseline.
 8. Export JSON. Inspect `tmp/evidence-bundle` and the offline Check/SARIF/summary from
    the local GitHub walkthrough in `docs/runtime-guide.md`. No GitHub writes occur.
 9. Explain that the 100-record corpus is provisional and parameterized. Passing it

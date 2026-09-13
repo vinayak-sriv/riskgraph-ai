@@ -40,7 +40,10 @@ def main():
         "authorization-removal": (22, 91, "BLOCK"),
         "safe-change": (22, 22, "ALLOW"),
         "new-public-sensitive-endpoint": (0, 65, "BLOCK"),
-        "sensitive-resource-exposure": (8, 65, "BLOCK"),
+        # The comparison is scoped to the newly affected route/resource pair.
+        # Catalog and Payment are distinct resource identities, so the prior
+        # state for the newly reachable Payment resource is zero.
+        "sensitive-resource-exposure": (0, 65, "BLOCK"),
     }
     summary = {}
     manifest = create()

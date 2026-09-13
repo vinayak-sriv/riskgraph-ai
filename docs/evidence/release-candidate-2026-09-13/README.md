@@ -19,7 +19,7 @@ request. It is not a final-release approval.
 - The 10-slide presentation passed package integrity, layout, font, native table,
   native chart/workbook, and first-party import checks, then passed slide-by-slide
   visual inspection. SHA-256:
-  `d75c60050643438508736f10213004ceac5c5c4e33fc1f981df72870d5535130`.
+  `55010bb3963aff4a87816c9aa8359d0090c4882efc0cb93b741b356add566918`.
 
 ## Pending external evidence
 
@@ -38,4 +38,4 @@ request. It is not a final-release approval.
 - `datasets/regressions/authorization-removal-confirmed.json`
 - `docs/security-review-2026-09-13.md`
 - `docs/release-rehearsal.md`
-- `artifacts/RiskGraph-AI-Final-Presentation-v2.pptx`
+- `artifacts/RiskGraph-AI-Final-Presentation-v3.pptx`

@@ -72,12 +72,14 @@ database failure and CORS. See the test files for the exact bounded assertions.
 | Authorization removal | 22 → 91 | +69 | 1 | BLOCK; Docker CONFIRMED |
 | Safe cosmetic change | 22 → 22 | 0 | 0 | ALLOW |
 | New public sensitive endpoint | 0 → 65 | +65 | 1 | BLOCK |
-| Sensitive-resource exposure | 8 → 65 | +57 | 1 | BLOCK |
+| Sensitive-resource exposure | 0 → 65 | +65 | 1 | BLOCK |
 
 Every scenario has HIGH confidence and 100% measured call-chain coverage. Seven
 expected source-located canonical IR rows match exactly: endpoint, authorization
 and sensitivity extraction accuracy are each 7/7 on these authored examples.
 Repeated scans match IDs, source evidence, provenance, paths, scores and reason codes.
+The sensitive-resource baseline is zero because the affected identity is the newly
+reachable route/Payment pair; the distinct Catalog resource is not blended into it.
 The four source-run timings were approximately 4.06, 3.08, 3.10 and 2.88 seconds
 (mean 3.28 seconds; nearest-rank p95 4.06 seconds). These tiny local fixtures do not
 establish general repository performance or real-world vulnerability accuracy.

@@ -70,12 +70,14 @@ each finding. Safe changes do not invoke the model.
 | Authorization removal | 22 → 91 | +69 | 1 | BLOCK, Docker CONFIRMED | AVAILABLE |
 | Safe cosmetic change | 22 → 22 | 0 | 0 | ALLOW | NOT_RUN |
 | New public sensitive endpoint | 0 → 65 | +65 | 1 | BLOCK | AVAILABLE |
-| Sensitive resource exposure | 8 → 65 | +57 | 1 | BLOCK | AVAILABLE |
+| Sensitive resource exposure | 0 → 65 | +65 | 1 | BLOCK | AVAILABLE |
 
 The four measured source runs took approximately 19.55, 2.63, 8.61 and 8.39 seconds
 with the small local CPU model. These are local demo measurements, not a benchmark.
 All seven expected source-located IR rows matched, with HIGH extraction confidence
 and 100% call-chain coverage on the authored fixtures.
+The corrected exposure baseline is scoped to the newly reachable route/Payment pair;
+the prior Catalog resource is a distinct identity and does not contribute to it.
 The final protected-revision probe returned HTTP 403 / REJECTED with cleanup complete.
 After restoring Docker, authenticated retrieval still returned AVAILABLE / CONFIRMED /
 BLOCK for the vulnerable scan, and the dashboard returned HTTP 200. All six backend,
