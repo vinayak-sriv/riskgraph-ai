@@ -6,6 +6,9 @@ services:
     privileged: true
     environment:
       DOCKER_TLS_CERTDIR: ""
+    # The daemon is dual-homed: isolated control traffic plus registry egress.
+    # Explicit resolvers avoid Docker's embedded DNS selecting the internal link.
+    dns: ["1.1.1.1", "8.8.8.8"]
     command: ["--tls=false", "--host=tcp://0.0.0.0:2375", "--host=unix:///var/run/docker.sock"]
     volumes:
       - riskgraph-validation-docker:/var/lib/docker
