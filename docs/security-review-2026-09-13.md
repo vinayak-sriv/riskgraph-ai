@@ -2,13 +2,13 @@
 
 ## Decision
 
-**MVP engineering candidate: conditionally ready for CI. Production deployment:
-not approved. Final v1.0 tag: not approved yet.**
+**MVP engineering candidate: ready for Week 12 independent evaluation. Production
+deployment: not approved. Final v1.0 tag: not approved yet.**
 
 The audit's deterministic correctness and state-integrity findings are fixed with
-regression coverage. The remaining blockers are evidence gates: a real pull-request
-run, the Linux Docker/DinD smoke job, independent human review of the two external
-repository labels, and release approval.
+regression coverage. The real pull-request workflow and Linux Docker/DinD gates pass.
+The remaining blockers are the post-0.4.1 external platform rerun, independent human
+review of the external repository labels, and release approval.
 
 ## Closed audit findings
 
@@ -29,6 +29,7 @@ repository labels, and release approval.
 | OPS-002 | Main application containers run as UID/GID 10001 | Dockerfile inspection and CI build |
 | OPS-003 | CI boots the full Compose + DinD validation stack and runs the four scenarios | `container-smoke` job |
 | SEC-001/CLEAN-001 | Deterministic packager independently rejects secrets/traversal and emits SHA-256 manifest | Release packaging tests and artifact job |
+| PARSER-001 | Changed conventional source roots are modeled independently, preventing duplicate types across multi-module examples | Analyzer 0.4.1 regression plus pinned Spring guide rerun |
 
 ## Security boundaries retained
 
@@ -44,11 +45,10 @@ repository labels, and release approval.
 
 ## Open or deliberately deferred
 
-- **Week 11 evidence:** the remediation PR and its Checks/SARIF artifacts must pass.
 - **Week 12 evidence:** two OSS negative cases ran, but the labels remain provisional
   until an independent reviewer completes `datasets/external-spring/HUMAN_REVIEW.md`.
-- **Fresh validation provenance:** the historical permanent regression predates
-  probe-image ID capture and is marked `LEGACY_MISSING`; CI must produce a fresh run.
+- **External platform rerun:** regenerate the checked-in external summary with
+  analyzer 0.4.1; the pinned direct rerun already removes the parser failure.
 - **OPS-001/004/005:** production topology, backup/restore/rollback rehearsal, and
   production observability are outside the local academic MVP and remain prerequisites
   for any production claim.

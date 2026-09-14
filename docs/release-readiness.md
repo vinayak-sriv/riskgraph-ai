@@ -1,7 +1,7 @@
 # Release readiness gates
 
-The roadmap CURRENT WEEK marker is unchanged. Implemented future-stage work does
-not establish that every weekly quality gate has passed.
+The roadmap is at Week 12. Weeks 8–11 have reproducible local and GitHub evidence;
+Week 12 remains open until an independent reviewer records attributable labels.
 
 - [x] Versioned canonical IR and deterministic graph/risk fixture tests
 - [x] Source allowlist, immutable commits, Spoon extraction and provenance
@@ -27,9 +27,17 @@ not establish that every weekly quality gate has passed.
 - [x] Final presentation structurally validated and visually reviewed
 - [ ] Reviewed evaluation on 2–4 external Spring Boot repositories with licenses
 - [x] Two pinned, licensed external-source regressions with provisional AI source review
+- [x] Real PR Check, SARIF, summary, source locations, diagnostics, and stable head identity
+- [x] Analyzer 0.4.1 isolates changed conventional source roots in multi-module repositories
 - [x] Platform user authentication and Developer/Analyst/Admin authorization on implemented APIs
 - [ ] Source-bound validation adapters for arbitrary reviewed target applications
 - [ ] Human review of provisional labels and release approval
+
+Current green GitHub evidence for commit `7a7a4705d09205c3423013068085f9e002260597`:
+
+- PR analysis: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/34805706824>
+- PR CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/34805706812>
+- Push CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/34805703609>
 
 No project commit, push, PR creation, Check or PR comment publication is performed
 by the local verification workflow. Generated sample repositories contain isolated

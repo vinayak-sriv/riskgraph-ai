@@ -1,8 +1,8 @@
 # RiskGraph AI Delivery Plan
 
-> **Current week: 8**
-> Weeks 1–7 are complete. Stable repository identities, pair-scoped risk comparison,
-> confidence reporting, concurrency preservation, and their regression tests now pass.
+> **Current week: 12**
+> Weeks 1–11 are complete. Week 12 external evidence exists, but independent human
+> review and the post-0.4.1 platform summary rerun remain open.
 
 ## Delivery Principle
 
@@ -21,11 +21,11 @@ tests, and demo procedure must all work from a clean checkout.
 | 5 | Complete | Use Spoon to extract Spring routes, HTTP methods, controllers, and `@PreAuthorize` requirements with file/line evidence | Tests cover class/method mappings, auth removal, multiple paths, overload-safe traversal, and unsupported authorization expressions |
 | 6 | Complete | Resolve controller → service → repository → resource paths and emit schema-valid IR for the changed surface | Generated auth-removal commits produce expected before/after IR without hand-authored analyzer fixtures |
 | 7 | Complete | Harden graph identity, provenance, reachability, score calibration, and confidence/coverage reporting | Unit, integration, metamorphic, and negative tests demonstrate deterministic behavior |
-| 8 | Current | Run one real Java commit pair end to end from source to the dashboard | One-command mentor demo shows source evidence, new attack path, 22 → 91, and BLOCK |
-| 9 | Planned | Add Ollama-backed structured explanations and HTTP-test proposals behind a swappable interface | JSON Schema constrained output validates; unavailable Ollama degrades clearly without changing the deterministic verdict |
-| 10 | Planned | Execute the proposed authorization test only inside a hardened Docker sandbox and combine evidence into the decision engine | Egress-restricted test run is time/resource bounded, logged, repeatable, and incapable of targeting public systems |
-| 11 | Planned | Analyze pull requests through GitHub and publish Checks, SARIF, fingerprints, and concise evidence | A real test PR receives stable inline findings and a rerun does not duplicate them |
-| 12 | Planned | Measure accuracy, false positives, performance, and extraction coverage; freeze the demo build | Labeled corpus reports precision/recall/F1 and 2–4 OSS repositories complete within a documented budget |
+| 8 | Complete | Run one real Java commit pair end to end from source to the dashboard | Four real-source demo scenarios pass in the full Compose verifier |
+| 9 | Complete | Add Ollama-backed structured explanations and HTTP-test proposals behind a swappable interface | Schema-constrained output, deterministic degraded mode, and provider backpressure are tested |
+| 10 | Complete | Execute the proposed authorization test only inside a hardened Docker sandbox and combine evidence into the decision engine | Docker-only validation and deterministic final policy pass in the Linux container exercise |
+| 11 | Complete | Analyze pull requests through GitHub and publish Checks, SARIF, fingerprints, and concise evidence | PR #18 publishes a schema-valid evidence artifact, neutral Check, SARIF, summary, and exact head identity |
+| 12 | Current | Measure accuracy, false positives, performance, and extraction coverage; freeze the demo build | Synthetic metrics and two pinned OSS cases exist; independent human review and a post-0.4.1 platform rerun remain pending |
 | 13 | Planned | Polish graph visualization and generate permanent regression tests from confirmed findings | Confirmed findings produce reviewable tests; Python parsing remains conditional on the Week 12 gate |
 | 14 | Planned | Reliability buffer, report/paper, architecture diagrams, and recorded demo | Clean-install rehearsal and failure-recovery checklist pass |
 | 15 | Planned | Release documentation, deployment packaging, security review, and presentation rehearsal | A new machine can reproduce the demo from the README |
@@ -36,13 +36,13 @@ tests, and demo procedure must all work from a clean checkout.
 **Gate A — Contract foundation (passed):** schemas, fixtures, builds, and service
 boundaries are stable.
 
-**Gate B — Real-code MVP (target Week 8):** a real Spring Boot commit pair, not a
+**Gate B — Real-code MVP (passed):** a real Spring Boot commit pair, not a
 fixture, produces traceable IR, before/after graphs, risk delta, verdict, and dashboard.
 
-**Gate C — Validated MVP (target Week 10):** Ollama output remains advisory and an
+**Gate C — Validated MVP (passed):** Ollama output remains advisory and an
 isolated HTTP test confirms or rejects the deterministic hypothesis.
 
-**Gate D — Industry-facing release (target Week 12):** GitHub/SARIF integration,
+**Gate D — Industry-facing release (current Week 12 gate):** GitHub/SARIF integration,
 evaluation metrics, stable fingerprints, performance limits, and OSS evidence exist.
 
 The conditional Python proof of concept may begin only after Gate D passes.
