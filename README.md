@@ -80,6 +80,9 @@ $env:RISKGRAPH_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_ur
 
 Use `.env.example` only when you need persistent configuration. Copy it to the
 ignored `.env` file and replace every placeholder before using `--env-file .env`.
+When Compose connects to Ollama running on the host, set
+`OLLAMA_BASE_URL=http://host.docker.internal:11434`; `localhost` is correct only
+for native services running outside containers.
 
 Then prepare the authored repositories, initialize the local administrator, and
 start the isolated stack:
@@ -138,11 +141,20 @@ data. For native Java, Python, and Node startup, see the
 ## Local AI with Ollama
 
 Ollama is optional. If it is unavailable or returns invalid content, the pipeline
-continues with an explicit deterministic degraded result. Configure it without
-hardcoding a host or model:
+continues with an explicit deterministic degraded result. Configure it through
+environment variables instead of hardcoding a host or model.
+
+For native services:
 
 ```text
 OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:8b
+```
+
+For Compose connecting to Ollama on the host:
+
+```text
+OLLAMA_BASE_URL=http://host.docker.internal:11434
 OLLAMA_MODEL=llama3.1:8b
 ```
 
@@ -165,16 +177,32 @@ npm --prefix apps/dashboard run build
 npm --prefix apps/dashboard run lint
 npm --prefix apps/dashboard run format:check
 npm --prefix apps/dashboard test
+npm --prefix apps/dashboard audit --omit=dev
 docker compose -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app config --quiet
 ```
 
-For the complete release rehearsal and evidence bundle:
+Run the aggregated local build, contract, corpus, and audit gate:
 
 ```powershell
 python tools/dev/verify_release.py
+```
+
+With the Compose stack running, the remaining runtime and evaluation checks are:
+
+```powershell
 python tools/dev/verify_mvp.py --compose --validation
 python tools/dev/verify_runtime.py
 python tools/dev/verify_access.py
+python tools/dev/verify_ollama.py
+python tools/evaluation/external_spring.py --compose
+```
+
+The Ollama check requires a reachable instance and installed model. The external
+evaluation remains provisional until an independent reviewer completes its labels.
+Create the deterministic release archive and manifest separately:
+
+```powershell
+python tools/release/package.py --output dist/riskgraph-source.zip --manifest dist/riskgraph-source.manifest.json
 ```
 
 CI also performs a full isolated container smoke test, vulnerability scans of the
@@ -189,8 +217,9 @@ summary. Fork pull requests are analyzed without write permissions. Publishing a
 Check or comment for a same-repository pull request is opt-in through the repository
 variable `RISKGRAPH_PUBLISH=true`.
 
-Local verification never creates commits, pushes branches, opens pull requests, or
-publishes GitHub comments.
+Local verification never modifies this project's Git history, pushes branches,
+opens pull requests, or publishes GitHub comments. Fixture preparation may create
+or update isolated synthetic Git repositories under `samples/generated`.
 
 ## Repository layout
 
