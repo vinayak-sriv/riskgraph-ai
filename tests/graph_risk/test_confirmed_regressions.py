@@ -36,3 +36,21 @@ def test_confirmed_findings_remain_permanent_graph_and_risk_regressions() -> Non
 def test_generator_rejects_unconfirmed_evidence() -> None:
     with pytest.raises(ValueError, match="Only a CONFIRMED"):
         GENERATOR.build_case({"validation": {"status": "INCONCLUSIVE"}})
+
+
+def test_generator_rejects_mutable_probe_provenance() -> None:
+    with pytest.raises(ValueError, match="probe image ID must be immutable"):
+        GENERATOR.build_case(
+            {
+                "validation": {
+                    "status": "CONFIRMED",
+                    "confirmed": True,
+                    "cleanup_complete": True,
+                    "container_image_id": "sha256:" + "a" * 64,
+                    "probe_image_id": "python:latest",
+                    "response_sha256": "b" * 64,
+                    "source_commit": "c" * 40,
+                },
+                "provenance": {"new_commit": "c" * 40},
+            }
+        )

@@ -71,15 +71,15 @@ public class LoginAttemptService {
             int failureLimit, long now) {
         synchronized (attempts) {
             if (attempts.size() >= MAX_TRACKED_KEYS && !attempts.containsKey(key)) {
-                evictOldest(attempts);
+                if (!evictOldestUnblocked(attempts, now)) return;
             }
-        attempts.compute(key, (ignored, previous) -> {
-            int failures = previous == null || now - previous.firstFailureMillis() > windowMillis
-                    ? 1 : previous.failures() + 1;
-            long first = failures == 1 ? now : previous.firstFailureMillis();
+            attempts.compute(key, (ignored, previous) -> {
+                int failures = previous == null || now - previous.firstFailureMillis() > windowMillis
+                        ? 1 : previous.failures() + 1;
+                long first = failures == 1 ? now : previous.firstFailureMillis();
                 long blockedUntil = failures >= failureLimit ? now + blockMillis : 0;
-            return new Attempt(failures, first, blockedUntil);
-        });
+                return new Attempt(failures, first, blockedUntil);
+            });
         }
     }
 
@@ -92,12 +92,13 @@ public class LoginAttemptService {
         return username == null ? "" : username.strip().toLowerCase(Locale.ROOT);
     }
 
-    private void evictOldest(ConcurrentHashMap<String, Attempt> attempts) {
+    private boolean evictOldestUnblocked(ConcurrentHashMap<String, Attempt> attempts, long now) {
         Map.Entry<String, Attempt> oldest = attempts.entrySet().stream()
+                .filter(entry -> entry.getValue().blockedUntilMillis() <= now)
                 .min(Map.Entry.comparingByValue(
                         java.util.Comparator.comparingLong(Attempt::firstFailureMillis)))
                 .orElse(null);
-        if (oldest != null) attempts.remove(oldest.getKey(), oldest.getValue());
+        return oldest != null && attempts.remove(oldest.getKey(), oldest.getValue());
     }
 
     private void cleanupOccasionally() {

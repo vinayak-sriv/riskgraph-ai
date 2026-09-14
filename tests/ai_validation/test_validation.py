@@ -2,7 +2,13 @@ import json
 import subprocess
 
 import pytest
-from ai_app.validation import DockerRunner, ValidationRequest, ValidationResult
+from ai_app.validation import (
+    DEFAULT_PROBE_IMAGE,
+    DockerRunner,
+    ValidationRequest,
+    ValidationResult,
+    approved_probe_image,
+)
 from pydantic import ValidationError
 
 
@@ -120,6 +126,12 @@ def test_isolated_mode_fails_closed_without_daemon(monkeypatch):
     monkeypatch.setenv("RISKGRAPH_REQUIRE_ISOLATED_DOCKER", "true")
     with pytest.raises(ValueError, match="required"):
         DockerRunner()
+
+
+def test_probe_image_must_match_the_digest_pinned_allowlist():
+    assert approved_probe_image(DEFAULT_PROBE_IMAGE) == DEFAULT_PROBE_IMAGE
+    with pytest.raises(ValueError, match="not an approved digest-pinned image"):
+        approved_probe_image("python:latest")
 
 
 @pytest.mark.parametrize(

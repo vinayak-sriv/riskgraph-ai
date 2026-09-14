@@ -72,3 +72,47 @@ def test_release_archive_verifier_rejects_secret_and_traversal_entries():
             PACKAGE.verify_archive(archive_path)
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "samples/generated/demo/Application.java",
+        ".test-run/output.json",
+        ".release-test-run/output.json",
+        "pytest-cache-files-run/cache",
+        ".chart-data-run/chart.xlsx",
+    ],
+)
+def test_release_archive_verifier_rejects_excluded_path_prefixes(name):
+    work = ROOT / f".release-test-{uuid.uuid4().hex}"
+    archive_path = work / "unsafe.zip"
+    try:
+        work.mkdir()
+        with zipfile.ZipFile(archive_path, "w") as archive:
+            info = zipfile.ZipInfo(name, PACKAGE.ARCHIVE_TIMESTAMP)
+            archive.writestr(info, b"generated")
+
+        with pytest.raises(ValueError, match="Excluded directory"):
+            PACKAGE.verify_archive(archive_path)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def test_release_archive_rejects_symlink_sources():
+    work = ROOT / f".release-test-{uuid.uuid4().hex}"
+    source = work / "source"
+    try:
+        source.mkdir(parents=True)
+        outside = work / "outside.txt"
+        outside.write_text("secret")
+        link = source / "linked.txt"
+        try:
+            link.symlink_to(outside)
+        except OSError as error:
+            pytest.skip(f"Symlinks unavailable on this host: {error}")
+
+        with pytest.raises(ValueError, match="cannot contain symlinks"):
+            PACKAGE.build_archive(source, work / "release.zip")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)

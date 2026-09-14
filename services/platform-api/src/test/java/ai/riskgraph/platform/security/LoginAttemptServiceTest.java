@@ -40,6 +40,19 @@ class LoginAttemptServiceTest {
         assertThat(service.blocked(legitimate)).isTrue();
     }
 
+    @Test
+    void capacityEvictionPreservesActiveAccountLockouts() {
+        LoginAttemptService service = new LoginAttemptService(CLOCK, 3, 100_000, 300, 60);
+        MockHttpServletRequest target = request("target", "198.51.100.20");
+        for (int index = 0; index < 3; index++) service.failed(target);
+
+        for (int index = 0; index < 12_000; index++) {
+            service.failed(request("distributed" + index, "198.51.100.21"));
+        }
+
+        assertThat(service.blocked(target)).isTrue();
+    }
+
     private MockHttpServletRequest request(String username, String address) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("username", username);

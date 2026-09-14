@@ -59,3 +59,13 @@ def test_manifest_cannot_claim_human_review_without_case_attribution(tmp_path, m
 
     with pytest.raises(ValueError, match="requires reviewer"):
         external.read_manifest()
+
+
+def test_manifest_cannot_claim_reviewed_labels_when_not_human_reviewed(tmp_path, monkeypatch):
+    manifest = copy.deepcopy(external.read_manifest())
+    manifest.update(label_status="REVIEWED", review_type="HUMAN_SOURCE_REVIEW")
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    monkeypatch.setattr(external, "DATA", tmp_path)
+
+    with pytest.raises(ValueError, match="must remain provisional"):
+        external.read_manifest()

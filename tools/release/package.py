@@ -35,24 +35,48 @@ EXCLUDED_PATH_PREFIXES = {
     ("samples", "generated"),
 }
 EXCLUDED_DIRECTORY_PREFIXES = ("pytest-cache-files-", ".chart-data-")
+EXCLUDED_ANY_DIRECTORY_PREFIXES = (".test-", ".release-test-", *EXCLUDED_DIRECTORY_PREFIXES)
+
+
+def excluded_path(parts: tuple[str, ...]) -> bool:
+    return any(
+        part in EXCLUDED_DIRECTORIES or part.startswith(EXCLUDED_ANY_DIRECTORY_PREFIXES)
+        for part in parts
+    ) or any(parts[: len(prefix)] == prefix for prefix in EXCLUDED_PATH_PREFIXES)
+
+
+def validated_source_file(root: Path, path: Path) -> Path:
+    relative = path.relative_to(root)
+    current = root
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(f"Release source cannot contain symlinks: {relative.as_posix()}")
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError as error:
+        raise ValueError(
+            f"Release source file cannot be resolved: {relative.as_posix()}"
+        ) from error
+    if not resolved.is_relative_to(root) or not resolved.is_file():
+        raise ValueError(f"Release source resolves outside the repository: {relative.as_posix()}")
+    return resolved
 
 
 def included_files(root: Path) -> list[Path]:
+    root = root.resolve(strict=True)
     files = []
     for path in root.rglob("*"):
         relative = path.relative_to(root)
-        if any(
-            part in EXCLUDED_DIRECTORIES
-            or part.startswith((".test-", ".release-test-", *EXCLUDED_DIRECTORY_PREFIXES))
-            for part in relative.parts
-        ):
+        if excluded_path(relative.parts):
             continue
-        if any(relative.parts[: len(prefix)] == prefix for prefix in EXCLUDED_PATH_PREFIXES):
-            continue
+        if path.is_symlink():
+            raise ValueError(f"Release source cannot contain symlinks: {relative.as_posix()}")
         if not path.is_file() or path.name in EXCLUDED_FILES or path.suffix in EXCLUDED_SUFFIXES:
             continue
         if path.name.startswith(".env.") and path.name != ".env.example":
             continue
+        validated_source_file(root, path)
         files.append(path)
     return sorted(files, key=lambda item: item.relative_to(root).as_posix())
 
@@ -66,7 +90,7 @@ def build_archive(root: Path, output: Path) -> None:
             info = zipfile.ZipInfo(relative, ARCHIVE_TIMESTAMP)
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o100644 << 16
-            archive.writestr(info, path.read_bytes())
+            archive.writestr(info, validated_source_file(root, path).read_bytes())
 
 
 def verify_archive(path: Path) -> dict[str, object]:
@@ -87,7 +111,7 @@ def verify_archive(path: Path) -> dict[str, object]:
                 raise ValueError(f"Unsafe archive entry: {info.filename}")
             if info.date_time != ARCHIVE_TIMESTAMP:
                 raise ValueError(f"Non-deterministic timestamp: {info.filename}")
-            if any(part in EXCLUDED_DIRECTORIES for part in relative.parts):
+            if excluded_path(relative.parts):
                 raise ValueError(f"Excluded directory in archive: {info.filename}")
             if relative.name in EXCLUDED_FILES or relative.suffix in EXCLUDED_SUFFIXES:
                 raise ValueError(f"Excluded file in archive: {info.filename}")

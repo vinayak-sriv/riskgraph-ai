@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -16,6 +17,8 @@ import tools.jackson.databind.node.ObjectNode;
 
 @Component
 public class SourceValidationService {
+    private static final Pattern SHA256_IMAGE_ID = Pattern.compile("^sha256:[0-9a-f]{64}$");
+    private static final Pattern SHA256_HEX = Pattern.compile("^[0-9a-f]{64}$");
     private final AnalysisClient client;
     private final ContractValidator contracts;
     private final ObjectMapper mapper;
@@ -132,9 +135,11 @@ public class SourceValidationService {
             contracts.validate("validation/sandbox-result.schema.json", validation);
             String status = validation.path("status").asString();
             if (Set.of("CONFIRMED", "REJECTED", "INCONCLUSIVE").contains(status)
-                    && (!validation.path("source_commit").asString().equals(commit)
+                    && (!validation.path("sandbox_revision").asString().equals("vulnerable")
+                    || !validation.path("source_commit").asString().equals(commit)
                     || !validation.path("cleanup_complete").asBoolean()
-                    || status.equals("CONFIRMED") != validation.path("confirmed").asBoolean())) {
+                    || status.equals("CONFIRMED") != validation.path("confirmed").asBoolean()
+                    || status.equals("CONFIRMED") && !hasImmutableConfirmationEvidence(validation))) {
                 throw new PipelineException("SANDBOX_IDENTITY_MISMATCH", 502,
                         "Sandbox evidence identity mismatch");
             }
@@ -144,6 +149,12 @@ public class SourceValidationService {
             result.put("cleanup_complete", false);
             return result;
         }
+    }
+
+    private boolean hasImmutableConfirmationEvidence(JsonNode validation) {
+        return SHA256_IMAGE_ID.matcher(validation.path("container_image_id").asString()).matches()
+                && SHA256_IMAGE_ID.matcher(validation.path("probe_image_id").asString()).matches()
+                && SHA256_HEX.matcher(validation.path("response_sha256").asString()).matches();
     }
 
     private JsonNode registeredScenario(String manifest) {

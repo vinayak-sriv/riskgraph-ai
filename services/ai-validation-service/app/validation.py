@@ -17,10 +17,21 @@ from .reasoning import StrictModel
 
 VALIDATION_CONCURRENCY = max(1, int(os.environ.get("RISKGRAPH_VALIDATION_CONCURRENCY", "2")))
 VALIDATION_SEMAPHORE = asyncio.Semaphore(VALIDATION_CONCURRENCY)
-PROBE_IMAGE = os.environ.get(
-    "RISKGRAPH_VALIDATION_PROBE_IMAGE",
-    "python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a",
+DEFAULT_PROBE_IMAGE = (
+    "python:3.12.14-alpine3.24@"
+    "sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a"
 )
+APPROVED_PROBE_IMAGES = frozenset({DEFAULT_PROBE_IMAGE})
+
+
+def approved_probe_image(configured: str | None = None) -> str:
+    image = configured or os.environ.get("RISKGRAPH_VALIDATION_PROBE_IMAGE", DEFAULT_PROBE_IMAGE)
+    if image not in APPROVED_PROBE_IMAGES:
+        raise ValueError("Validation probe image is not an approved digest-pinned image")
+    return image
+
+
+PROBE_IMAGE = approved_probe_image()
 
 
 class ValidationRequest(StrictModel):

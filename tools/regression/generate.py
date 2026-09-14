@@ -22,6 +22,9 @@ def build_case(scan: dict) -> dict:
         raise ValueError("Validation cleanup must be complete")
     if not SHA256_ID.fullmatch(str(validation.get("container_image_id", ""))):
         raise ValueError("Validation must include an immutable container image ID")
+    probe_image_id = validation.get("probe_image_id")
+    if probe_image_id is not None and not SHA256_ID.fullmatch(str(probe_image_id)):
+        raise ValueError("Validation probe image ID must be immutable when present")
     if not re.fullmatch(r"[0-9a-f]{64}", str(validation.get("response_sha256", ""))):
         raise ValueError("Validation must include a response SHA-256")
     new_commit = str(provenance.get("new_commit", ""))
@@ -58,10 +61,8 @@ def build_case(scan: dict) -> dict:
         "confirmation": {
             "status": validation["status"],
             "container_image_id": validation["container_image_id"],
-            "probe_image_id": validation.get("probe_image_id"),
-            "probe_provenance": (
-                "COMPLETE" if validation.get("probe_image_id") else "LEGACY_MISSING"
-            ),
+            "probe_image_id": probe_image_id,
+            "probe_provenance": ("COMPLETE" if probe_image_id else "LEGACY_MISSING"),
             "response_sha256": validation["response_sha256"],
             "source_commit": validation["source_commit"],
             "cleanup_complete": validation["cleanup_complete"],

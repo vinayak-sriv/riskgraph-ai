@@ -37,6 +37,11 @@ def read_manifest():
                 )
             if review.get("label") not in {"POSITIVE", "NEGATIVE", "INCONCLUSIVE"}:
                 raise ValueError("Every human-reviewed case requires an explicit label")
+    elif (
+        manifest.get("label_status") != "PROVISIONAL"
+        or manifest.get("review_type") != "AI_SOURCE_REVIEW"
+    ):
+        raise ValueError("Non-human-reviewed manifests must remain provisional AI source reviews")
     seen = set()
     for case in manifest["cases"]:
         name = case["id"]
