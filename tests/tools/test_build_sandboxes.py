@@ -30,3 +30,7 @@ def test_compose_loader_quotes_and_allowlists_environment_probe_image():
     assert 'case "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"' in script
     assert 'docker pull "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"' in script
     assert 'docker image inspect "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"' in script
+    assert script.index("fi\n") < script.index('docker pull "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"')
+
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "riskgraph-validation-probe:local" not in workflow

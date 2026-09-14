@@ -68,18 +68,11 @@ jobs:
       - name: Prebuild trusted validation images for the isolated daemon
         run: |
           python tools/dev/build_sandboxes.py
-          probe_id="$(docker image inspect --format='{{.Id}}' "$RISKGRAPH_VALIDATION_PROBE_IMAGE")"
-          docker tag "$probe_id" riskgraph-validation-probe:local
           mkdir -p tmp/validation-images
           docker save --output tmp/validation-images/images.tar \
             riskgraph-sandbox-protected:local \
             riskgraph-sandbox-vulnerable:local \
-            riskgraph-sandbox:local \
-            riskgraph-validation-probe:local
-          # Docker 29's containerd image store assigns a daemon-local image ID
-          # after load. Resolve this controlled local tag to that immutable ID
-          # inside the validation service immediately before every probe.
-          echo "RISKGRAPH_VALIDATION_PROBE_IMAGE=riskgraph-validation-probe:local" >> "$GITHUB_ENV"
+            riskgraph-sandbox:local
       - name: Build and start the complete isolated stack
         run: docker compose -p riskgraph-ci -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app up -d --build --wait
       - name: Exercise source, graph, AI-degraded, validation, and decision stages
@@ -91,7 +84,7 @@ jobs:
           image_ids=$(
             {
               docker compose -p riskgraph-ci -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app images -q
-              for validation_image in riskgraph-sandbox-protected:local riskgraph-sandbox-vulnerable:local riskgraph-sandbox:local riskgraph-validation-probe:local; do
+              for validation_image in riskgraph-sandbox-protected:local riskgraph-sandbox-vulnerable:local riskgraph-sandbox:local "$RISKGRAPH_VALIDATION_PROBE_IMAGE"; do
                 docker image inspect --format '{{.Id}}' "$validation_image"
               done
             } | sort -u
