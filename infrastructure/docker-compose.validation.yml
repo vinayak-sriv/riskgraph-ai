@@ -2,14 +2,17 @@
 # host Docker socket is deliberately not mounted into an application container.
 services:
   validation-docker:
-    image: docker:27.5.1-dind
+    image: docker:29.8.0-dind@sha256:5efed980cba3fc126cf54e21a5a6ff8849d05b6e0623d6e7612f48e9cd6cd17e
     privileged: true
     environment:
       DOCKER_TLS_CERTDIR: ""
-    command: ["--host=tcp://0.0.0.0:2375", "--host=unix:///var/run/docker.sock"]
+    command: ["--tls=false", "--host=tcp://0.0.0.0:2375", "--host=unix:///var/run/docker.sock"]
     volumes:
       - riskgraph-validation-docker:/var/lib/docker
-    networks: [validation-engine, validation-egress]
+    networks:
+      validation-engine: {}
+      validation-egress:
+        gw_priority: 1
     healthcheck:
       test: ["CMD", "docker", "info"]
       interval: 5s
@@ -20,23 +23,37 @@ services:
     pids_limit: 256
 
   validation-image-loader:
-    image: docker:27.5.1-cli
+    image: docker:29.8.0-cli@sha256:eccaacfeed644c7de222ff047483568cb988dde95476fbaaf10ea2d04921bb66
     depends_on:
       validation-docker:
         condition: service_healthy
     environment:
       DOCKER_HOST: tcp://validation-docker:2375
+      RISKGRAPH_VALIDATION_PROBE_IMAGE: ${RISKGRAPH_VALIDATION_PROBE_IMAGE:-python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a}
     working_dir: /workspace
     volumes:
       - ../samples:/workspace/samples:ro
+      - ../tmp/validation-images:/workspace/preloaded:ro
     command:
       - sh
       - -ec
       - |
-        docker build --tag riskgraph-sandbox-protected:local samples/generated/build-protected
-        docker build --tag riskgraph-sandbox-vulnerable:local samples/generated/build-vulnerable
-        docker build --tag riskgraph-sandbox:local samples/sandbox
-        docker pull python:3.12-alpine
+        case "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}" in
+          python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a) ;;
+          *) echo "Unapproved validation probe image" >&2; exit 64 ;;
+        esac
+        if [ -f /workspace/preloaded/images.tar ]; then
+          docker load --input /workspace/preloaded/images.tar
+        else
+          docker build --tag riskgraph-sandbox-protected:local samples/generated/build-protected
+          docker build --tag riskgraph-sandbox-vulnerable:local samples/generated/build-vulnerable
+          docker build --tag riskgraph-sandbox:local samples/sandbox
+        fi
+        docker pull "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"
+        docker image inspect riskgraph-sandbox-protected:local >/dev/null
+        docker image inspect riskgraph-sandbox-vulnerable:local >/dev/null
+        docker image inspect riskgraph-sandbox:local >/dev/null
+        docker image inspect "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}" >/dev/null
     networks: [validation-engine]
     restart: "no"
 
@@ -52,6 +69,7 @@ services:
     environment:
       RISKGRAPH_VALIDATION_DOCKER_HOST: tcp://validation-docker:2375
       RISKGRAPH_REQUIRE_ISOLATED_DOCKER: "true"
+      RISKGRAPH_VALIDATION_PROBE_IMAGE: ${RISKGRAPH_VALIDATION_PROBE_IMAGE:-python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a}
     networks:
       - default
       - validation-engine

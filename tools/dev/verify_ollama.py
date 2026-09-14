@@ -50,7 +50,7 @@ def main():
         assert set(result["analysis"]["evidence"]).issubset(evidence["evidence"])
         assert result["analysis"]["recommended_test"] == "GET /admin/export without authentication"
         results[route] = dict(response=result, seconds=round(time.perf_counter() - started, 3))
-    manifest = json.loads((ROOT / "samples/generated/mvp-v1/manifest.compose.json").read_text())
+    manifest = json.loads((ROOT / "samples/generated/mvp-v2/manifest.compose.json").read_text())
     scan = PlatformSession().call("/analyses", manifest["scenarios"]["authorization-removal"])
     assert scan["ai"]["status"] == "AVAILABLE", scan["ai"]
     assert [scan["risk_result"][key] for key in ("risk_before", "risk_after", "risk_delta")] == [

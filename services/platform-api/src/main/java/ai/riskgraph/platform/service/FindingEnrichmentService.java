@@ -50,14 +50,14 @@ public class FindingEnrichmentService {
     }
 
     public void enrich(ObjectNode result, String aiUrl, int maxAiFindings, int aiConcurrency) {
-        List<ObjectNode> findings = new ArrayList<>(result.path("findings").size());
-        result.path("findings").forEach(value -> findings.add((ObjectNode) value));
+        List<ObjectNode> findings = new ArrayList<>();
+        result.path("findings").forEach(value -> {
+            if (!value.has("ai")) findings.add((ObjectNode) value);
+        });
         int liveCount = Math.min(Math.max(0, maxAiFindings), findings.size());
         if (liveCount == 0) {
             applyExplanations(result, findings, List.of(), 0);
-            if (!findings.isEmpty()) {
-                result.set("ai", result.at("/findings/0/ai").deepCopy());
-            }
+            finishEnrichment(result);
             return;
         }
         int workers = Math.max(1, Math.min(aiConcurrency, Math.max(1, liveCount)));
@@ -71,6 +71,15 @@ public class FindingEnrichmentService {
             applyExplanations(result, findings, futures, liveCount);
         } finally {
             executor.shutdownNow();
+        }
+        finishEnrichment(result);
+    }
+
+    private void finishEnrichment(ObjectNode result) {
+        for (JsonNode finding : result.path("findings")) {
+            if (finding.at("/ai/status").asString().equals("DEGRADED")) {
+                result.put("status", "DEGRADED");
+            }
         }
         if (!result.path("findings").isEmpty()) {
             result.set("ai", result.at("/findings/0/ai").deepCopy());
@@ -135,6 +144,9 @@ public class FindingEnrichmentService {
         for (JsonNode value : result.path("findings")) {
             ObjectNode finding = (ObjectNode) value;
             JsonNode old = previousFindings.get(finding.path("finding_id").asString());
+            if (old != null && old.has("ai")) {
+                finding.set("ai", old.path("ai").deepCopy());
+            }
             if (old != null && old.has("validation")) {
                 finding.set("validation", old.path("validation").deepCopy());
             }

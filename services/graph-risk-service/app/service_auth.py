@@ -2,11 +2,14 @@ import hmac
 import os
 from typing import Annotated
 
-from fastapi import Header, HTTPException
+from fastapi import HTTPException, Security
+from fastapi.security import APIKeyHeader
+
+SERVICE_TOKEN = APIKeyHeader(name="X-RiskGraph-Service-Token", auto_error=False)
 
 
 def require_service_token(
-    supplied: Annotated[str | None, Header(alias="X-RiskGraph-Service-Token")] = None,
+    supplied: Annotated[str | None, Security(SERVICE_TOKEN)],
 ) -> None:
     expected = os.environ.get("RISKGRAPH_SERVICE_TOKEN", "")
     if not expected:

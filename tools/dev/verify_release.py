@@ -71,6 +71,7 @@ def main():
             ["mvn", "--batch-mode", "-f", "services/platform-api/pom.xml", "clean", "verify"],
             ROOT,
         ),
+        ("frontend-install", ["npm", "ci"], ROOT / "apps/dashboard"),
         ("frontend-tests", ["npm", "test"], ROOT / "apps/dashboard"),
         ("frontend-build", ["npm", "run", "build"], ROOT / "apps/dashboard"),
         ("frontend-lint", ["npm", "run", "lint"], ROOT / "apps/dashboard"),

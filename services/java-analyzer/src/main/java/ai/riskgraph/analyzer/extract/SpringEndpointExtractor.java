@@ -11,6 +11,8 @@ import static ai.riskgraph.analyzer.model.AnalysisModels.SensitivityEvidence;
 import static ai.riskgraph.analyzer.model.AnalysisModels.SourceLocation;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -61,23 +63,66 @@ public class SpringEndpointExtractor {
 
     public ExtractionResult extract(Path snapshot, Map<String, List<ChangedRange>> changedRanges) {
         List<Diagnostic> diagnostics = new ArrayList<>();
-        CtModel model = buildModel(snapshot, diagnostics);
-        if (model == null) {
+        if (changedRanges.isEmpty()) {
             return new ExtractionResult(List.of(), new ExtractionCoverage(
-                    changedRanges.size(), 0, 0, 0, 0, 0.0), diagnostics);
+                    0, 0, 0, 0, 0, 1.0), List.of());
+        }
+        List<Path> inputRoots = modelInputRoots(snapshot, changedRanges, diagnostics);
+        if (inputRoots.isEmpty()) {
+            return new ExtractionResult(List.of(), new ExtractionCoverage(
+                    0, 0, 0, 0, 0, 0.0), List.copyOf(diagnostics));
+        }
+        Set<String> analyzedChangedPaths = changedRanges.keySet().stream()
+                .filter(path -> belongsToInputRoot(snapshot, inputRoots, path))
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        List<CtModel> models = new ArrayList<>();
+        for (Path inputRoot : inputRoots) {
+            CtModel model = buildModel(List.of(inputRoot), diagnostics);
+            if (model == null) {
+                return new ExtractionResult(List.of(), new ExtractionCoverage(
+                        analyzedChangedPaths.size(), 0, 0, 0, 0, 0.0), diagnostics);
+            }
+            models.add(model);
         }
 
         Set<String> modeledPaths = new HashSet<>();
-        model.getAllTypes().stream()
+        models.stream().flatMap(model -> model.getAllTypes().stream())
                 .filter(type -> type.getPosition().isValidPosition())
                 .map(type -> relativePath(snapshot, type.getPosition().getFile()))
                 .forEach(modeledPaths::add);
-        changedRanges.keySet().stream()
+        analyzedChangedPaths.stream()
                 .filter(path -> !path.endsWith("package-info.java") && !path.endsWith("module-info.java"))
                 .filter(path -> !modeledPaths.contains(path))
                 .forEach(path -> diagnostics.add(new Diagnostic(
                         "ERROR", "SOURCE_NOT_PARSED", "Changed Java source was not represented in the Spoon model", path)));
 
+        List<EndpointEvidence> endpoints = new ArrayList<>();
+        int controllers = 0;
+        for (CtModel model : models) {
+            ModelExtraction modelExtraction = extractModel(snapshot, model, changedRanges, diagnostics);
+            endpoints.addAll(modelExtraction.endpoints());
+            controllers += modelExtraction.controllers();
+        }
+
+        endpoints.sort(Comparator.comparing((EndpointEvidence value) -> value.endpoint().endpoint())
+                .thenComparing(value -> value.endpoint().method())
+                .thenComparing(EndpointEvidence::qualified_controller)
+                .thenComparing(EndpointEvidence::method_signature));
+        int withService = (int) endpoints.stream().filter(value -> value.endpoint().service() != null).count();
+        int withRepository = (int) endpoints.stream().filter(value -> value.endpoint().repository() != null).count();
+        double coverage = endpoints.isEmpty() ? 1.0
+                : (withService + withRepository) / (2.0 * endpoints.size());
+        return new ExtractionResult(List.copyOf(endpoints), new ExtractionCoverage(
+                analyzedChangedPaths.size(), controllers, endpoints.size(), withService, withRepository,
+                Math.round(coverage * 1000.0) / 1000.0), List.copyOf(diagnostics));
+    }
+
+    private ModelExtraction extractModel(
+            Path snapshot,
+            CtModel model,
+            Map<String, List<ChangedRange>> changedRanges,
+            List<Diagnostic> diagnostics
+    ) {
         ExecutableResolver executableResolver = new ExecutableResolver(model.getAllTypes());
         boolean filterSecurityPresent = hasSecurityFilterChain(model);
         boolean filterSecurityChanged = securityFilterChanged(snapshot, model, changedRanges);
@@ -176,25 +221,61 @@ public class SpringEndpointExtractor {
                 }
             }
         }
-
-        endpoints.sort(Comparator.comparing((EndpointEvidence value) -> value.endpoint().endpoint())
-                .thenComparing(value -> value.endpoint().method())
-                .thenComparing(EndpointEvidence::qualified_controller)
-                .thenComparing(EndpointEvidence::method_signature));
-        int withService = (int) endpoints.stream().filter(value -> value.endpoint().service() != null).count();
-        int withRepository = (int) endpoints.stream().filter(value -> value.endpoint().repository() != null).count();
-        double coverage = endpoints.isEmpty() ? 1.0
-                : (withService + withRepository) / (2.0 * endpoints.size());
-        return new ExtractionResult(List.copyOf(endpoints), new ExtractionCoverage(
-                changedRanges.size(), controllers, endpoints.size(), withService, withRepository,
-                Math.round(coverage * 1000.0) / 1000.0), List.copyOf(diagnostics));
+        return new ModelExtraction(List.copyOf(endpoints), controllers);
     }
 
-    private CtModel buildModel(Path snapshot, List<Diagnostic> diagnostics) {
+    private List<Path> modelInputRoots(
+            Path snapshot,
+            Map<String, List<ChangedRange>> changedRanges,
+            List<Diagnostic> diagnostics
+    ) {
+        List<Path> conventionalRoots;
+        try (var paths = Files.walk(snapshot)) {
+            conventionalRoots = paths
+                    .filter(Files::isDirectory)
+                    .filter(path -> {
+                        String relative = normalizedRelativePath(snapshot, path);
+                        return relative.equals("src/main/java") || relative.endsWith("/src/main/java");
+                    })
+                    .sorted()
+                    .toList();
+        } catch (IOException error) {
+            diagnostics.add(new Diagnostic("ERROR", "SOURCE_ROOT_DISCOVERY_FAILED",
+                    "Unable to discover Java source roots", null));
+            return List.of();
+        }
+        if (conventionalRoots.isEmpty()) {
+            return List.of(snapshot);
+        }
+        List<Path> relevantRoots = conventionalRoots.stream()
+                .filter(root -> changedRanges.keySet().stream()
+                        .anyMatch(path -> belongsToInputRoot(snapshot, List.of(root), path)))
+                .toList();
+        if (relevantRoots.isEmpty()) {
+            diagnostics.add(new Diagnostic("ERROR", "SOURCE_ROOT_NOT_IDENTIFIED",
+                    "Changed Java source is outside a conventional src/main/java source root", null));
+        }
+        return relevantRoots;
+    }
+
+    private boolean belongsToInputRoot(Path snapshot, List<Path> inputRoots, String changedPath) {
+        String normalizedChange = changedPath.replace('\\', '/');
+        return inputRoots.stream().anyMatch(root -> {
+            String relativeRoot = normalizedRelativePath(snapshot, root);
+            return relativeRoot.isEmpty() || normalizedChange.equals(relativeRoot)
+                    || normalizedChange.startsWith(relativeRoot + "/");
+        });
+    }
+
+    private String normalizedRelativePath(Path root, Path path) {
+        return root.relativize(path).toString().replace('\\', '/');
+    }
+
+    private CtModel buildModel(List<Path> inputRoots, List<Diagnostic> diagnostics) {
         Launcher launcher = new Launcher();
         launcher.getEnvironment().setNoClasspath(true);
         launcher.getEnvironment().setCommentEnabled(false);
-        launcher.addInputResource(snapshot.toString());
+        inputRoots.forEach(root -> launcher.addInputResource(root.toString()));
         try {
             CtModel model = launcher.buildModel();
             if (launcher.getEnvironment().getErrorCount() > 0) {
@@ -530,6 +611,9 @@ public class SpringEndpointExtractor {
     }
 
     private record Resolution(List<DependencyPath> paths, boolean changedDependency, boolean ambiguous) {
+    }
+
+    private record ModelExtraction(List<EndpointEvidence> endpoints, int controllers) {
     }
 
     public record ExtractionResult(

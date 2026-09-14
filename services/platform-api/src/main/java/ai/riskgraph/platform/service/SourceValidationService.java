@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -16,6 +17,8 @@ import tools.jackson.databind.node.ObjectNode;
 
 @Component
 public class SourceValidationService {
+    private static final Pattern SHA256_IMAGE_ID = Pattern.compile("^sha256:[0-9a-f]{64}$");
+    private static final Pattern SHA256_HEX = Pattern.compile("^[0-9a-f]{64}$");
     private final AnalysisClient client;
     private final ContractValidator contracts;
     private final ObjectMapper mapper;
@@ -26,7 +29,7 @@ public class SourceValidationService {
         this.mapper = mapper;
     }
 
-    public void validateSandbox(ObjectNode result, String revision, String aiUrl) {
+    public ValidationPatch validateSandbox(JsonNode result, String revision, String aiUrl) {
         boolean compatible = false;
         for (JsonNode row : result.at("/source_evidence/after")) {
             compatible |= row.at("/endpoint/endpoint").asString().equals("/admin/export")
@@ -44,10 +47,10 @@ public class SourceValidationService {
             validation = errorResult(error.code, revision);
         }
         // Shipped demonstration evidence never confirms an arbitrary source repository.
-        result.set("sandbox_demonstration", validation);
+        return new ValidationPatch(validation.deepCopy(), Map.of(), null);
     }
 
-    public void validateSource(ObjectNode result, String sandboxManifest, String aiUrl) {
+    public ValidationPatch validateSource(JsonNode result, String sandboxManifest, String aiUrl) {
         JsonNode registered = registeredScenario(sandboxManifest);
         if (!registered.path("new_commit").equals(result.at("/provenance/new_commit"))
                 || !registered.path("old_commit").equals(result.at("/provenance/old_commit"))
@@ -58,9 +61,25 @@ public class SourceValidationService {
         }
         String commit = registered.path("new_commit").asString();
         if (result.path("findings").isEmpty()) {
-            result.set("validation", runSourceValidation(commit, "GET", "/admin/export", aiUrl));
-        } else {
-            applyFindingValidations(result, commit, aiUrl);
+            return new ValidationPatch(null, Map.of(),
+                    runSourceValidation(commit, "GET", "/admin/export", aiUrl));
+        }
+        return new ValidationPatch(null, findingValidations(result, commit, aiUrl), null);
+    }
+
+    public void apply(ObjectNode result, ValidationPatch patch) {
+        if (patch.sandboxDemonstration() != null) {
+            result.set("sandbox_demonstration", patch.sandboxDemonstration().deepCopy());
+            return;
+        }
+        if (patch.standaloneValidation() != null) {
+            result.set("validation", patch.standaloneValidation().deepCopy());
+        }
+        for (JsonNode value : result.path("findings")) {
+            ObjectNode finding = (ObjectNode) value;
+            JsonNode validation = patch.findingValidations().get(
+                    finding.path("finding_id").asString());
+            if (validation != null) finding.set("validation", validation.deepCopy());
         }
         updateSummary(result);
     }
@@ -89,10 +108,11 @@ public class SourceValidationService {
         }
     }
 
-    private void applyFindingValidations(ObjectNode result, String commit, String aiUrl) {
+    private Map<String, JsonNode> findingValidations(JsonNode result, String commit, String aiUrl) {
         Map<String, JsonNode> routeResults = new HashMap<>();
+        Map<String, JsonNode> findingResults = new HashMap<>();
         for (JsonNode value : result.path("findings")) {
-            ObjectNode finding = (ObjectNode) value;
+            JsonNode finding = value;
             String method = finding.path("method").asString();
             String path = finding.path("path").asString();
             String routeKey = method + " " + path;
@@ -102,8 +122,9 @@ public class SourceValidationService {
                     : mapper.createObjectNode().put("status", "NOT_RUN").put("confirmed", false)
                             .put("reason_code", "UNSUPPORTED_SOURCE_VALIDATION")
                             .put("sandbox_revision", "source-bound");
-            finding.set("validation", validation);
+            findingResults.put(finding.path("finding_id").asString(), validation.deepCopy());
         }
+        return Map.copyOf(findingResults);
     }
 
     private JsonNode runSourceValidation(String commit, String method, String path, String aiUrl) {
@@ -114,9 +135,11 @@ public class SourceValidationService {
             contracts.validate("validation/sandbox-result.schema.json", validation);
             String status = validation.path("status").asString();
             if (Set.of("CONFIRMED", "REJECTED", "INCONCLUSIVE").contains(status)
-                    && (!validation.path("source_commit").asString().equals(commit)
+                    && (!validation.path("sandbox_revision").asString().equals("vulnerable")
+                    || !validation.path("source_commit").asString().equals(commit)
                     || !validation.path("cleanup_complete").asBoolean()
-                    || status.equals("CONFIRMED") != validation.path("confirmed").asBoolean())) {
+                    || status.equals("CONFIRMED") != validation.path("confirmed").asBoolean()
+                    || status.equals("CONFIRMED") && !hasImmutableConfirmationEvidence(validation))) {
                 throw new PipelineException("SANDBOX_IDENTITY_MISMATCH", 502,
                         "Sandbox evidence identity mismatch");
             }
@@ -126,6 +149,12 @@ public class SourceValidationService {
             result.put("cleanup_complete", false);
             return result;
         }
+    }
+
+    private boolean hasImmutableConfirmationEvidence(JsonNode validation) {
+        return SHA256_IMAGE_ID.matcher(validation.path("container_image_id").asString()).matches()
+                && SHA256_IMAGE_ID.matcher(validation.path("probe_image_id").asString()).matches()
+                && SHA256_HEX.matcher(validation.path("response_sha256").asString()).matches();
     }
 
     private JsonNode registeredScenario(String manifest) {
@@ -172,5 +201,11 @@ public class SourceValidationService {
     private ObjectNode errorResult(String reasonCode, String revision) {
         return mapper.createObjectNode().put("status", "ERROR").put("confirmed", false)
                 .put("reason_code", reasonCode).put("sandbox_revision", revision);
+    }
+
+    public record ValidationPatch(
+            JsonNode sandboxDemonstration,
+            Map<String, JsonNode> findingValidations,
+            JsonNode standaloneValidation) {
     }
 }

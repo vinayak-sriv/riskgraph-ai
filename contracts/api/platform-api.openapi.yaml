@@ -17,7 +17,7 @@ paths:
       security: []
   /scans:
     post:
-      summary: Start a scan
+      summary: Run a scan synchronously
       requestBody:
         required: true
         content:
@@ -25,8 +25,8 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateScanRequest'
       responses:
-        '202':
-          description: Scan accepted
+        '200':
+          description: Scan completed
           content:
             application/json:
               schema:

@@ -10,6 +10,34 @@ from pathlib import Path
 
 from create_mvp_samples import CONTROLLER, FILES, ROOT, SOURCE, create, git
 
+DEFAULT_PROBE_IMAGE = (
+    "python:3.12.14-alpine3.24@"
+    "sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a"
+)
+APPROVED_PROBE_IMAGES = frozenset({DEFAULT_PROBE_IMAGE})
+
+
+def approved_probe_image(configured: str | None = None) -> str:
+    image = configured or os.environ.get("RISKGRAPH_VALIDATION_PROBE_IMAGE", DEFAULT_PROBE_IMAGE)
+    if image not in APPROVED_PROBE_IMAGES:
+        raise SystemExit("RISKGRAPH_VALIDATION_PROBE_IMAGE is not an approved digest-pinned image")
+    return image
+
+
+VALIDATION_SECURITY_HARNESS = """package demo;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+@Configuration
+class ValidationSecurityHarness {
+    @Bean SecurityFilterChain validationFilters(HttpSecurity http) throws Exception {
+        return http.csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();
+    }
+}
+"""
+
 
 def main():
     unknown = set(sys.argv[1:]) - {"--prepare-only"}
@@ -20,6 +48,7 @@ def main():
     if configured_host and configured_host != "tcp://validation-docker:2375":
         raise SystemExit("RISKGRAPH_VALIDATION_DOCKER_HOST is not allowlisted")
     docker = ["docker", *(["--host", configured_host] if configured_host else [])]
+    probe_image = approved_probe_image()
     pair = create()["scenarios"]["authorization-removal"]
     repo = Path(pair["repository_path"])
     for revision, commit in [("protected", pair["old_commit"]), ("vulnerable", pair["new_commit"])]:
@@ -38,6 +67,11 @@ def main():
             target = context / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text, encoding="utf-8", newline="\n")
+        # The analyzed fixture stays annotation-only. This local-only harness
+        # removes Spring Boot's default request authentication so the sandbox
+        # can isolate and validate the method annotation hypothesis.
+        harness = context / SOURCE / "ValidationSecurityHarness.java"
+        harness.write_text(VALIDATION_SECURITY_HARNESS, encoding="utf-8", newline="\n")
         resources = context / "src/main/resources"
         resources.mkdir(parents=True, exist_ok=True)
         shutil.copy2(
@@ -61,7 +95,7 @@ def main():
             [*docker, "build", "--tag", "riskgraph-sandbox:local", str(ROOT / "samples/sandbox")],
             check=True,
         )
-        subprocess.run([*docker, "pull", "python:3.12-alpine"], check=True)
+        subprocess.run([*docker, "pull", probe_image], check=True)
 
 
 if __name__ == "__main__":

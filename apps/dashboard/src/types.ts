@@ -42,7 +42,12 @@ export type AnalysisResult = {
   validation_status?: string;
   validation?: {
     status: string;
+    confirmed?: boolean;
     reason_code: string;
+    sandbox_revision?: string;
+    container_image_id?: string | null;
+    probe_image_id?: string | null;
+    response_sha256?: string | null;
     source_commit?: string;
     cleanup_complete?: boolean;
   };

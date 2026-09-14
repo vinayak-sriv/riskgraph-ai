@@ -47,7 +47,7 @@ docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile a
 | Variable | Native default / purpose |
 |---|---|
 | `RISKGRAPH_ALLOWED_REPOSITORY_ROOTS` | `./samples/generated`; OS path-separated real roots; Compose fixes `/analysis-repositories` |
-| `RISKGRAPH_SANDBOX_MANIFEST` | `./samples/generated/mvp-v1/manifest.json`; Compose uses mapped manifest |
+| `RISKGRAPH_SANDBOX_MANIFEST` | `./samples/generated/mvp-v2/manifest.json`; Compose uses mapped manifest |
 | `JAVA_ANALYZER_BASE_URL` | `http://localhost:8081` |
 | `GRAPH_RISK_BASE_URL` | `http://localhost:8082` |
 | `AI_VALIDATION_BASE_URL` | `http://localhost:8083` |
@@ -61,6 +61,7 @@ docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile a
 | `RISKGRAPH_ANALYZER_PROCESS_ISOLATION` | `false` natively; Compose sets `true` so analyzer deadlines kill a separate JVM |
 | `RISKGRAPH_ANALYZER_EXECUTABLE_JAR` | Packaged analyzer jar used by isolated worker mode |
 | `RISKGRAPH_VALIDATION_DOCKER_HOST` | Dedicated daemon only; the sole accepted configured value is `tcp://validation-docker:2375` |
+| `RISKGRAPH_REQUIRE_GITHUB_CONNECTION` | `false` only for local launcher/Compose; set `true` in connected deployments |
 | `RISKGRAPH_MAX_JAVA_FILES` | 5000 |
 | `RISKGRAPH_MAX_JAVA_FILE_BYTES` | 2097152 |
 | `RISKGRAPH_MAX_TOTAL_JAVA_BYTES` | 52428800 |
@@ -70,7 +71,11 @@ docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile a
 | `RISKGRAPH_SERVICE_TOKEN` | Required shared internal-service secret; native launcher generates one when absent |
 | `RISKGRAPH_VALIDATION_CONCURRENCY` | 2; bounds local Docker workers |
 | `RISKGRAPH_MAX_DEPENDENCY_RESPONSE_BYTES` | 33554432; bounded response size aligned with the 2,000-row contract |
-| `RISKGRAPH_LOGIN_MAX_FAILURES` | 5 failures per username and source IP before throttling |
+| `RISKGRAPH_LOGIN_MAX_FAILURES` | 5 failures per username before throttling |
+| `RISKGRAPH_LOGIN_IP_MAX_FAILURES` | 50 failures per source IP before throttling username rotation |
+| `RISKGRAPH_AI_MAX_CONCURRENCY` | 2 model generations across the AI service process |
+| `RISKGRAPH_AI_QUEUE_TIMEOUT_SECONDS` | 5 seconds before returning deterministic degraded output under model saturation |
+| `RISKGRAPH_VALIDATION_PROBE_IMAGE` | Approved immutable Python probe image used only inside the private validation network |
 | `RISKGRAPH_RISK_POLICY` | Optional graph policy path; v1 formula/thresholds must remain exact |
 | `RISKGRAPH_SENSITIVITY_POLICY` | Optional analyzer resource-classification policy path |
 | `RISKGRAPH_BOOTSTRAP_PASSWORD_FILE` | Read once to create `admin` only when no enabled accounts exist; Compose mounts `tmp/local-auth/admin.password` |
@@ -123,13 +128,13 @@ See `contracts/api/platform-api.openapi.yaml` and `docs/decision-policy.md`.
 To reproduce a PR event with native services:
 
 ```powershell
-python tools/reporting/submit_event.py contracts/github/examples/pull-request.json samples/generated/mvp-v1/authorization-removal
+python tools/reporting/submit_event.py contracts/github/examples/pull-request.json samples/generated/mvp-v2/authorization-removal
 ```
 
 For Compose, submit the same event with the mapped repository path:
 
 ```powershell
-python tools/reporting/submit_event.py contracts/github/examples/pull-request.json samples/generated/mvp-v1/authorization-removal --container-repository /analysis-repositories/mvp-v1/authorization-removal
+python tools/reporting/submit_event.py contracts/github/examples/pull-request.json samples/generated/mvp-v2/authorization-removal --container-repository /analysis-repositories/mvp-v2/authorization-removal
 ```
 
 Outputs are an offline Check payload, PR summary and SARIF 2.1.0 with stable finding

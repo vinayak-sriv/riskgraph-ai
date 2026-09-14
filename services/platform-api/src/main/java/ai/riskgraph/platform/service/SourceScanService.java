@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,8 +31,8 @@ public class SourceScanService {
     private final String allowedRoots;
     @Value("${AI_VALIDATION_BASE_URL:http://localhost:8083}")
     private String aiUrl = "http://localhost:8083";
-    @Value("${RISKGRAPH_SANDBOX_MANIFEST:./samples/generated/mvp-v1/manifest.json}")
-    private String sandboxManifest = "./samples/generated/mvp-v1/manifest.json";
+    @Value("${RISKGRAPH_SANDBOX_MANIFEST:./samples/generated/mvp-v2/manifest.json}")
+    private String sandboxManifest = "./samples/generated/mvp-v2/manifest.json";
     @Value("${RISKGRAPH_MAX_AI_FINDINGS:4}")
     private int maxAiFindings = 4;
     @Value("${RISKGRAPH_AI_CONCURRENCY:4}")
@@ -129,16 +130,22 @@ public class SourceScanService {
         result.put("status", incomplete || !confidence.equals("HIGH") ? "DEGRADED" : "COMPLETE");
         result.put("scan_id", digest(result.toString()));
         findings.buildFindings(result);
-        findings.enrich(result, aiUrl, maxAiFindings, aiConcurrency);
         String scanId = result.path("scan_id").asString();
+        JsonNode previous = store.get(scanId);
+        if (previous != null) findings.mergePreviousEnrichment(result, previous);
+        findings.enrich(result, aiUrl, maxAiFindings, aiConcurrency);
         synchronized (storeLockFor(scanId)) {
-            // Identical deterministic evidence keeps validation attached to each stable finding.
-            JsonNode previous = store.get(scanId);
-            if (previous != null) {
-                findings.mergePreviousEnrichment(result, previous);
-                validations.updateSummary(result);
+            ObjectNode prepared = result;
+            JsonNode updated = store.update(scanId, latest -> {
+                findings.mergePreviousEnrichment(prepared, latest);
+                validations.updateSummary(prepared);
+                return prepared;
+            });
+            if (updated == null) {
+                store.save(result);
+            } else {
+                result = (ObjectNode) updated;
             }
-            store.save(result);
         }
         LoggerFactory.getLogger(getClass()).info("scan_completed analysis_id={} verdict={}",
             result.path("analysis_id").asString(), result.path("verdict").asString());
@@ -217,11 +224,17 @@ public class SourceScanService {
                 () -> saveValidated(id, result -> validations.validateSource(result, sandboxManifest, aiUrl)));
     }
 
-    private JsonNode saveValidated(String id, java.util.function.Consumer<ObjectNode> validation) {
-        ObjectNode result = (ObjectNode) get(id);
-        validation.accept(result);
-        synchronized (storeLockFor(id)) { store.save(result); }
-        return result;
+    private JsonNode saveValidated(
+            String id,
+            Function<JsonNode, SourceValidationService.ValidationPatch> validation) {
+        JsonNode snapshot = get(id);
+        SourceValidationService.ValidationPatch patch = validation.apply(snapshot);
+        JsonNode updated = store.update(id, latest -> {
+            validations.apply(latest, patch);
+            return latest;
+        });
+        if (updated == null) throw new PipelineException("SCAN_NOT_FOUND", 404, "Scan does not exist");
+        return updated;
     }
 
     public JsonNode get(String id) {

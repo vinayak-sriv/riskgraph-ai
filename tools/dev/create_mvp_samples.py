@@ -10,22 +10,16 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT = ROOT / "samples/generated/mvp-v1"
+OUTPUT = ROOT / "samples/generated/mvp-v2"
 SOURCE = "src/main/java/demo/"
 FILES = {
     SOURCE + "Application.java": """package demo;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 @SpringBootApplication @EnableMethodSecurity
 public class Application {
     public static void main(String[] args) { SpringApplication.run(Application.class,args); }
-    @Bean SecurityFilterChain filters(HttpSecurity http) throws Exception {
-        return http.csrf(csrf -> csrf.disable()).authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();
-    }
 }
 """,
     SOURCE + "ExportService.java": """package demo;
@@ -130,7 +124,7 @@ def create():
         "new-public-sensitive-endpoint": (no_endpoint, public),
         "sensitive-resource-exposure": (public.replace("ExportService", "CatalogService"), public),
     }
-    result = {"version": "1.0.0", "source_type": "SYNTHETIC_AI_ASSISTED", "scenarios": {}}
+    result = {"version": "1.1.0", "source_type": "SYNTHETIC_AI_ASSISTED", "scenarios": {}}
     for name, (before, after) in scenarios.items():
         repo = OUTPUT / name
         repo.mkdir()
@@ -148,7 +142,7 @@ def create():
 def write_compose_manifest(result):
     manifest = json.loads(json.dumps(result))
     for name, pair in manifest["scenarios"].items():
-        pair["repository_path"] = "/analysis-repositories/mvp-v1/" + name
+        pair["repository_path"] = "/analysis-repositories/mvp-v2/" + name
     (OUTPUT / "manifest.compose.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n"
     )

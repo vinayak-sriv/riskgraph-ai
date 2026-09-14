@@ -19,6 +19,29 @@ REPOSITORIES = ROOT / "samples/generated/external"
 
 def read_manifest():
     manifest = json.loads((DATA / "manifest.json").read_text(encoding="utf-8"))
+    if manifest.get("human_reviewed"):
+        if (
+            manifest.get("label_status") != "REVIEWED"
+            or manifest.get("review_type") != "HUMAN_SOURCE_REVIEW"
+        ):
+            raise ValueError(
+                "Human-reviewed manifests must use the reviewed status and review type"
+            )
+        for case in manifest["cases"]:
+            review = case.get("review") or {}
+            if not all(
+                str(review.get(key, "")).strip() for key in ("reviewer", "reviewed_at", "notes")
+            ):
+                raise ValueError(
+                    "Every human-reviewed case requires reviewer, reviewed_at and notes"
+                )
+            if review.get("label") not in {"POSITIVE", "NEGATIVE", "INCONCLUSIVE"}:
+                raise ValueError("Every human-reviewed case requires an explicit label")
+    elif (
+        manifest.get("label_status") != "PROVISIONAL"
+        or manifest.get("review_type") != "AI_SOURCE_REVIEW"
+    ):
+        raise ValueError("Non-human-reviewed manifests must remain provisional AI source reviews")
     seen = set()
     for case in manifest["cases"]:
         name = case["id"]
@@ -160,9 +183,9 @@ def main():
     if not args.prepare_only:
         summary = dict(
             scope="Two pinned external negative changes; static extraction only; no execution or exploit validation",
-            label_status="PROVISIONAL",
-            review_type="AI_SOURCE_REVIEW",
-            human_reviewed=False,
+            label_status=manifest["label_status"],
+            review_type=manifest["review_type"],
+            human_reviewed=manifest["human_reviewed"],
             vulnerability_precision=None,
             vulnerability_recall=None,
             vulnerability_f1=None,

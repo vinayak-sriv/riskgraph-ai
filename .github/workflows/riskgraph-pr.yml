@@ -8,10 +8,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      # Analyzer/tools come from trusted base. Target Java is parsed, never built.
+      # Internal PRs exercise the proposed engine. Fork PRs use the trusted base;
+      # target Java is parsed and never built in either case.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.sha || github.event.pull_request.base.sha }}
           path: engine
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -39,9 +40,11 @@ jobs:
           RISKGRAPH_ALLOWED_REPOSITORY_ROOTS: ${{ github.workspace }}/target
           SPRING_PROFILES_ACTIVE: local
           RISKGRAPH_BOOTSTRAP_PASSWORD_FILE: ${{ github.workspace }}/engine/tmp/local-auth/admin.password
+          RISKGRAPH_REQUIRE_GITHUB_CONNECTION: 'false'
           # Ephemeral per-job credential; this is not a deployment secret.
           RISKGRAPH_SERVICE_TOKEN: ci-internal-service-token-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
+          trap 'cat /tmp/graph.log /tmp/analyzer.log /tmp/platform.log 2>/dev/null || true' ERR
           python tools/dev/init_auth.py
           python -m uvicorn app.main:app --app-dir services/graph-risk-service --host 127.0.0.1 --port 8082 > /tmp/graph.log 2>&1 &
           java -jar services/java-analyzer/target/java-analyzer-0.1.0-SNAPSHOT.jar > /tmp/analyzer.log 2>&1 &

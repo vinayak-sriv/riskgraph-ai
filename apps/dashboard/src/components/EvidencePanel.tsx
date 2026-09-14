@@ -16,15 +16,18 @@ import {
   type EvidenceCertainty,
 } from "../view-model";
 import { CertaintyBadge, VerdictBadge } from "./ui";
+import { ValidationEvidence } from "./ValidationEvidence";
 
 export function EvidencePanel({
   analysis,
   focusedEvidence,
   onFocusNode,
+  onNotify,
 }: {
   analysis: AnalysisResult;
   focusedEvidence?: string | null;
   onFocusNode?: (nodeId: string) => void;
+  onNotify?: (message: string) => void;
 }) {
   const risk = analysis.risk_result;
   const verdict = analysis.final_verdict ?? analysis.verdict;
@@ -214,6 +217,12 @@ export function EvidencePanel({
           </div>
           <VerdictBadge verdict={verdict} />
         </div>
+        {analysis.validation && (
+          <ValidationEvidence
+            validation={analysis.validation}
+            onNotify={onNotify}
+          />
+        )}
       </div>
 
       {(analysis.provenance || analysis.diagnostics?.length) && (

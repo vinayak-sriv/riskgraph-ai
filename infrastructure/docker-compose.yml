@@ -2,7 +2,10 @@ name: riskgraph-ai
 
 services:
   postgres:
-    image: postgres:16.8-bookworm
+    image: riskgraph-postgres:local
+    build:
+      context: ..
+      dockerfile: infrastructure/postgres/Dockerfile
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-riskgraph}
       POSTGRES_USER: ${POSTGRES_USER:-riskgraph}
@@ -21,11 +24,14 @@ services:
     pids_limit: 128
 
   platform-api:
+    image: riskgraph-platform-api:local
     build:
       context: ..
       dockerfile: services/platform-api/Dockerfile
     profiles: ["app", "future-services"]
     depends_on:
+      auth-bootstrap:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       graph-risk-service:
@@ -42,15 +48,16 @@ services:
       DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-http://localhost:5173}
       DASHBOARD_ALLOWED_ORIGINS: ${DASHBOARD_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       RISKGRAPH_ALLOWED_REPOSITORY_ROOTS: /analysis-repositories
-      RISKGRAPH_SANDBOX_MANIFEST: /analysis-repositories/mvp-v1/manifest.compose.json
+      RISKGRAPH_SANDBOX_MANIFEST: /analysis-repositories/mvp-v2/manifest.compose.json
       RISKGRAPH_BOOTSTRAP_PASSWORD_FILE: /run/riskgraph-auth/admin.password
       RISKGRAPH_SECURE_COOKIE: ${RISKGRAPH_SECURE_COOKIE:-false}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-riskgraph-oauth-disabled}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-riskgraph-oauth-disabled}
+      RISKGRAPH_REQUIRE_GITHUB_CONNECTION: ${RISKGRAPH_REQUIRE_GITHUB_CONNECTION:-false}
       RISKGRAPH_SERVICE_TOKEN: ${RISKGRAPH_SERVICE_TOKEN:?Set RISKGRAPH_SERVICE_TOKEN to a random secret}
     volumes:
       - ${ANALYZER_REPOSITORY_ROOT:-../samples/generated}:/analysis-repositories:ro
-      - ../tmp/local-auth:/run/riskgraph-auth:ro
+      - riskgraph-auth:/run/riskgraph-auth:ro
     ports:
       - "127.0.0.1:8080:8080"
     healthcheck:
@@ -62,9 +69,31 @@ services:
     cpus: 1.5
     pids_limit: 192
 
+  auth-bootstrap:
+    image: docker:29.8.0-cli@sha256:eccaacfeed644c7de222ff047483568cb988dde95476fbaaf10ea2d04921bb66
+    profiles: ["app", "future-services"]
+    user: "0:0"
+    entrypoint: ["sh", "-ec"]
+    command:
+      - |
+        rm -f /target/admin.password
+        cp /source/admin.password /target/admin.password
+        chmod 0400 /target/admin.password
+        chown 10001:10001 /target/admin.password
+    volumes:
+      - ../tmp/local-auth:/source:ro
+      - riskgraph-auth:/target
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_READ_SEARCH]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
+
   java-analyzer:
     build:
-      context: ../services/java-analyzer
+      context: ..
+      dockerfile: services/java-analyzer/Dockerfile
     profiles: ["app", "future-services"]
     environment:
       RISKGRAPH_ALLOWED_REPOSITORY_ROOTS: /analysis-repositories
@@ -159,3 +188,4 @@ networks:
 
 volumes:
   riskgraph-postgres-data:
+  riskgraph-auth:

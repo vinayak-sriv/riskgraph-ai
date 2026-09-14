@@ -169,6 +169,33 @@ class SpringEndpointExtractorTest {
         assertThat(result.diagnostics()).extracting(value -> value.code()).contains("SOURCE_NOT_PARSED");
     }
 
+    @Test
+    void scopesConventionalMultiModuleRepositoryToChangedSourceRoot() throws Exception {
+        String changed = "complete/src/main/java/com/example/GreetingController.java";
+        String completeApplication = "complete/src/main/java/com/example/RestServiceApplication.java";
+        String initialApplication = "initial/src/main/java/com/example/RestServiceApplication.java";
+        write(changed, """
+                package com.example;
+                @RestController class GreetingController {
+                    @GetMapping("/greeting") Object greeting() { return null; }
+                }
+                """);
+        write(completeApplication, "package com.example; class RestServiceApplication {}");
+        write(initialApplication, "package com.example; class RestServiceApplication {}");
+
+        var changedRange = List.of(new ChangedRange(1, 20));
+        var result = extractor().extract(tempDir, Map.of(
+                changed, changedRange,
+                completeApplication, changedRange,
+                initialApplication, changedRange));
+
+        assertThat(result.endpoints()).singleElement()
+                .extracting(value -> value.endpoint().endpoint()).isEqualTo("/greeting");
+        assertThat(result.coverage().java_files_considered()).isEqualTo(3);
+        assertThat(result.diagnostics()).extracting(value -> value.code())
+                .doesNotContain("SPOON_MODEL_FAILED");
+    }
+
     private void write(String relativePath, String contents) throws Exception {
         Path path = tempDir.resolve(relativePath);
         Files.createDirectories(path.getParent());

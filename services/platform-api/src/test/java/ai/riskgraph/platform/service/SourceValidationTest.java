@@ -35,7 +35,10 @@ class SourceValidationTest {
         var client=mock(AnalysisClient.class);
         var validation=mapper.createObjectNode().put("status","CONFIRMED").put("confirmed",true)
             .put("reason_code","HTTP_AUTH_PROBE").put("sandbox_revision","vulnerable")
-            .put("cleanup_complete",true).put("actual_status", 200).put("source_commit","b".repeat(40));
+            .put("cleanup_complete",true).put("actual_status", 200).put("source_commit","b".repeat(40))
+            .put("container_image_id", "sha256:" + "c".repeat(64))
+            .put("probe_image_id", "sha256:" + "d".repeat(64))
+            .put("response_sha256", "e".repeat(64));
         when(client.post(any(),eq("/validation/http"),any())).thenAnswer(call -> {
             ObjectNode request=call.getArgument(2);
             assertThat(request.path("expected_commit").asString()).isEqualTo("b".repeat(40));
@@ -49,6 +52,24 @@ class SourceValidationTest {
         assertThat(failed.path("final_verdict").asString()).isEqualTo("BLOCK");
         validation.put("source_commit","b".repeat(40)).put("cleanup_complete",false);
         assertThat(service.validateSource("test").path("validation_status").asString()).isEqualTo("ERROR");
+    }
+
+    @Test void confirmedResultRequiresImmutableRuntimeProvenance() throws Exception {
+        var client = mock(AnalysisClient.class);
+        var validation = mapper.createObjectNode().put("status", "CONFIRMED").put("confirmed", true)
+                .put("reason_code", "HTTP_AUTH_PROBE").put("sandbox_revision", "vulnerable")
+                .put("cleanup_complete", true).put("actual_status", 200)
+                .put("source_commit", "b".repeat(40))
+                .put("container_image_id", "sha256:" + "c".repeat(64))
+                .put("probe_image_id", "mutable:latest")
+                .put("response_sha256", "e".repeat(64));
+        when(client.post(any(), eq("/validation/http"), any())).thenReturn(validation);
+
+        JsonNode failed = service(client).validateSource("test");
+
+        assertThat(failed.path("validation_status").asString()).isEqualTo("ERROR");
+        assertThat(failed.at("/validation/reason_code").asString())
+                .isEqualTo("SANDBOX_IDENTITY_MISMATCH");
     }
 
     @Test void unregisteredPairAndUnavailableDockerCannotConfirm() throws Exception {
@@ -82,7 +103,10 @@ class SourceValidationTest {
                     .put("confirmed", first).put("reason_code", "HTTP_AUTH_PROBE")
                     .put("sandbox_revision", "vulnerable").put("cleanup_complete", true)
                     .put("actual_status", first ? 200 : 403)
-                    .put("source_commit", "b".repeat(40));
+                    .put("source_commit", "b".repeat(40))
+                    .put("container_image_id", "sha256:" + "c".repeat(64))
+                    .put("probe_image_id", "sha256:" + "d".repeat(64))
+                    .put("response_sha256", "e".repeat(64));
         });
 
         JsonNode validated = service.validateSource("test");
@@ -108,7 +132,10 @@ class SourceValidationTest {
                 .put("status", "CONFIRMED").put("confirmed", true).put("reason_code", "HTTP_AUTH_PROBE")
                 .put("sandbox_revision", "vulnerable").put("cleanup_complete", true)
                 .put("actual_status", 200)
-                .put("source_commit", "b".repeat(40)));
+                .put("source_commit", "b".repeat(40))
+                .put("container_image_id", "sha256:" + "c".repeat(64))
+                .put("probe_image_id", "sha256:" + "d".repeat(64))
+                .put("response_sha256", "e".repeat(64)));
 
         JsonNode validated = service.validateSource("test");
 

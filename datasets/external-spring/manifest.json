@@ -51,7 +51,7 @@
           "new_sha256": "ac8984576f74c759e814ac281257e21388427573c451ffe5b7f7824138e0348a"
         }
       ],
-      "source_review": "Source review: indentation-only Java change. The initial and complete modules contain duplicate application classes, which the current single-model parser cannot combine.",
+      "source_review": "Source review: indentation-only Java change. Extraction is scoped independently to each changed conventional source root so the initial and complete modules do not collide.",
       "expected_changed_endpoints": [
         {
           "method": "GET",
@@ -60,7 +60,7 @@
           "required_role": null
         }
       ],
-      "expected_diagnostic": "SPOON_MODEL_FAILED"
+      "expected_diagnostic": null
     }
   ]
 }

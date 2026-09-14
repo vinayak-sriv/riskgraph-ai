@@ -47,6 +47,39 @@ class GitSourceAcquirerTest {
     }
 
     @Test
+    void localRepositoryIdentityIsStableAcrossSequentialCommitPairs() throws Exception {
+        Path repository = tempDir.resolve("identity-repository");
+        Files.createDirectories(repository);
+        String first;
+        String second;
+        String third;
+        try (Git git = Git.init().setDirectory(repository.toFile()).call()) {
+            write(repository, "src/App.java", "class App { int value = 1; }\n");
+            git.add().addFilepattern(".").call();
+            first = git.commit().setMessage("first").setAuthor("RiskGraph", "test@riskgraph.ai")
+                    .call().getName();
+            write(repository, "src/App.java", "class App { int value = 2; }\n");
+            git.add().addFilepattern(".").call();
+            second = git.commit().setMessage("second").setAuthor("RiskGraph", "test@riskgraph.ai")
+                    .call().getName();
+            write(repository, "src/App.java", "class App { int value = 3; }\n");
+            git.add().addFilepattern(".").call();
+            third = git.commit().setMessage("third").setAuthor("RiskGraph", "test@riskgraph.ai")
+                    .call().getName();
+        }
+
+        GitSourceAcquirer acquirer = new GitSourceAcquirer(tempDir.toString());
+        String firstIdentity;
+        try (var acquired = acquirer.acquire(repository, first, second)) {
+            firstIdentity = acquired.repositoryIdentity();
+        }
+        try (var acquired = acquirer.acquire(repository, second, third)) {
+            assertThat(acquired.repositoryIdentity()).isEqualTo(firstIdentity);
+            assertThat(acquired.repositoryIdentity()).startsWith("local-git:").hasSize(74);
+        }
+    }
+
+    @Test
     void rejectsAbbreviatedCommitBeforeReadingObjects() throws Exception {
         Path repository = tempDir.resolve("repository");
         Files.createDirectories(repository);

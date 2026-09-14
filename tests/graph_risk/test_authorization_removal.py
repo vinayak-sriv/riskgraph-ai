@@ -210,3 +210,31 @@ def test_unrelated_auth_removal_does_not_raise_another_findings_score() -> None:
         == score_risk(isolated.before, isolated.after, isolated_delta).risk_after
         == 60
     )
+
+
+def test_new_resource_compares_the_same_route_resource_scope() -> None:
+    existing = {
+        "endpoint": "/reports",
+        "method": "GET",
+        "controller": "ReportController",
+        "authentication": False,
+        "required_role": None,
+        "service": "ReportService",
+        "repository": "AuditRepository",
+        "resource": "AuditLog",
+        "sensitivity": "CRITICAL",
+    }
+    added = {
+        **existing,
+        "repository": "CustomerRepository",
+        "resource": "Customer",
+        "sensitivity": "MEDIUM",
+    }
+    request = AnalysisRequest.model_validate({"before": [existing], "after": [existing, added]})
+    delta = compare_graphs(request.before, request.after)
+    risk = score_risk(request.before, request.after, delta)
+
+    assert [path.target for path in delta.new_paths] == ["resource:Customer"]
+    assert (risk.risk_before, risk.risk_after, risk.risk_delta) == (0, 57, 57)
+    assert (risk.category_before, risk.category_after) == ("LOW", "MEDIUM")
+    assert decide(risk, delta) == "REVIEW"
