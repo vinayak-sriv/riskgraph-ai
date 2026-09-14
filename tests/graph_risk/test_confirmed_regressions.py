@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,15 @@ def test_confirmed_findings_remain_permanent_graph_and_risk_regressions() -> Non
         content = {key: value for key, value in case.items() if key != "content_sha256"}
         canonical = json.dumps(content, sort_keys=True, separators=(",", ":")).encode()
         assert case["content_sha256"] == hashlib.sha256(canonical).hexdigest()
+
+        confirmation = case["confirmation"]
+        assert confirmation["status"] == "CONFIRMED"
+        assert re.fullmatch(r"sha256:[0-9a-f]{64}", confirmation["container_image_id"])
+        if confirmation["probe_image_id"] is not None:
+            assert re.fullmatch(r"sha256:[0-9a-f]{64}", confirmation["probe_image_id"])
+        assert re.fullmatch(r"[0-9a-f]{64}", confirmation["response_sha256"])
+        assert confirmation["source_commit"] == case["source"]["new_commit"]
+        assert confirmation["cleanup_complete"] is True
 
         result = analyze(AnalysisRequest(before=case["before"], after=case["after"]))
         expected = case["expected"]

@@ -480,6 +480,7 @@ function AnalysisView({
         analysis={analysis}
         focusedEvidence={evidenceFocus?.evidence}
         onFocusNode={onGraphFocus}
+        onNotify={onNotify}
       />
     </div>
   );

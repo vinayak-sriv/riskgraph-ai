@@ -26,7 +26,7 @@ tests, and demo procedure must all work from a clean checkout.
 | 10 | Complete | Execute the proposed authorization test only inside a hardened Docker sandbox and combine evidence into the decision engine | Docker-only validation and deterministic final policy pass in the Linux container exercise |
 | 11 | Complete | Analyze pull requests through GitHub and publish Checks, SARIF, fingerprints, and concise evidence | PR #18 publishes a schema-valid evidence artifact, neutral Check, SARIF, summary, and exact head identity |
 | 12 | Current | Measure accuracy, false positives, performance, and extraction coverage; freeze the demo build | Synthetic metrics and two pinned OSS cases exist; independent human review and a post-0.4.1 platform rerun remain pending |
-| 13 | Planned | Polish graph visualization and generate permanent regression tests from confirmed findings | Confirmed findings produce reviewable tests; Python parsing remains conditional on the Week 12 gate |
+| 13 | Started (gate-limited) | Polish graph visualization and generate permanent regression tests from confirmed findings | The dashboard exposes immutable validation provenance and permanent regressions verify confirmation integrity; Python parsing remains blocked on the Week 12 gate |
 | 14 | Planned | Reliability buffer, report/paper, architecture diagrams, and recorded demo | Clean-install rehearsal and failure-recovery checklist pass |
 | 15 | Planned | Release documentation, deployment packaging, security review, and presentation rehearsal | A new machine can reproduce the demo from the README |
 | 16 | Planned | Final tagged release, evidence bundle, presentation, and submission | Release artifacts, report, metrics, and demo are archived together |
@@ -46,6 +46,10 @@ isolated HTTP test confirms or rejects the deterministic hypothesis.
 evaluation metrics, stable fingerprints, performance limits, and OSS evidence exist.
 
 The conditional Python proof of concept may begin only after Gate D passes.
+
+Week 13 work that does not depend on Gate D may proceed while Week 12 review is
+pending. See [Week 13 progress](week-13-progress.md) for the implemented subset and
+the exact remaining gate.
 
 ## Required Evidence for Every Analysis
 

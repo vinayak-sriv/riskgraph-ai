@@ -24,6 +24,8 @@ Week 12 remains open until an independent reviewer records attributable labels.
 - [x] CI full-stack/DinD smoke and filesystem/container vulnerability scans
 - [x] Deterministic release archive verification and SHA-256 manifest
 - [x] Confirmed-finding regression generator and permanent 22 → 91 regression
+- [x] Permanent regression integrity checks for image, response, commit and cleanup evidence
+- [x] Dashboard validation-provenance view with explicit regression-readiness state
 - [x] Final presentation structurally validated and visually reviewed
 - [ ] Reviewed evaluation on 2–4 external Spring Boot repositories with licenses
 - [x] Two pinned, licensed external-source regressions with provisional AI source review
@@ -33,11 +35,11 @@ Week 12 remains open until an independent reviewer records attributable labels.
 - [ ] Source-bound validation adapters for arbitrary reviewed target applications
 - [ ] Human review of provisional labels and release approval
 
-Current green GitHub evidence for commit `7a7a4705d09205c3423013068085f9e002260597`:
+Current green GitHub evidence for commit `eb714ca377ef1968fdf4815bd46e829d331253d7`:
 
-- PR analysis: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/34805706824>
-- PR CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/34805706812>
-- Push CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/34805703609>
+- PR analysis: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/34828984795>
+- PR CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/34828984691>
+- Push CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/34828980675>
 
 No project commit, push, PR creation, Check or PR comment publication is performed
 by the local verification workflow. Generated sample repositories contain isolated

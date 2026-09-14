@@ -1478,6 +1478,79 @@ select option {
   font-size: 0.875rem;
   margin-top: 6px;
 }
+.validation-provenance {
+  grid-column: 1/-1;
+  padding: 22px;
+}
+.validation-provenance-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+.validation-provenance-heading .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+}
+.provenance-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font: 650 0.6875rem var(--mono);
+  white-space: nowrap;
+}
+.provenance-status.ready {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+.provenance-status.incomplete {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 35%, transparent);
+  background: var(--warning-soft);
+}
+.validation-provenance-copy {
+  max-width: 760px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.validation-provenance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+  margin: 20px 0;
+}
+.validation-provenance-grid > div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--glass);
+}
+.validation-provenance-grid dt {
+  margin-bottom: 6px;
+  color: var(--faint);
+  font-size: 0.6875rem;
+}
+.validation-provenance-grid dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.validation-provenance-grid code {
+  color: var(--muted);
+  font-size: 0.6875rem;
+}
+.missing-value {
+  color: var(--warning);
+}
 .provenance {
   margin-top: 16px;
   padding: 22px;
@@ -2111,6 +2184,9 @@ select option {
   .evidence-grid {
     grid-template-columns: 1fr;
   }
+  .validation-provenance-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .decision-banner {
     flex-wrap: wrap;
   }
@@ -2397,6 +2473,12 @@ select option {
   }
   .policy-surface > .verdict {
     margin-left: 56px;
+  }
+  .validation-provenance-heading {
+    flex-direction: column;
+  }
+  .validation-provenance-grid {
+    grid-template-columns: 1fr;
   }
   .factor-list,
   .evidence-list {
