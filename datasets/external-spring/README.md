@@ -11,7 +11,7 @@ They describe two negative changes, not a representative vulnerability benchmark
 | Source | Reviewed change | Expected source surface | Current limitation |
 |---|---|---|---|
 | [Spring Petclinic](https://github.com/spring-projects/spring-petclinic/commit/bb37aad8c332264723817d855e8b3b96b7c392bc) | Trim owner-search whitespace | GET `/owners`, no authorization annotation | Controller calls a helper; the resource dependency is unresolved |
-| [Spring REST guide](https://github.com/spring-guides/gs-rest-service/commit/389429a7345a718c27a77cabc495cf7ea68bbaee) | Java indentation only | GET `/greeting`, no authorization annotation | Initial/complete modules define the same application class; single-model Spoon extraction fails |
+| [Spring REST guide](https://github.com/spring-guides/gs-rest-service/commit/389429a7345a718c27a77cabc495cf7ea68bbaee) | Java indentation only | GET `/greeting`, no authorization annotation | No service/repository path exists, so dependency coverage remains incomplete |
 
 The endpoint oracle comes from the source annotations, independently of analyzer
 output. No annotation does not establish effective runtime access: security
@@ -28,6 +28,10 @@ The second command requires the local Compose platform. It checks repeated
 deterministic evidence, writes both scans and measured results under
 `tmp/external-evaluation`, and never runs HTTP security tests on these repositories.
 The latest checked-in automated summary is `observed-results-2026-09-13.json`.
+That summary is retained as historical evidence of the pre-0.4.1 parser failure;
+the 0.4.1 multi-module regression and pinned direct extraction now emit both
+`/greeting` rows without `SPOON_MODEL_FAILED`. Regenerate the platform summary
+before release once the Compose runtime is available.
 Use `HUMAN_REVIEW.md` for the independent review step; manifest validation prevents
 an unattributed `human_reviewed` claim.
 Precision/recall/F1 for vulnerabilities and sensitivity accuracy are unset: two

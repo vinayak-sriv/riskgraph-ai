@@ -43,7 +43,7 @@ import ai.riskgraph.analyzer.source.GitSourceAcquirer;
 public class AnalysisService {
     private static final Logger LOG = LoggerFactory.getLogger(AnalysisService.class);
     public static final String SCHEMA_VERSION = "1.1.0";
-    public static final String ANALYZER_VERSION = "0.4.0";
+    public static final String ANALYZER_VERSION = "0.4.1";
 
     private final GitSourceAcquirer sourceAcquirer;
     private final SpringEndpointExtractor extractor;
