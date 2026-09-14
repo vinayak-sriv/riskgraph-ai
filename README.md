@@ -67,7 +67,7 @@ remaining work.
 
 ### Prerequisites
 
-- Docker Desktop using Linux containers and Docker Compose v2
+- Docker Desktop using Linux containers and Docker Compose 2.33.1 or newer
 - Python 3.12
 - Git
 
@@ -97,8 +97,11 @@ python tools/dev/verify_mvp.py --compose --validation
 ```
 
 Open [http://localhost:5173](http://localhost:5173) and sign in as `admin` with
-the generated password in `tmp/local-auth/admin.password`. This ignored local file
-is the only place the bootstrap password is stored.
+the generated password in `tmp/local-auth/admin.password`. This ignored file is
+the source bootstrap secret. Compose copies it into the private `riskgraph-auth`
+named volume, which the platform mounts read-only at runtime; PostgreSQL stores
+only its BCrypt hash. Stopping Compose preserves both named volumes, and deleting
+the local file alone does not remove the runtime copy or reset an existing account.
 
 The validation overlay creates a private Docker-in-Docker daemon. Application
 containers never receive the host Docker socket, and tests cannot target a live,
@@ -164,7 +167,9 @@ display. For the verified Compose overlay and a Kali VM setup, follow the
 
 ## Verification
 
-The same primary checks used by GitHub Actions can be run locally:
+Run these commands from the same shell in which `RISKGRAPH_SERVICE_TOKEN` was set.
+When checking an already-running stack, its token must match the value used to
+start that stack. The same primary checks used by GitHub Actions can be run locally:
 
 ```powershell
 ruff check services/graph-risk-service services/ai-validation-service tests tools datasets/risk-corpus/tools
