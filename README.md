@@ -159,12 +159,11 @@ tools/             Development, evaluation, reporting, and release utilities
 - [Decision policy](docs/decision-policy.md)
 - [IR contract](docs/ir-contract.md)
 - [External Spring evaluation](datasets/external-spring/README.md)
-- [Release readiness](docs/release-readiness.md)
+- [Security policy](.github/SECURITY.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
 ## Project status
 
-RiskGraph AI is an actively maintained academic MVP. Near-term work is focused on
-independent evaluation, reliability, documentation, and release preparation. Larger
-scope additions remain separate from the current Java/Spring security-analysis core;
-see the [project roadmap](docs/week-plan.md) for details.
+RiskGraph AI is an actively maintained academic MVP. Its demonstrated capabilities,
+limitations, and verification commands are documented above. Experimental or
+unvalidated capabilities are not presented as supported features.

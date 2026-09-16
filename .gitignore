@@ -9,6 +9,16 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Local credentials and signing material
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.password
+*.secret
+
 # Logs
 *.log
 logs/
@@ -49,3 +59,5 @@ pytest-cache-files-*/
 # Local generated archives
 /apps/dashboard.zip
 /riskgraph-dataset-package.zip
+/.git.zip
+/*.git.bundle

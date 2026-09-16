@@ -50,4 +50,4 @@ request. It is not a final-release approval.
 - `datasets/regressions/authorization-removal-confirmed.json`
 - `docs/security-review-2026-09-13.md`
 - `docs/release-rehearsal.md`
-- `artifacts/RiskGraph-AI-Final-Presentation-v3.pptx`
+- `artifacts/RiskGraph-AI-Release-Candidate-2026-09-13.pptx`

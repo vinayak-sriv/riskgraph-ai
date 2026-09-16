@@ -58,6 +58,7 @@ jobs:
         with:
           name: riskgraph-evidence
           path: reports/
+          retention-days: 7
       - name: Enforce deterministic block
         run: python -c "import json; r=json.load(open('reports/scan.json')); raise SystemExit(1 if r['final_verdict']=='BLOCK' else 0)"
   # Publishing requires repository-owner opt-in; the default local demo needs no token.

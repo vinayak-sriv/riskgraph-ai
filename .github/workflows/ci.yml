@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 permissions:
@@ -138,3 +140,4 @@ jobs:
           name: riskgraph-release-candidate
           path: dist/
           if-no-files-found: error
+          retention-days: 14
