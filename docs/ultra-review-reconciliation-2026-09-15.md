@@ -101,7 +101,7 @@ Submit the following after the final commit and green CI:
 1. The immutable commit SHA and CI run links.
 2. `dist/riskgraph-source.zip` and its SHA-256 manifest, regenerated from that SHA.
 3. This reconciliation, the September 15 security review, and the release-candidate
-   evidence README.
+   root README evidence-bundle index.
 4. The current external Spring observation and, if available, independently
    attributable human review entries.
 5. Fresh Docker-only validation evidence for the final SHA (the working-tree rerun

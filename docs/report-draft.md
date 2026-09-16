@@ -130,4 +130,4 @@ than additional feature breadth.
 - [Threat model](threat-model.md)
 - [Runtime guide](runtime-guide.md)
 - [Release rehearsal](release-rehearsal.md)
-- [External evaluation](../datasets/external-spring/README.md)
+- [External evaluation](../README.md#pinned-external-spring-checks)

@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -46,3 +47,21 @@ def test_week14_public_deliverables_exist_and_keep_the_human_gate_explicit():
     plan = (ROOT / "docs/week-plan.md").read_text(encoding="utf-8")
     assert "independent human review" in week.lower()
     assert "gate-limited" in plan.lower()
+
+
+def test_public_guidance_stays_in_one_root_readme():
+    tracked = subprocess.check_output(
+        ["git", "ls-files"], cwd=ROOT, text=True, encoding="utf-8"
+    ).splitlines()
+    readmes = sorted(path for path in tracked if Path(path).name.lower().startswith("readme"))
+    assert readmes == ["README.md"]
+
+    content = (ROOT / "README.md").read_text(encoding="utf-8")
+    for heading in (
+        "# RiskGraph AI",
+        "## Quick start",
+        "## Services and responsibilities",
+        "## Samples and evaluation data",
+        "## Evidence bundles",
+    ):
+        assert heading in content

@@ -105,7 +105,9 @@ verdict REVIEW. Both have zero risk delta and no new paths. Repeated outputs mat
 Across these examples, endpoint-plus-auth recall is **2/4 = 50%**, not 100%. The
 failure is retained in the evaluation result. Vulnerability precision/recall/F1 and
 sensitivity accuracy are unset because two provisional negative cases do not justify
-those claims. See `datasets/external-spring/README.md` and its immutable manifest.
+those claims. See the root README's
+[pinned external Spring checks](../README.md#pinned-external-spring-checks) and the
+immutable manifest.
 
 The existing 100-record synthetic corpus still passes: development TP18/TN42,
 calibration TP6/TN14, held-out TP6/TN14, with FP0/FN0, precision/recall/F1 1.0 and
