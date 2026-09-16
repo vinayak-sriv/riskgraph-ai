@@ -1,8 +1,17 @@
-# Docker Infrastructure
+# Docker assets
 
-This folder is reserved for service-specific Docker assets.
+RiskGraph keeps its primary Compose files in [`infrastructure/`](../) and each
+service Dockerfile beside its source. This directory documents shared Docker
+boundaries that do not belong to a single service.
 
-Current state:
-- `infrastructure/docker-compose.yml` defines service names and environment boundaries.
-- Implemented services and the dashboard have Dockerfiles.
-- `sandbox/` is reserved for Week 10 Docker-only validation targets.
+The validation design requires:
+
+- registered, locally built sandbox images;
+- a private Docker-in-Docker daemon;
+- fixed probe commands and an internal validation network;
+- no host Docker socket in application containers;
+- CPU, memory, process, time, and cleanup limits; and
+- no live, public, or third-party validation targets.
+
+See [`docker-compose.validation.yml`](../docker-compose.validation.yml) for the
+implemented runtime topology.

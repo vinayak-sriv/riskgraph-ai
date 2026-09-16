@@ -1,46 +1,34 @@
 # Infrastructure
 
-Infrastructure defines the local runtime boundary for PostgreSQL and the implemented
-service scaffolds. The validation sandbox remains isolated behind its own profile.
+This directory contains the local Docker Compose topology, PostgreSQL image and
+migrations, and the isolated validation overlay.
 
-## Compose File
+## Application stack
 
-```powershell
-docker compose -f infrastructure/docker-compose.yml config
-```
-
-Start PostgreSQL only:
+The `app` profile starts PostgreSQL, the platform API, Java analyzer, graph/risk
+service, AI/validation service, and dashboard. The validation overlay adds a private
+Docker-in-Docker daemon and an approved-image loader.
 
 ```powershell
-docker compose -f infrastructure/docker-compose.yml up postgres
+docker compose -p riskgraph-mvp `
+  -f infrastructure/docker-compose.yml `
+  -f infrastructure/docker-compose.validation.yml `
+  --profile app config
 ```
 
-Application services and the sandbox are behind explicit profiles:
+Use the root [quick start](../README.md#quick-start) to generate local credentials,
+prepare sandbox images, and start the full stack.
 
-```powershell
-docker compose -f infrastructure/docker-compose.yml --profile future-services config
-docker compose -f infrastructure/docker-compose.yml --profile sandbox config
-```
+## Runtime boundaries
 
-Build the application services:
+- Only the platform API writes to PostgreSQL.
+- Analyzer repositories are mounted read-only.
+- Backend services are reachable only on the Compose network.
+- Dashboard, platform API, and PostgreSQL bind to loopback by default.
+- Validation uses a private daemon and internal network; application services do not
+  receive the host Docker socket.
+- Containers use resource limits, reduced capabilities, and non-root users wherever
+  the upstream initialization contract permits.
 
-```powershell
-docker compose -f infrastructure/docker-compose.yml --profile future-services build
-```
-
-Start the fixture vertical-slice services:
-
-```powershell
-docker compose -f infrastructure/docker-compose.yml --profile future-services up
-```
-
-## Database
-
-The initial PostgreSQL schema is:
-
-```text
-infrastructure/db/migrations/V001__initial_schema.sql
-```
-
-Only `services/platform-api` may write to this database. Other services return
-structured JSON to the platform API.
+Database changes are append-only Flyway migrations under [`db/migrations`](db/migrations/).
+Operational details are in the [runtime guide](../docs/runtime-guide.md).

@@ -1,28 +1,23 @@
-# Developer Tools
+# Development tools
 
-Local verification and developer utilities live here, including the foundation and
-fixture vertical-slice verification scripts referenced by the root README.
+This directory contains deterministic local setup and verification utilities.
 
-`create_week6_sample.py` deterministically creates the authorization-removal commit
-pair. `verify_week6.py` regenerates it, runs the analyzer verification lifecycle, and
-validates all JSON contracts.
+## Common commands
 
-`create_mvp_samples.py` creates four immutable authored source pairs and native/Compose
-manifests. `build_sandboxes.py` verifies authored source before building commit-bound
-images; `--prepare-only` leaves those trusted contexts for the isolated Compose image
-loader. `start_local.py` manages the explicitly ephemeral native demo.
+| Command | Purpose |
+|---|---|
+| `python tools/dev/create_mvp_samples.py` | Generate the four immutable authored commit pairs |
+| `python tools/dev/init_auth.py` | Create a local bootstrap credential in an ignored file |
+| `python tools/dev/build_sandboxes.py --prepare-only` | Verify source bindings and prepare trusted sandbox contexts |
+| `python tools/dev/verify_mvp.py --compose --validation` | Exercise the four source scenarios and local validation |
+| `python tools/dev/verify_release.py` | Run the aggregate build, test, contract, corpus, and audit gate |
+| `python tools/dev/clean_repo.py --dry-run` | Preview removable generated artifacts without deleting them |
 
-`verify_release.py` runs the complete unit/contract/build/audit/corpus gate and saves
-logs under `tmp/release-checks`. `verify_mvp.py --compose --validation` checks all four
-source scenarios, exact extracted IR, repeatability and Docker confirmation against
-running Compose services. Its evidence is saved under `tmp/evidence-bundle`.
+Verification output is written only to ignored `tmp/` paths unless a documented
+evidence file is explicitly generated. Utilities must not alter the project Git
+history, execute target repository code, publish GitHub results, or contact external
+validation targets.
 
-
-`python tools/dev/clean_repo.py --dry-run` previews reproducible local artifacts that
-can be removed safely. Run it without `--dry-run` to delete dependency trees, build
-outputs, generated samples, caches, stale dashboard archives, and runtime files while
-preserving source code and Git metadata.
-
-`python tools/release/package.py --output riskgraph-source.zip` builds a deterministic
-source archive. It sorts entries, fixes timestamps, and excludes credentials, Git
-metadata, dependency trees, build outputs, logs, coverage, and runtime files.
+The release packager lives at `tools/release/package.py`. It creates a deterministic
+source archive while excluding credentials, Git metadata, dependencies, build
+outputs, logs, coverage data, and runtime files.
