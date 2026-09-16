@@ -9,7 +9,7 @@ internal code or database tables.
 - `ir/`: endpoint IR, analyzer envelope, graph delta, and deterministic risk result schemas.
 - `ai/`: schema-constrained Ollama outputs for explanation and test suggestion.
 - `validation/`: HTTP validation input and result schemas.
-- `api/`: OpenAPI skeletons for service boundaries.
+- `api/`: OpenAPI definitions for implemented service boundaries.
 
 ## Contract Rules
 
@@ -21,6 +21,6 @@ internal code or database tables.
 
 ## Canonical Fixtures
 
-Examples under `contracts/**/examples/` are intentionally small. They support
-contract tests and the current fixture vertical slice while real source extraction
-is developed. Phase 2 fixtures are not MVP acceptance criteria.
+Examples under `contracts/**/examples/` are intentionally small and deterministic.
+They support contract, reporting, source-analysis, and end-to-end regression tests.
+Phase 2 design fixtures are clearly labeled and are not current acceptance criteria.

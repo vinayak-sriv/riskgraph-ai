@@ -2,256 +2,169 @@
 
 [![CI](https://github.com/vinayak-sriv/riskgraph-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/vinayak-sriv/riskgraph-ai/actions/workflows/ci.yml)
 
-RiskGraph AI is a security-analysis platform for Java and Spring Boot pull
-requests. It compares the application security graph before and after a change,
-finds newly reachable sensitive resources, calculates a transparent risk delta,
+RiskGraph AI is an academic security-analysis platform for Java and Spring Boot pull
+requests. It compares an application's security graph before and after a change,
+detects newly reachable sensitive resources, calculates a transparent risk delta,
 and returns an `ALLOW`, `REVIEW`, or `BLOCK` verdict.
 
-Deterministic analysis is always the source of truth. The optional AI layer only
-explains structured evidence and proposes a validation test; it never creates
-graph facts, assigns risk, or confirms a vulnerability. Confirmation can happen
-only through an HTTP authorization test against an isolated local Docker sandbox.
+Deterministic analysis is the source of truth. The optional AI layer explains
+structured evidence and proposes a validation test; it does not create graph facts,
+assign risk scores, or confirm vulnerabilities. Confirmation is limited to HTTP
+authorization tests against registered local Docker sandboxes.
 
-## How the pipeline works
+> RiskGraph AI is a research and demonstration project, not a production security
+> scanner. Do not use it to test live, public, or third-party systems.
+
+## What it provides
+
+- Immutable before/after analysis for local Git commit pairs.
+- Spoon-based Spring endpoint, annotation authorization, call-path, repository, and
+  resource extraction.
+- NetworkX security graphs with deterministic reachability comparison.
+- Explainable risk scoring with before, after, and delta values.
+- Optional schema-constrained Ollama explanations and HTTP-test suggestions.
+- Source-bound validation through an isolated Docker-in-Docker runner.
+- A React dashboard for graph comparison, evidence, provenance, scan history, and
+  validation results.
+- GitHub Check, SARIF 2.1.0, and pull-request summary generation.
+
+## Supported scope
+
+| Area | Current support |
+|---|---|
+| Target | Java and Spring Boot |
+| Authorization | Method annotations such as `@PreAuthorize` |
+| Change classes | Authorization removal, new public endpoint, sensitive-resource exposure |
+| Graph analysis | Role/endpoint/service/repository/resource paths and BFS reachability |
+| AI | Optional explanation and test proposal from structured evidence |
+| Validation | Registered local Docker sandboxes only |
+
+`SecurityFilterChain` parsing, taint analysis, IDOR detection, multi-language
+analysis, and testing of remote applications are not implemented. Incomplete or
+unsupported evidence is reported conservatively instead of being treated as safe.
+
+## Architecture
 
 ```text
-GitHub pull request
-        |
-        v
-Git diff -> Spoon static analysis -> canonical IR
-        -> before/after security graphs -> BFS reachability
-        -> deterministic risk delta -> optional Ollama explanation
-        -> local Docker validation -> ALLOW / REVIEW / BLOCK
-        |
-        v
-React dashboard + GitHub Check + SARIF + pull-request summary
+Git commit pair
+      |
+      v
+Diff + Spoon extraction -> canonical IR -> before/after security graphs
+      -> reachability comparison -> deterministic risk delta and verdict
+      -> optional AI explanation -> isolated local validation
+      |
+      v
+React dashboard + GitHub Check + SARIF
 ```
 
-The canonical intermediate representation (IR) separates source analysis from
-the graph, risk, AI, and validation stages. Every evidence-bearing result includes
-repository and commit identity, source locations, analyzer version, and extraction
-coverage or diagnostics.
+The versioned contracts in [`contracts/`](contracts/) separate source analysis from
+graph, risk, AI, validation, and presentation concerns.
 
-## MVP scenarios
-
-The reproducible Java/Spring demo covers four source-level scenarios:
-
-| Scenario | Expected result |
-|---|---|
-| Authorization removed from a protected export endpoint | Risk `22 -> 91`, delta `+69`, `BLOCK`; registered Docker test confirms the finding |
-| Safe cosmetic change | Risk remains `22`, no new path, `ALLOW` |
-| New public endpoint reaches sensitive data | Risk `0 -> 65`, delta `+65`, `BLOCK` |
-| Existing public route begins reaching a sensitive resource | Risk `0 -> 65`, delta `+65`, `BLOCK` |
-
-These are authored regression scenarios, not a claim of real-world accuracy.
-
-## Current roadmap status
-
-The repository is currently at **Week 12** of the 16-week roadmap:
-
-- Weeks 1-11 are complete and have reproducible implementation and CI evidence.
-- Week 12 has a provisional evaluation corpus and two pinned, licensed Spring
-  repositories. The post-analyzer-0.4.1 evaluation rerun passes; independent
-  human review remains required.
-- Gate-independent Week 13 work has started. The dashboard now exposes immutable
-  validation provenance, and confirmed findings can become permanent regression
-  tests.
-- Week 13 is not complete, and the conditional Python proof of concept remains
-  blocked until the Week 12 review gate passes.
-
-See the [delivery plan](docs/week-plan.md), [Week 13 progress](docs/week-13-progress.md),
-and [release-readiness gates](docs/release-readiness.md) for the exact evidence and
-remaining work.
-
-## Quick start with Docker
+## Quick start
 
 ### Prerequisites
 
-- Docker Desktop using Linux containers and Docker Compose 2.33.1 or newer
+- Docker Desktop or Docker Engine with Compose
 - Python 3.12
 - Git
 
-From the repository root, generate independent internal service tokens for the
-current PowerShell session:
-
-```powershell
-$env:RISKGRAPH_ANALYZER_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
-$env:RISKGRAPH_GRAPH_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
-$env:RISKGRAPH_AI_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
-
-Use `.env.example` only when you need persistent configuration. Copy it to the
-ignored `.env` file and replace every placeholder before using `--env-file .env`.
-When Compose connects to Ollama running on the host, set
-`OLLAMA_BASE_URL=http://host.docker.internal:11434`; `localhost` is correct only
-for native services running outside containers.
-
-Then prepare the authored repositories, initialize the local administrator, and
-start the isolated stack:
+The commands below use PowerShell. On another shell, set the same environment
+variables using its native syntax.
 
 ```powershell
 python -m pip install -r requirements-dev.txt
+
+$env:RISKGRAPH_ANALYZER_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
+$env:RISKGRAPH_GRAPH_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
+$env:RISKGRAPH_AI_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
+
 python tools/dev/create_mvp_samples.py
 python tools/dev/init_auth.py
 python tools/dev/build_sandboxes.py --prepare-only
-docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app up -d --build --wait
+
+docker compose -p riskgraph-mvp `
+  -f infrastructure/docker-compose.yml `
+  -f infrastructure/docker-compose.validation.yml `
+  --profile app up -d --build --wait
+```
+
+The authentication initializer prints the location of a generated local credential.
+Keep that ignored file private and never commit its contents.
+
+Open [http://localhost:5173](http://localhost:5173), or verify the running stack:
+
+```powershell
 python tools/dev/verify_mvp.py --compose --validation
 ```
 
-Open [http://localhost:5173](http://localhost:5173) and sign in as `admin` with
-the generated password in `tmp/local-auth/admin.password`. This ignored file is
-the source bootstrap secret. Compose copies it into the private `riskgraph-auth`
-named volume, which the platform mounts read-only at runtime; PostgreSQL stores
-only its BCrypt hash. Stopping Compose preserves both named volumes, and deleting
-the local file alone does not remove the runtime copy or reset an existing account.
-
-The validation overlay creates a private Docker-in-Docker daemon. Application
-containers never receive the host Docker socket, and tests cannot target a live,
-public, or third-party system.
-
-To stop the stack without deleting its database volume:
+Stop the stack while preserving its local database:
 
 ```powershell
-docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app down
+docker compose -p riskgraph-mvp `
+  -f infrastructure/docker-compose.yml `
+  -f infrastructure/docker-compose.validation.yml `
+  --profile app down
 ```
 
-Do not use `down -v` as a routine repair step because it deletes persisted local
-data. For native Java, Python, and Node startup, see the
-[runtime and API guide](docs/runtime-guide.md).
+See the [runtime guide](docs/runtime-guide.md) for native startup, configuration,
+Ollama, API usage, troubleshooting, and safe data reset procedures.
 
-## Local endpoints
+## Demonstrated scenarios
 
-| Component | Address | Exposure |
-|---|---|---|
-| Dashboard | [http://localhost:5173](http://localhost:5173) | Loopback only |
-| Platform API | [http://localhost:8080](http://localhost:8080) | Loopback only |
-| PostgreSQL | `127.0.0.1:5432` | Loopback only |
-| Java analyzer | `java-analyzer:8081` | Compose network only |
-| Graph and risk service | `graph-risk-service:8082` | Compose network only |
-| AI and validation service | `ai-validation-service:8083` | Compose network only |
+| Scenario | Deterministic result |
+|---|---|
+| Authorization removed from a protected export endpoint | New sensitive path and `BLOCK`; sandbox validation confirms the HTTP behavior |
+| Safe cosmetic change | No new path and `ALLOW` |
+| New public endpoint reaches sensitive data | New sensitive path and `BLOCK` |
+| Existing public route reaches a sensitive resource | New sensitive path and `BLOCK` |
 
-## Access and security model
-
-- `Developer`: view access only.
-- `Security Analyst`: start analysis and validation.
-- `Admin`: manage local accounts and view all scans.
-- Source scans are private by default. The account that starts a scan becomes its
-  owner and can explicitly share `VIEW` or `VALIDATE` access. Validation access
-  alone cannot share the scan.
-- Static analysis accepts allowlisted local repositories and immutable 40-character
-  commit SHAs. It never executes a target repository's build scripts.
-- The MVP analyzes annotation-based Spring authorization such as `@PreAuthorize`.
-  It does not claim `SecurityFilterChain`, taint-flow, IDOR, multi-language, or
-  production-target testing support.
-
-## Local AI with Ollama
-
-Ollama is optional. If it is unavailable or returns invalid content, the pipeline
-continues with an explicit deterministic degraded result. Configure it through
-environment variables instead of hardcoding a host or model.
-
-For native services:
-
-```text
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1:8b
-```
-
-For Compose connecting to Ollama on the host:
-
-```text
-OLLAMA_BASE_URL=http://host.docker.internal:11434
-OLLAMA_MODEL=llama3.1:8b
-```
-
-Every AI call uses schema-constrained output and the response is validated before
-display. For the verified Compose overlay and a Kali VM setup, follow the
-[local Ollama guide](docs/runtime-guide.md#local-ollama-in-compose).
+These authored regressions demonstrate system behavior; they are not a claim of
+real-world detection accuracy.
 
 ## Verification
 
-Run these commands from the same shell in which the three audience-specific service tokens were set.
-When checking an already-running stack, its token must match the value used to
-start that stack. The same primary checks used by GitHub Actions can be run locally:
-
-```powershell
-ruff check services/graph-risk-service services/ai-validation-service tests tools datasets/risk-corpus/tools
-ruff format --check services/graph-risk-service services/ai-validation-service tests tools datasets/risk-corpus/tools
-python -m pytest tests -q --cov=services/graph-risk-service/app --cov=services/ai-validation-service/app
-mvn -f services/java-analyzer/pom.xml clean verify
-mvn -f services/platform-api/pom.xml clean verify
-npm --prefix apps/dashboard ci
-npm --prefix apps/dashboard run build
-npm --prefix apps/dashboard run lint
-npm --prefix apps/dashboard run format:check
-npm --prefix apps/dashboard test
-npm --prefix apps/dashboard audit --omit=dev
-docker compose -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app config --quiet
-```
-
-Run the aggregated local build, contract, corpus, and audit gate:
+Run the main local quality gate from the repository root:
 
 ```powershell
 python tools/dev/verify_release.py
 ```
 
-With the Compose stack running, the remaining runtime and evaluation checks are:
+GitHub Actions additionally runs the full Java, Python, and dashboard suites,
+browser tests, an isolated Compose smoke test, image vulnerability checks, source
+configuration checks, and deterministic release-package verification.
 
-```powershell
-python tools/dev/verify_mvp.py --compose --validation
-python tools/dev/verify_runtime.py
-python tools/dev/verify_access.py
-python tools/dev/verify_ollama.py
-python tools/evaluation/external_spring.py --compose
-```
-
-The Ollama check requires a reachable instance and installed model. The external
-evaluation remains provisional until an independent reviewer completes its labels.
-Create the deterministic release archive and manifest separately:
-
-```powershell
-python tools/release/package.py --output dist/riskgraph-source.zip --manifest dist/riskgraph-source.manifest.json
-```
-
-CI also performs a full isolated container smoke test, vulnerability scans of the
-built images and source configuration, and deterministic release-archive
-verification.
-
-## GitHub pull-request integration
-
-The `RiskGraph PR analysis` workflow produces a Check payload, SARIF 2.1.0 report,
-stable finding fingerprints, source annotations, and a concise pull-request
-summary. Fork pull requests are analyzed without write permissions. Publishing a
-Check or comment for a same-repository pull request is opt-in through the repository
-variable `RISKGRAPH_PUBLISH=true`.
-
-Local verification never modifies this project's Git history, pushes branches,
-opens pull requests, or publishes GitHub comments. Fixture preparation may create
-or update isolated synthetic Git repositories under `samples/generated`.
+Evaluation data is deliberately labeled by provenance. Synthetic and AI-reviewed
+records are not presented as independently human-validated results.
 
 ## Repository layout
 
 ```text
 apps/              React and TypeScript dashboard
 contracts/         Versioned IR, API, GitHub, and validation contracts
-datasets/          Provisional evaluation data and permanent regressions
+datasets/          Synthetic regressions and external-source evaluation metadata
 docs/              Architecture, decisions, evidence, runbooks, and roadmap
-infrastructure/    Docker Compose, PostgreSQL, and isolated validation setup
-samples/           Authored Spring Boot scenarios and sandbox application
-services/          Java platform/analyzer and Python graph/AI services
-tests/             Contract, graph, AI, evaluation, and integration tests
-tools/             Development, reporting, evaluation, and release utilities
+infrastructure/    Docker Compose, PostgreSQL, and validation isolation
+samples/           Authored Spring scenarios and sandbox application
+services/          Java and Python backend services
+tests/             Contract, graph, AI, release, and integration tests
+tools/             Development, evaluation, reporting, and release utilities
 ```
 
 ## Documentation
 
-- [Mentor demo walkthrough](docs/mentor-demo.md)
-- [Runtime, configuration, and API guide](docs/runtime-guide.md)
 - [Architecture](docs/architecture.md)
+- [Runtime and API guide](docs/runtime-guide.md)
 - [Threat model](docs/threat-model.md)
 - [Risk scoring](docs/risk-scoring.md)
 - [Decision policy](docs/decision-policy.md)
+- [IR contract](docs/ir-contract.md)
 - [External Spring evaluation](datasets/external-spring/README.md)
+- [Release readiness](docs/release-readiness.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
-RiskGraph AI is currently a local academic MVP, not a production security scanner.
+## Project status
+
+RiskGraph AI is an actively maintained academic MVP. Near-term work is focused on
+independent evaluation, reliability, documentation, and release preparation. Larger
+scope additions remain separate from the current Java/Spring security-analysis core;
+see the [project roadmap](docs/week-plan.md) for details.
