@@ -72,7 +72,7 @@ another large feature or redesign.
 
 | ID | Status | Implementation/evidence | Verification or release condition |
 |---|---|---|---|
-| C-01 | Mitigated | Extractor components, scan helpers, graph hooks/worker, and views reduce central coupling | Split the 70 KB stylesheet and remaining presentation shells before another redesign |
+| C-01 | Fixed | The 70 KB stylesheet is an ordered six-module entry point; the app analysis workspace and graph panels are isolated presentation components | Prettier, ESLint, production build, 42 unit tests, and four browser workflows |
 | C-02 | Fixed | Authorization, dependency, changed-surface, and confidence logic are characterized components | 19 extractor tests plus real-commit integration |
 | C-03 | Fixed | Canonical input, identity, job persistence/lifecycle, validation, and enrichment are separate services | Platform suite and boundaries |
 | C-04 | Fixed | Backend thresholds, weights, and bands are authoritative contract data | Reporting and dashboard tests |
