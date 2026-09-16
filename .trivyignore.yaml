@@ -1,0 +1,8 @@
+misconfigurations:
+  - id: AVD-DS-0002
+    paths:
+      - infrastructure/postgres/Dockerfile
+    statement: >-
+      The official PostgreSQL entrypoint must start as root to initialize fresh volume
+      ownership, then immediately drops to the postgres user through the rebuilt gosu
+      binary.

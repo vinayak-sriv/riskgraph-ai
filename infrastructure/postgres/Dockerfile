@@ -13,6 +13,8 @@ RUN apk add --no-cache git \
     && /go/bin/gosu --version \
     && /go/bin/gosu nobody true
 
+# The upstream entrypoint drops to postgres after initializing ownership on a
+# fresh named volume; USER postgres breaks that required initialization flow.
 FROM postgres:16.15-alpine3.24@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
 COPY --from=gosu-builder /go/bin/gosu /usr/local/bin/gosu
 
