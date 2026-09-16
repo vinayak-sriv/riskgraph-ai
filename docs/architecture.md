@@ -31,7 +31,7 @@ services/platform-api
   final ALLOW, REVIEW, or BLOCK decision persisted and exposed to dashboard
 ```
 
-## Core Rules
+## Analysis pipeline
 
 ```mermaid
 flowchart LR
@@ -50,11 +50,64 @@ flowchart LR
   P --> Reports[Offline Check / SARIF / summary]
 ```
 
+## Trust boundaries
+
+```mermaid
+flowchart TB
+  subgraph Untrusted[Untrusted input]
+    Event[Pull request event]
+    Repo[Target Java repository]
+  end
+  subgraph Deterministic[Deterministic security boundary]
+    Acquire[Allowlisted immutable checkout]
+    Spoon[Spoon extraction]
+    IR[Schema-validated IR]
+    Graph[Reachability and risk]
+    Policy[Decision policy]
+  end
+  subgraph Advisory[Advisory AI boundary]
+    Ollama[Schema-constrained Ollama]
+  end
+  subgraph Validation[Isolated validation boundary]
+    Registry[Registered sandbox manifest]
+    DinD[Private Docker daemon]
+    Probe[Fixed HTTP probe]
+  end
+
+  Event --> Acquire
+  Repo --> Acquire
+  Acquire --> Spoon --> IR --> Graph --> Policy
+  Graph --> Ollama
+  Ollama -. hypothesis only .-> Registry
+  IR --> Registry --> DinD --> Probe --> Policy
+```
+
+Target source is parsed but never built or executed. The AI response cannot create
+graph edges, change risk, or confirm a finding. Validation accepts only registered
+local images and a fixed structured HTTP authorization probe.
+
+## Local deployment
+
+```mermaid
+flowchart LR
+  Browser[Browser] -->|session + CSRF| Dashboard[React dashboard]
+  Dashboard -->|same public API| Platform[Spring platform API]
+  Platform --> Analyzer[Java analyzer]
+  Platform --> Risk[Graph and risk service]
+  Platform --> AI[AI and validation service]
+  Platform --> Postgres[(PostgreSQL)]
+  AI --> Ollama[Local Ollama]
+  AI -->|named internal network only| Worker[Isolated Docker worker]
+  Worker --> Sandbox[Authored sandbox app]
+```
+
 The local Docker worker accepts a fixed structured authorization probe, verifies
 image/commit identity, and creates an internal network with non-root, read-only,
 resource-limited containers. AI never supplies an executable shell command.
-User management/role enforcement is a remaining platform release gate; the current
-runtime is a trusted loopback-only mentor prototype.
+The platform implements session authentication, CSRF protection, GitHub connection
+checks, login throttling, and Developer, Security Analyst, and Admin authorization.
+The default deployment remains a local academic MVP and requires production-specific
+TLS, secret management, and operations controls before internet exposure.
 
 - `contracts/` is the source of truth for service communication.
 - `platform-api` is the only service that writes to PostgreSQL.

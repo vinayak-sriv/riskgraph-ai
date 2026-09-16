@@ -153,6 +153,8 @@ tools/             Development, evaluation, reporting, and release utilities
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Technical report draft](docs/report-draft.md)
+- [Reproducible demo recording](docs/demo-recording.md)
 - [Runtime and API guide](docs/runtime-guide.md)
 - [Threat model](docs/threat-model.md)
 - [Risk scoring](docs/risk-scoring.md)
