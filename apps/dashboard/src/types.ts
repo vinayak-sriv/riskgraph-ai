@@ -30,6 +30,65 @@ export type Diagnostic = {
   path?: string;
 };
 
+export type ValidationResult = {
+  status: string;
+  confirmed?: boolean;
+  reason_code: string;
+  sandbox_revision?: string;
+  actual_status?: number | null;
+  observed_http_statuses?: number[];
+  evidence?: string[];
+  container_image_id?: string | null;
+  probe_image_id?: string | null;
+  response_sha256?: string | null;
+  source_commit?: string;
+  cleanup_complete?: boolean;
+};
+
+export type Finding = {
+  finding_id: string;
+  route_id: string;
+  method: string;
+  path: string;
+  resource: string;
+  severity: Category;
+  validation_capability: "SUPPORTED" | "UNSUPPORTED";
+  evidence: string[];
+  validation: ValidationResult;
+  risk_result?: FindingRiskResult;
+  handler_refs?: HandlerReference[];
+};
+
+export type HandlerReference = {
+  handler_id: string;
+  qualified_controller: string;
+  method_signature: string;
+  source_location: { path: string; start_line: number; end_line: number };
+};
+
+export type FindingRiskResult = {
+  route_id: string;
+  resource_id: string;
+  risk_before: number;
+  risk_after: number;
+  risk_delta: number;
+  category_before: Category;
+  category_after: Category;
+  components: Record<string, ComponentScore>;
+  components_before: Record<string, ComponentScore>;
+  evidence: string[];
+  policy_version: string;
+};
+
+export type RiskPolicyMetadata = {
+  version: string;
+  weights: Record<string, number>;
+  review_after: number;
+  block_after: number;
+  review_delta: number;
+  bands: { category: Category; minimum: number; maximum: number }[];
+};
+
 export type AnalysisResult = {
   schema_version?: string;
   analyzer_version?: string;
@@ -40,17 +99,8 @@ export type AnalysisResult = {
   pre_validation_verdict?: Verdict;
   final_verdict?: Verdict;
   validation_status?: string;
-  validation?: {
-    status: string;
-    confirmed?: boolean;
-    reason_code: string;
-    sandbox_revision?: string;
-    container_image_id?: string | null;
-    probe_image_id?: string | null;
-    response_sha256?: string | null;
-    source_commit?: string;
-    cleanup_complete?: boolean;
-  };
+  validation?: ValidationResult;
+  findings?: Finding[];
   quality?: { confidence: string; coverage_ratio: number; incomplete: boolean };
   provenance?: {
     repository_identity: string;
@@ -87,6 +137,8 @@ export type AnalysisResult = {
     components: Record<string, ComponentScore>;
     components_before?: Record<string, ComponentScore>;
     policy_version?: string;
+    policy?: RiskPolicyMetadata;
+    finding_results?: FindingRiskResult[];
     evidence: string[];
   };
 };

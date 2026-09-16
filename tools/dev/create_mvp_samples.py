@@ -95,12 +95,16 @@ def commit_fixture(repo, files, parent=None):
         path.write_text(text, encoding="utf-8", newline="\n")
     git(repo, "add", "--all")
     tree = git(repo, "write-tree")
+    # Keep the commit object byte-identical across operating systems. Passing the
+    # message on stdin in text mode translated LF to CRLF on Windows, so the same
+    # tree and metadata produced a different commit identity than Linux CI.
     sha = git(
         repo,
         "commit-tree",
         tree,
         *(["-p", parent] if parent else []),
-        stdin="Synthetic RiskGraph test fixture\n",
+        "-m",
+        "Synthetic RiskGraph test fixture",
     )
     git(repo, "update-ref", "refs/heads/main", sha)
     git(repo, "symbolic-ref", "HEAD", "refs/heads/main")

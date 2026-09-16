@@ -3,6 +3,17 @@
 The roadmap is at Week 12. Weeks 8–11 have reproducible local and GitHub evidence;
 Week 12 remains open until an independent reviewer records attributable labels.
 
+Latest local candidate evidence (2026-09-16): all automated release checks pass;
+all four source-backed demo scenarios pass twice with their expected risk deltas and
+verdicts; and both pinned external Spring cases pass current-analyzer integrity and
+repeatability checks. The run used an uncommitted working tree based on
+`4ea99ce0c2a8c0021e760a62500cae5e6e7e7f8b`, so it is evidence for a candidate, not
+a final commit. Live isolated-Docker validation passes on this working tree, including
+a confirmed authorization-removal probe and zero fixed CRITICAL findings across the
+12 scanned runtime and sandbox images;
+independent external labels, final CI, regenerated packaging, and release approval
+remain open.
+
 - [x] Versioned canonical IR and deterministic graph/risk fixture tests
 - [x] Source allowlist, immutable commits, Spoon extraction and provenance
 - [x] Real-source platform endpoint and responsive dashboard

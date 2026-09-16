@@ -53,6 +53,88 @@ def test_order_and_repeated_inputs_are_deterministic(authorization_removal_paylo
     assert len(set(results)) == 1
 
 
+def _public_report_resource(resource: str, sensitivity: str = "HIGH") -> dict:
+    return {
+        "endpoint": "/reports",
+        "method": "GET",
+        "controller": "ReportController",
+        "authentication": False,
+        "required_role": None,
+        "service": "ReportService",
+        "repository": f"{resource}Repository",
+        "resource": resource,
+        "sensitivity": sensitivity,
+    }
+
+
+@pytest.mark.parametrize(
+    "resources", [("Customer", "Employee"), ("Customer", "Employee", "Payment")]
+)
+def test_equal_risk_resources_on_one_route_are_stable_across_permutations(resources):
+    rows = [_public_report_resource(resource) for resource in resources]
+    results = [
+        analyze(AnalysisRequest.model_validate({"before": [], "after": list(order)}))
+        for order in itertools.permutations(rows)
+    ]
+
+    assert {result.model_dump_json() for result in results} == {results[0].model_dump_json()}
+    assert len(results[0].graph_delta.new_paths) == len(resources)
+    assert (
+        results[0].risk_result.risk_before,
+        results[0].risk_result.risk_after,
+        results[0].risk_result.risk_delta,
+    ) == (0, 61, 61)
+    assert results[0].verdict == "BLOCK"
+
+
+def test_same_route_unequal_sensitivity_selects_the_critical_resource_state():
+    rows = [
+        _public_report_resource("Customer", "MEDIUM"),
+        _public_report_resource("Payment", "CRITICAL"),
+    ]
+    result = analyze(AnalysisRequest.model_validate({"before": [], "after": rows}))
+
+    assert len(result.graph_delta.new_paths) == 2
+    assert (
+        result.risk_result.risk_before,
+        result.risk_result.risk_after,
+        result.risk_result.risk_delta,
+    ) == (0, 65, 65)
+    assert result.risk_result.components.data_sensitivity.score == 100
+    assert result.risk_result.category_after == "HIGH"
+    assert result.verdict == "BLOCK"
+
+
+def test_equal_final_risk_prefers_largest_delta_across_input_permutations():
+    protected_customer = {
+        **_public_report_resource("Customer", "CRITICAL"),
+        "authentication": True,
+        "required_role": "ADMIN",
+    }
+    after = [
+        _public_report_resource("Customer", "CRITICAL"),
+        _public_report_resource("Payment", "CRITICAL"),
+    ]
+    results = [
+        analyze(
+            AnalysisRequest.model_validate(
+                {"before": [protected_customer], "after": list(permutation)}
+            )
+        )
+        for permutation in itertools.permutations(after)
+    ]
+
+    assert {result.model_dump_json() for result in results} == {results[0].model_dump_json()}
+    assert len(results[0].graph_delta.new_paths) == 2
+    assert (
+        results[0].risk_result.risk_before,
+        results[0].risk_result.risk_after,
+        results[0].risk_result.risk_delta,
+    ) == (0, 91, 91)
+    assert results[0].risk_result.components_before.data_sensitivity.score == 0
+    assert results[0].verdict == "BLOCK"
+
+
 @pytest.mark.parametrize(
     "quality", [{"incomplete": True}, {"confidence": "LOW"}, {"coverage_ratio": 0.4}]
 )

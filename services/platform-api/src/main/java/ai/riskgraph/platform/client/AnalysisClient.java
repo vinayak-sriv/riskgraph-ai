@@ -15,8 +15,12 @@ public class AnalysisClient {
     private final RestClient.Builder builder;
     private final ObjectMapper mapper;
     private final ConcurrentHashMap<String, RestClient> clients = new ConcurrentHashMap<>();
-    @Value("${RISKGRAPH_SERVICE_TOKEN:}")
-    private String serviceToken = "";
+    @Value("${RISKGRAPH_ANALYZER_SERVICE_TOKEN:}")
+    private String analyzerToken = "";
+    @Value("${RISKGRAPH_GRAPH_SERVICE_TOKEN:}")
+    private String graphToken = "";
+    @Value("${RISKGRAPH_AI_SERVICE_TOKEN:}")
+    private String aiToken = "";
     @Value("${RISKGRAPH_MAX_DEPENDENCY_RESPONSE_BYTES:33554432}")
     private int maxResponseBytes = 32 * 1024 * 1024;
     public AnalysisClient(RestClient.Builder builder, ObjectMapper mapper) {
@@ -27,7 +31,7 @@ public class AnalysisClient {
         try {
             return clients.computeIfAbsent(baseUrl,
                     url -> builder.clone().baseUrl(url).build()).post().uri(route)
-                .header("X-RiskGraph-Service-Token", serviceToken)
+                .header("X-RiskGraph-Service-Token", tokenFor(route))
                 .contentType(MediaType.APPLICATION_JSON).body(body.toString()).exchange((request, response) -> {
                     if (!response.getStatusCode().is2xxSuccessful()) {
                         throw new PipelineException("DEPENDENCY_REJECTED", 502,
@@ -50,5 +54,14 @@ public class AnalysisClient {
             throw new PipelineException(timeout ? "DEPENDENCY_TIMEOUT" : "DEPENDENCY_UNAVAILABLE",
                 timeout ? 504 : 503, "Analysis dependency " + (timeout ? "timed out" : "is unavailable"));
         }
+    }
+
+    private String tokenFor(String route) {
+        return switch (route) {
+            case "/analyze" -> analyzerToken;
+            case "/analysis" -> graphToken;
+            case "/ai/analyze", "/validation/http" -> aiToken;
+            default -> "";
+        };
     }
 }

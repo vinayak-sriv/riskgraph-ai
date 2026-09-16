@@ -31,6 +31,13 @@ from its scan, route, resource, and dependency path. AI explanations and sandbox
 validation results are stored beneath that finding and cannot update sibling
 findings.
 
+Platform scan-result schema `1.2.0` is additive. Each finding carries its matching
+route/resource risk result and deterministic handler references, while the top-level
+risk result carries the authoritative policy weights, thresholds, category bands, and
+all per-finding risk results. Scan identity is derived only from canonical deterministic
+inputs, immutable revisions, analyzer/config identity, and risk-policy version; AI,
+validation, timestamps, and JSON construction order cannot change it.
+
 Required fields:
 - `endpoint`
 - `method`

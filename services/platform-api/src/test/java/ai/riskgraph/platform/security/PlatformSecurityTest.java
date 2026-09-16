@@ -90,6 +90,7 @@ class PlatformSecurityTest {
         var body = mapper.readTree(response.body());
         assertThat(body.at("/github/status").asString()).isEqualTo("CONNECTED");
         assertThat(body.at("/github/login").asString()).isEqualTo("developer");
+        assertThat(body.path("github_connection_required").asBoolean()).isTrue();
         assertThat(response.body()).doesNotContain("access_token", "client_secret", "test-secret");
     }
 
@@ -127,7 +128,17 @@ class PlatformSecurityTest {
                 escalation, "application/json", true);
         assertThat(unrelatedAnalyst.statusCode()).isEqualTo(403);
         assertThat(mapper.readTree(unrelatedAnalyst.body()).path("code").asString())
-                .isEqualTo("SCAN_ACCESS_DENIED");
+                .isEqualTo("SCAN_SHARE_DENIED");
+
+        String validateGrant = mapper.writeValueAsString(
+                java.util.Map.of("username", "analyst", "access", "VALIDATE"));
+        assertThat(send(login("admin"), "POST", "/analyses/" + scanId + "/access",
+                validateGrant, "application/json", true).statusCode()).isEqualTo(200);
+        var validatorShare = send(login("analyst"), "POST", "/analyses/" + scanId + "/access",
+                grant, "application/json", true);
+        assertThat(validatorShare.statusCode()).isEqualTo(403);
+        assertThat(mapper.readTree(validatorShare.body()).path("code").asString())
+                .isEqualTo("SCAN_SHARE_DENIED");
     }
 
     @Test void localSessionWithoutGithubCannotUseProtectedAnalysisServices() throws Exception {

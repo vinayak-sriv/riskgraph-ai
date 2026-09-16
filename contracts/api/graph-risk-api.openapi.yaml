@@ -271,6 +271,74 @@ components:
       - resource
       - sensitivity
       title: EndpointIr
+    FindingRiskResult:
+      properties:
+        route_id:
+          type: string
+          title: Route Id
+        resource_id:
+          type: string
+          title: Resource Id
+        risk_before:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Risk Before
+        risk_after:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Risk After
+        risk_delta:
+          type: integer
+          maximum: 100.0
+          minimum: -100.0
+          title: Risk Delta
+        category_before:
+          type: string
+          enum:
+          - LOW
+          - MODERATE
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+          title: Category Before
+        category_after:
+          type: string
+          enum:
+          - LOW
+          - MODERATE
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+          title: Category After
+        components:
+          $ref: '#/components/schemas/RiskComponents'
+        components_before:
+          $ref: '#/components/schemas/RiskComponents'
+        evidence:
+          items:
+            type: string
+          type: array
+          title: Evidence
+        policy_version:
+          type: string
+          title: Policy Version
+      additionalProperties: false
+      type: object
+      required:
+      - route_id
+      - resource_id
+      - risk_before
+      - risk_after
+      - risk_delta
+      - category_before
+      - category_after
+      - components
+      - components_before
+      - evidence
+      - policy_version
+      title: FindingRiskResult
     GraphDelta:
       properties:
         before:
@@ -381,6 +449,34 @@ components:
       additionalProperties: false
       type: object
       title: Quality
+    RiskBand:
+      properties:
+        category:
+          type: string
+          enum:
+          - LOW
+          - MODERATE
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+          title: Category
+        minimum:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Minimum
+        maximum:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Maximum
+      additionalProperties: false
+      type: object
+      required:
+      - category
+      - minimum
+      - maximum
+      title: RiskBand
     RiskComponents:
       properties:
         reachability:
@@ -405,6 +501,46 @@ components:
       - privilege_impact
       - exploitability
       title: RiskComponents
+    RiskPolicyMetadata:
+      properties:
+        version:
+          type: string
+          title: Version
+        weights:
+          additionalProperties:
+            type: number
+          type: object
+          title: Weights
+        review_after:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Review After
+        block_after:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Block After
+        review_delta:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Review Delta
+        bands:
+          items:
+            $ref: '#/components/schemas/RiskBand'
+          type: array
+          title: Bands
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      - weights
+      - review_after
+      - block_after
+      - review_delta
+      - bands
+      title: RiskPolicyMetadata
     RiskResult:
       properties:
         risk_before:
@@ -455,6 +591,13 @@ components:
           type: string
           title: Policy Version
           default: 1.0.0
+        policy:
+          $ref: '#/components/schemas/RiskPolicyMetadata'
+        finding_results:
+          items:
+            $ref: '#/components/schemas/FindingRiskResult'
+          type: array
+          title: Finding Results
       additionalProperties: false
       type: object
       required:
@@ -465,6 +608,7 @@ components:
       - category_after
       - components
       - evidence
+      - policy
       title: RiskResult
     RiskScoreRequest:
       properties:

@@ -64,7 +64,9 @@ def main():
         return
     env = os.environ.copy()
     load_root_env(env)
-    env.setdefault("RISKGRAPH_SERVICE_TOKEN", secrets.token_urlsafe(32))
+    env.setdefault("RISKGRAPH_ANALYZER_SERVICE_TOKEN", secrets.token_urlsafe(32))
+    env.setdefault("RISKGRAPH_GRAPH_SERVICE_TOKEN", secrets.token_urlsafe(32))
+    env.setdefault("RISKGRAPH_AI_SERVICE_TOKEN", secrets.token_urlsafe(32))
     env.update(
         RISKGRAPH_ALLOWED_REPOSITORY_ROOTS=str(ROOT / "samples" / "generated"),
         SPRING_PROFILES_ACTIVE="local",

@@ -18,7 +18,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public class InternalServiceAuthFilter extends OncePerRequestFilter {
     private final String expectedToken;
 
-    public InternalServiceAuthFilter(@Value("${RISKGRAPH_SERVICE_TOKEN:}") String expectedToken) {
+    public InternalServiceAuthFilter(@Value("${RISKGRAPH_ANALYZER_SERVICE_TOKEN:}") String expectedToken) {
         this.expectedToken = expectedToken;
     }
 

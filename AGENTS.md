@@ -124,6 +124,11 @@ LLM output):**
 }
 ```
 
+**Platform scan-result extension (version 1.2.0):** findings include deterministic
+`risk_result` and `handler_refs`; the top-level risk result includes `finding_results`
+and authoritative policy metadata (weights, thresholds, and category bands). These are
+additive platform-result fields and do not change the Stage 3 endpoint IR above.
+
 ---
 
 ## 5. Risk scoring formula (transparent, not arbitrary — do not let the LLM assign this)

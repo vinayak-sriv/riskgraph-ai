@@ -49,6 +49,7 @@ def main():
         )
     schema = json.loads((ROOT / "contracts/ir/graph-analysis.schema.json").read_text())
     properties = schema["properties"]
+    properties["schema_version"] = {"type": "string", "const": "1.2.0"}
     for name in (
         "scan_id",
         "analysis_id",
@@ -92,6 +93,9 @@ def main():
                 "evidence",
                 "ai",
                 "validation",
+                "validation_capability",
+                "risk_result",
+                "handler_refs",
             ],
             "properties": {
                 "finding_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
@@ -104,6 +108,32 @@ def main():
                 "evidence": {"type": "array", "minItems": 1, "items": {"type": "string"}},
                 "ai": {"$ref": "../ai/explanation.schema.json"},
                 "validation": {"$ref": "../validation/sandbox-result.schema.json"},
+                "validation_capability": {
+                    "type": "string",
+                    "enum": ["SUPPORTED", "UNSUPPORTED"],
+                },
+                "risk_result": {"$ref": "#/$defs/FindingRiskResult"},
+                "handler_refs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": [
+                            "handler_id",
+                            "qualified_controller",
+                            "method_signature",
+                            "source_location",
+                        ],
+                        "properties": {
+                            "handler_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                            "qualified_controller": {"type": "string"},
+                            "method_signature": {"type": "string"},
+                            "source_location": {
+                                "$ref": "analysis-envelope.schema.json#/$defs/sourceLocation"
+                            },
+                        },
+                    },
+                },
             },
         },
     }
@@ -235,7 +265,7 @@ def main():
     platform["info"]["version"] = "2.0.0"
     platform["info"]["description"] = (
         "Source and account APIs require a platform session. POST operations also require the CSRF token "
-        "returned by /auth/csrf. The endpoint IR shape remains compatible; the source-analysis envelope is version 1.1.0."
+        "returned by /auth/csrf. The endpoint IR remains compatible; source envelopes are 1.1.0 and scan results are 1.2.0."
     )
     platform["components"]["securitySchemes"] = {
         "sessionCookie": {"type": "apiKey", "in": "cookie", "name": "JSESSIONID"}

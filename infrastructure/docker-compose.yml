@@ -54,7 +54,13 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-riskgraph-oauth-disabled}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-riskgraph-oauth-disabled}
       RISKGRAPH_REQUIRE_GITHUB_CONNECTION: ${RISKGRAPH_REQUIRE_GITHUB_CONNECTION:-false}
-      RISKGRAPH_SERVICE_TOKEN: ${RISKGRAPH_SERVICE_TOKEN:?Set RISKGRAPH_SERVICE_TOKEN to a random secret}
+      RISKGRAPH_ANALYZER_SERVICE_TOKEN: ${RISKGRAPH_ANALYZER_SERVICE_TOKEN:?Set an analyzer service secret}
+      RISKGRAPH_GRAPH_SERVICE_TOKEN: ${RISKGRAPH_GRAPH_SERVICE_TOKEN:?Set a graph service secret}
+      RISKGRAPH_AI_SERVICE_TOKEN: ${RISKGRAPH_AI_SERVICE_TOKEN:?Set an AI service secret}
+      RISKGRAPH_ENRICHMENT_WORKERS: ${RISKGRAPH_ENRICHMENT_WORKERS:-4}
+      RISKGRAPH_ENRICHMENT_QUEUE_CAPACITY: ${RISKGRAPH_ENRICHMENT_QUEUE_CAPACITY:-16}
+      RISKGRAPH_SCAN_JOB_WORKERS: ${RISKGRAPH_SCAN_JOB_WORKERS:-2}
+      RISKGRAPH_SCAN_JOB_QUEUE_CAPACITY: ${RISKGRAPH_SCAN_JOB_QUEUE_CAPACITY:-8}
     volumes:
       - ${ANALYZER_REPOSITORY_ROOT:-../samples/generated}:/analysis-repositories:ro
       - riskgraph-auth:/run/riskgraph-auth:ro
@@ -103,11 +109,19 @@ services:
       RISKGRAPH_MAX_ANALYSIS_SECONDS: ${RISKGRAPH_MAX_ANALYSIS_SECONDS:-60}
       RISKGRAPH_MAX_CONCURRENT_ANALYSES: ${RISKGRAPH_MAX_CONCURRENT_ANALYSES:-2}
       RISKGRAPH_MAX_QUEUED_ANALYSES: ${RISKGRAPH_MAX_QUEUED_ANALYSES:-4}
+      RISKGRAPH_TEMP_CLEANUP_MINIMUM_AGE_HOURS: ${RISKGRAPH_TEMP_CLEANUP_MINIMUM_AGE_HOURS:-24}
+      RISKGRAPH_TEMP_CLEANUP_MAX_CANDIDATES: ${RISKGRAPH_TEMP_CLEANUP_MAX_CANDIDATES:-100}
+      RISKGRAPH_SNAPSHOT_CACHE_ROOT: /var/cache/riskgraph/snapshots
+      RISKGRAPH_SNAPSHOT_CACHE_MAX_ENTRIES: ${RISKGRAPH_SNAPSHOT_CACHE_MAX_ENTRIES:-32}
+      RISKGRAPH_SNAPSHOT_CACHE_MAX_BYTES: ${RISKGRAPH_SNAPSHOT_CACHE_MAX_BYTES:-1073741824}
+      RISKGRAPH_SNAPSHOT_CACHE_MAX_AGE_HOURS: ${RISKGRAPH_SNAPSHOT_CACHE_MAX_AGE_HOURS:-24}
+      RISKGRAPH_EXTRACTION_CACHE_MAX_ENTRIES: ${RISKGRAPH_EXTRACTION_CACHE_MAX_ENTRIES:-64}
       RISKGRAPH_ANALYZER_PROCESS_ISOLATION: "true"
       RISKGRAPH_ANALYZER_EXECUTABLE_JAR: /app/app.jar
-      RISKGRAPH_SERVICE_TOKEN: ${RISKGRAPH_SERVICE_TOKEN:?Set RISKGRAPH_SERVICE_TOKEN to a random secret}
+      RISKGRAPH_ANALYZER_SERVICE_TOKEN: ${RISKGRAPH_ANALYZER_SERVICE_TOKEN:?Set an analyzer service secret}
     volumes:
       - ${ANALYZER_REPOSITORY_ROOT:-../samples/generated}:/analysis-repositories:ro
+      - riskgraph-snapshot-cache:/var/cache/riskgraph/snapshots
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8081/health"]
       interval: 10s
@@ -122,7 +136,7 @@ services:
       context: ../services/graph-risk-service
     profiles: ["app", "future-services"]
     environment:
-      RISKGRAPH_SERVICE_TOKEN: ${RISKGRAPH_SERVICE_TOKEN:?Set RISKGRAPH_SERVICE_TOKEN to a random secret}
+      RISKGRAPH_GRAPH_SERVICE_TOKEN: ${RISKGRAPH_GRAPH_SERVICE_TOKEN:?Set a graph service secret}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8082/health')"]
       interval: 5s
@@ -139,8 +153,9 @@ services:
     environment:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
-      RISKGRAPH_SERVICE_TOKEN: ${RISKGRAPH_SERVICE_TOKEN:?Set RISKGRAPH_SERVICE_TOKEN to a random secret}
+      RISKGRAPH_AI_SERVICE_TOKEN: ${RISKGRAPH_AI_SERVICE_TOKEN:?Set an AI service secret}
       RISKGRAPH_VALIDATION_CONCURRENCY: ${RISKGRAPH_VALIDATION_CONCURRENCY:-2}
+      RISKGRAPH_VALIDATION_STARTUP_SECONDS: ${RISKGRAPH_VALIDATION_STARTUP_SECONDS:-45}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8083/health')"]
       interval: 5s
@@ -189,3 +204,4 @@ networks:
 volumes:
   riskgraph-postgres-data:
   riskgraph-auth:
+  riskgraph-snapshot-cache:

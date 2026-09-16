@@ -32,21 +32,26 @@ import org.eclipse.jgit.util.io.DisabledOutputStream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class GitSourceAcquirer {
+    private static final Logger LOG = LoggerFactory.getLogger(GitSourceAcquirer.class);
     private static final Pattern FULL_SHA = Pattern.compile("[0-9a-fA-F]{40}");
     private final List<Path> allowedRoots;
     private final int maxJavaFiles;
     private final long maxJavaFileBytes;
     private final long maxTotalJavaBytes;
+    private final SnapshotCache snapshotCache;
 
     @Autowired
     public GitSourceAcquirer(
             @Value("${riskgraph.analyzer.allowed-repository-roots}") String roots,
             @Value("${riskgraph.analyzer.max-java-files}") int maxJavaFiles,
             @Value("${riskgraph.analyzer.max-java-file-bytes}") long maxJavaFileBytes,
-            @Value("${riskgraph.analyzer.max-total-java-bytes}") long maxTotalJavaBytes
+            @Value("${riskgraph.analyzer.max-total-java-bytes}") long maxTotalJavaBytes,
+            SnapshotCache snapshotCache
     ) {
         this.allowedRoots = Pattern.compile(Pattern.quote(System.getProperty("path.separator")))
                 .splitAsStream(roots)
@@ -56,10 +61,22 @@ public class GitSourceAcquirer {
         this.maxJavaFiles = maxJavaFiles;
         this.maxJavaFileBytes = maxJavaFileBytes;
         this.maxTotalJavaBytes = maxTotalJavaBytes;
+        this.snapshotCache = snapshotCache;
     }
 
     public GitSourceAcquirer(String roots) {
-        this(roots, 5000, 2L * 1024 * 1024, 50L * 1024 * 1024);
+        this(roots, 5000, 2L * 1024 * 1024, 50L * 1024 * 1024,
+                new SnapshotCache(Path.of(System.getProperty("java.io.tmpdir"),
+                        "riskgraph-test-snapshot-cache"), 8, 100L * 1024 * 1024,
+                        java.time.Duration.ofHours(1), java.time.Clock.systemUTC()));
+    }
+
+    GitSourceAcquirer(String roots, int maxJavaFiles, long maxJavaFileBytes,
+            long maxTotalJavaBytes) {
+        this(roots, maxJavaFiles, maxJavaFileBytes, maxTotalJavaBytes,
+                new SnapshotCache(Path.of(System.getProperty("java.io.tmpdir"),
+                        "riskgraph-test-snapshot-cache"), 8, 100L * 1024 * 1024,
+                        java.time.Duration.ofHours(1), java.time.Clock.systemUTC()));
     }
 
     public AcquiredRevisions acquire(Path requestedPath, String oldSha, String newSha) {
@@ -86,15 +103,9 @@ public class GitSourceAcquirer {
                 repository.close();
                 throw error;
             }
-            Path oldSnapshot = null;
-            Path newSnapshot = null;
+            SnapshotCache.Lease oldSnapshot = null;
+            SnapshotCache.Lease newSnapshot = null;
             try {
-                oldSnapshot = Files.createTempDirectory("riskgraph-old-");
-                newSnapshot = Files.createTempDirectory("riskgraph-new-");
-                materialize(repository, oldCommit, oldSnapshot);
-                materialize(repository, newCommit, newSnapshot);
-                // Enforce blob limits before JGit rename/diff processing can read content.
-                List<ChangedFile> changedFiles = diff(repository, oldCommit, newCommit);
                 String identity = repository.getConfig().getString("remote", "origin", "url");
                 if (identity == null || identity.isBlank()) {
                     identity = localRepositoryIdentity(repositoryPath);
@@ -107,11 +118,26 @@ public class GitSourceAcquirer {
                         identity = localRepositoryIdentity(repositoryPath);
                     }
                 }
+                String limits = maxJavaFiles + ":" + maxJavaFileBytes + ":" + maxTotalJavaBytes;
+                String cacheIdentity = identity;
+                oldSnapshot = snapshotCache.acquire(cacheIdentity, oldCommit.getName(), limits,
+                        destination -> materialize(repository, oldCommit, destination));
+                newSnapshot = snapshotCache.acquire(cacheIdentity, newCommit.getName(), limits,
+                        destination -> materialize(repository, newCommit, destination));
+                // Enforce blob limits during cache population before diff processing reads content.
+                List<ChangedFile> changedFiles = diff(repository, oldCommit, newCommit);
                 return new AcquiredRevisions(repository, repositoryPath, identity,
-                        oldCommit.getName(), newCommit.getName(), oldSnapshot, newSnapshot, changedFiles);
+                        oldCommit.getName(), newCommit.getName(), oldSnapshot.path(), newSnapshot.path(),
+                        changedFiles, oldSnapshot.cached(), newSnapshot.cached(), snapshotCache);
             } catch (RuntimeException | IOException error) {
-                deleteTree(oldSnapshot);
-                deleteTree(newSnapshot);
+                if (oldSnapshot != null) {
+                    if (oldSnapshot.cached()) snapshotCache.release(oldSnapshot.path());
+                    else deleteTree(oldSnapshot.path());
+                }
+                if (newSnapshot != null) {
+                    if (newSnapshot.cached()) snapshotCache.release(newSnapshot.path());
+                    else deleteTree(newSnapshot.path());
+                }
                 repository.close();
                 throw error;
             }
@@ -278,12 +304,14 @@ public class GitSourceAcquirer {
             paths.sorted(Comparator.reverseOrder()).forEach(path -> {
                 try {
                     Files.deleteIfExists(path);
-                } catch (IOException ignored) {
-                    // Best-effort cleanup; the OS can remove abandoned temp files later.
+                } catch (IOException error) {
+                    LOG.warn("snapshot_cleanup_failed artifact={} error_type={}",
+                            path.getFileName(), error.getClass().getSimpleName());
                 }
             });
-        } catch (IOException ignored) {
-            // Best-effort cleanup.
+        } catch (IOException error) {
+            LOG.warn("snapshot_cleanup_walk_failed artifact={} error_type={}",
+                    root.getFileName(), error.getClass().getSimpleName());
         }
     }
 
@@ -295,12 +323,17 @@ public class GitSourceAcquirer {
             String newCommit,
             Path oldSnapshot,
             Path newSnapshot,
-            List<ChangedFile> changedFiles
+            List<ChangedFile> changedFiles,
+            boolean oldSnapshotCached,
+            boolean newSnapshotCached,
+            SnapshotCache snapshotCache
     ) implements AutoCloseable {
         @Override
         public void close() {
-            deleteTree(oldSnapshot);
-            deleteTree(newSnapshot);
+            if (oldSnapshotCached) snapshotCache.release(oldSnapshot);
+            else deleteTree(oldSnapshot);
+            if (newSnapshotCached) snapshotCache.release(newSnapshot);
+            else deleteTree(newSnapshot);
             repository.close();
         }
     }

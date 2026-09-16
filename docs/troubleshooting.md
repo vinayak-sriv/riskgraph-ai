@@ -5,11 +5,26 @@ ports 8080–8083 and allow 60 seconds for startup. Errors preserve REVIEW/BLOCK
 are not successful scans. Existing occupied ports are preserved by the launcher.
 
 `INVALID_SERVICE_CREDENTIAL` / `SERVICE_AUTH_NOT_CONFIGURED`: ensure platform,
-analyzer, graph, and AI processes share the same non-empty `RISKGRAPH_SERVICE_TOKEN`.
+platform, analyzer, graph, and AI processes have the matching non-empty audience-specific
+`RISKGRAPH_ANALYZER_SERVICE_TOKEN`, `RISKGRAPH_GRAPH_SERVICE_TOKEN`, and
+`RISKGRAPH_AI_SERVICE_TOKEN` values. A token for one audience is intentionally rejected by
+the other services.
 Do not expose internal service ports as a workaround.
 
 `ANALYZER_BUSY`: the bounded worker pool and queue are full. Retry after an active
 analysis completes; increase the limits only with matching CPU and memory capacity.
+
+`AI_ENRICHMENT_SATURATED`: the shared platform enrichment queue is full. The scan
+remains deterministic and is marked DEGRADED; an Admin can inspect current bounded
+queue health at `GET /admin/enrichment/queue` before adjusting worker capacity.
+
+`SCAN_JOB_QUEUE_SATURATED`: the persistent asynchronous scan queue is full. Poll
+existing jobs rather than resubmitting rapidly; increase capacity only with matching
+analyzer, graph, model, database, CPU, and memory capacity.
+
+`PLATFORM_RESTARTED`: a job was queued or running when the platform restarted. It is
+persisted as FAILED rather than silently resumed; submit the same immutable revisions
+again to create a new job.
 
 `REPOSITORY_NOT_ALLOWED`: the platform and analyzer must see the same real absolute
 path under `RISKGRAPH_ALLOWED_REPOSITORY_ROOTS`. Compose mounts both at

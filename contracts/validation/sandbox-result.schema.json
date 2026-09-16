@@ -29,6 +29,21 @@
       "default": null,
       "title": "Actual Status"
     },
+    "observed_http_statuses": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observed Http Statuses"
+    },
     "expected_status": {
       "default": 200,
       "title": "Expected Status",

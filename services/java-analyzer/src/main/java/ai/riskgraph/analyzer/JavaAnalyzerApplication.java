@@ -2,6 +2,7 @@ package ai.riskgraph.analyzer;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import ai.riskgraph.analyzer.service.AnalysisService;
@@ -10,6 +11,7 @@ import java.util.Arrays;
 import tools.jackson.databind.ObjectMapper;
 
 @SpringBootApplication
+@EnableScheduling
 public class JavaAnalyzerApplication {
     public static void main(String[] args) throws Exception {
         if (args.length > 0 && "--riskgraph-worker".equals(args[0])) {

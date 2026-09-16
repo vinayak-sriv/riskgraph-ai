@@ -67,7 +67,8 @@ def main():
         "service": "CatalogService",
         "repository": "CatalogRepository",
         "resource": "Catalog",
-        "sensitivity": "MODERATE",
+        # Unknown repository-backed resources are conservatively security-reachable.
+        "sensitivity": "MEDIUM",
     }
     expected_ir = {
         "authorization-removal": ([protected], [public]),

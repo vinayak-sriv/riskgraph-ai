@@ -128,6 +128,35 @@ class RiskComponents(ContractModel):
     exploitability: ComponentScore
 
 
+class FindingRiskResult(ContractModel):
+    route_id: str
+    resource_id: str
+    risk_before: int = Field(ge=0, le=100)
+    risk_after: int = Field(ge=0, le=100)
+    risk_delta: int = Field(ge=-100, le=100)
+    category_before: Category
+    category_after: Category
+    components: RiskComponents
+    components_before: RiskComponents
+    evidence: list[str]
+    policy_version: str
+
+
+class RiskBand(ContractModel):
+    category: Category
+    minimum: int = Field(ge=0, le=100)
+    maximum: int = Field(ge=0, le=100)
+
+
+class RiskPolicyMetadata(ContractModel):
+    version: str
+    weights: dict[str, float]
+    review_after: int = Field(ge=0, le=100)
+    block_after: int = Field(ge=0, le=100)
+    review_delta: int = Field(ge=0, le=100)
+    bands: list[RiskBand]
+
+
 class RiskResult(ContractModel):
     risk_before: int = Field(ge=0, le=100)
     risk_after: int = Field(ge=0, le=100)
@@ -138,6 +167,8 @@ class RiskResult(ContractModel):
     evidence: list[str]
     components_before: RiskComponents | None = None
     policy_version: str = "1.0.0"
+    policy: RiskPolicyMetadata
+    finding_results: list[FindingRiskResult] = Field(default_factory=list)
 
 
 class AnalysisResult(ContractModel):

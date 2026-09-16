@@ -438,6 +438,35 @@ class SpringEndpointExtractorTest {
                 .contains("UNRESOLVED_SECURITY_FILTER_CHAIN", "UNRESOLVED_ROUTE_AUTHORIZATION");
     }
 
+    @Test
+    void unknownRepositoryResourceUsesConservativeMediumFallback() throws Exception {
+        String controller = "src/ReportController.java";
+        write(controller, """
+            @RestController class ReportController {
+                ReportService service;
+                @GetMapping("/reports") Object reports() { return service.read(); }
+            }
+            class ReportService {
+                AuditLedgerRepository repository;
+                Object read() { return repository.findAll(); }
+            }
+            interface AuditLedgerRepository { Object findAll(); }
+            """);
+
+        var result = extractor().extract(tempDir, Map.of(
+                controller, List.of(new ChangedRange(1, 20))));
+
+        assertThat(result.endpoints()).singleElement().satisfies(row -> {
+            assertThat(row.endpoint().resource()).isEqualTo("AuditLedger");
+            assertThat(row.endpoint().sensitivity()).isEqualTo("MEDIUM");
+            assertThat(row.dependency_paths()).singleElement().satisfies(path ->
+                    assertThat(path.sensitivity()).isEqualTo("MEDIUM"));
+            assertThat(row.sensitivity_evidence().matched_rule()).isEqualTo("default@1.1.0");
+        });
+        assertThat(result.diagnostics()).extracting(row -> row.code())
+                .contains("SENSITIVITY_POLICY_DEFAULTED");
+    }
+
     private SpringEndpointExtractor extractor() {
         return new SpringEndpointExtractor(new SensitivityPolicy(""));
     }

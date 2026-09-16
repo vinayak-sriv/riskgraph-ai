@@ -11,7 +11,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     env:
-      RISKGRAPH_SERVICE_TOKEN: ci-contract-only-not-a-deployment-secret
+      RISKGRAPH_ANALYZER_SERVICE_TOKEN: ci-analyzer-contract-only-not-a-secret
+      RISKGRAPH_GRAPH_SERVICE_TOKEN: ci-graph-contract-only-not-a-secret
+      RISKGRAPH_AI_SERVICE_TOKEN: ci-ai-contract-only-not-a-secret
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -31,7 +33,7 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: ruff check services/graph-risk-service services/ai-validation-service tests tools datasets/risk-corpus/tools
       - run: ruff format --check services/graph-risk-service services/ai-validation-service tests tools datasets/risk-corpus/tools
-      - run: python -m pytest tests -q --cov=services/graph-risk-service/app --cov=services/ai-validation-service/app
+      - run: python -m pytest tests -q --cov=services/graph-risk-service/app --cov=services/ai-validation-service/app --cov-branch --cov-fail-under=93
       - run: mvn -f services/java-analyzer/pom.xml clean verify
       - run: mvn -f services/platform-api/pom.xml clean verify
       - run: docker compose -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app config --quiet
@@ -45,6 +47,12 @@ jobs:
         working-directory: apps/dashboard
       - run: npm test
         working-directory: apps/dashboard
+      - run: npm run test:coverage
+        working-directory: apps/dashboard
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/dashboard
+      - run: npm run test:e2e
+        working-directory: apps/dashboard
       - run: npm audit --omit=dev
         working-directory: apps/dashboard
 
@@ -52,7 +60,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      RISKGRAPH_SERVICE_TOKEN: ci-container-smoke-token-${{ github.run_id }}-${{ github.run_attempt }}
+      RISKGRAPH_ANALYZER_SERVICE_TOKEN: ci-analyzer-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+      RISKGRAPH_GRAPH_SERVICE_TOKEN: ci-graph-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+      RISKGRAPH_AI_SERVICE_TOKEN: ci-ai-smoke-${{ github.run_id }}-${{ github.run_attempt }}
       RISKGRAPH_VALIDATION_PROBE_IMAGE: python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -120,7 +130,7 @@ jobs:
         # Dependency/OS vulnerability scanning happens against the built images in
         # container-smoke. Keeping this source scan offline avoids Maven Central
         # rate limits without reducing the shipped-image gate.
-        run: docker run --rm -v "$PWD:/workspace" -w /workspace aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 fs --offline-scan --exit-code 1 --severity HIGH,CRITICAL --scanners secret,misconfig .
+        run: docker run --rm -v "$PWD:/workspace" -w /workspace aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 fs --offline-scan --ignorefile .trivyignore.yaml --exit-code 1 --severity HIGH,CRITICAL --scanners secret,misconfig .
       - name: Build and independently verify deterministic release archive
         run: python tools/release/package.py --output dist/riskgraph-source.zip --manifest dist/riskgraph-source.manifest.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

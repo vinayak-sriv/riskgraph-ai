@@ -46,6 +46,72 @@
   --action-shadow: 0 5px 22px #5f01fb30, inset 0 1px 0 #ffffff26;
   --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
 }
+
+.state-stale {
+  border-color: color-mix(in srgb, var(--warning) 62%, var(--border));
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface));
+}
+
+.finding-status-surface {
+  margin-bottom: 16px;
+}
+
+.finding-status-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finding-status-list > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 16px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.finding-status-list strong,
+.finding-status-list span,
+.finding-status-list p {
+  display: block;
+}
+
+.finding-status-list p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+.finding-validation-badges {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.validation-status {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.validation-status.status-confirmed {
+  color: var(--safe);
+}
+
+.validation-status.status-rejected,
+.validation-status.status-error {
+  color: var(--danger);
+}
 :root[data-theme="light"] {
   color-scheme: light;
   --bg: #f5f4fb;
@@ -1055,6 +1121,49 @@ select option {
   color: var(--accent);
   border-color: var(--accent-border);
 }
+.graph-size-notice,
+.graph-cluster-summary {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.graph-size-notice {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.graph-size-notice strong {
+  color: var(--text);
+}
+.graph-cluster-summary {
+  padding: 20px;
+}
+.graph-cluster-summary h3 {
+  margin: 0 0 5px;
+}
+.graph-cluster-summary p {
+  margin: 0;
+  color: var(--muted);
+}
+.graph-cluster-summary ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  padding: 0;
+  margin: 18px 0;
+  list-style: none;
+}
+.graph-cluster-summary li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
 .graph-workspace {
   display: grid;
   gap: 16px;
@@ -1292,7 +1401,7 @@ select option {
   padding: 0 12px 12px;
   margin: 0;
 }
-.node-directory button {
+.node-directory li > button {
   width: 100%;
   display: grid;
   grid-template-columns: 100px minmax(0, 1fr) 15px;
@@ -1305,20 +1414,38 @@ select option {
   padding: 12px 8px;
   min-height: 44px;
 }
-.node-directory button:hover {
+.node-directory li > button:hover {
   background: var(--accent-soft);
 }
-.node-directory button span {
+.node-directory li > button span {
   font-size: 0.75rem;
   color: var(--faint);
 }
-.node-directory button strong {
+.node-directory li > button strong {
   font-size: 0.875rem;
   font-weight: 500;
   overflow-wrap: anywhere;
 }
-.node-directory button svg {
+.node-directory li > button svg {
   color: var(--accent);
+}
+.node-directory-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 20px 16px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.node-directory-pagination button {
+  width: auto;
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-raised);
+  color: var(--text);
 }
 .path-strip {
   border: 1px solid var(--danger-border);

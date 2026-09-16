@@ -27,11 +27,12 @@ python tools/evaluation/external_spring.py --compose
 The second command requires the local Compose platform. It checks repeated
 deterministic evidence, writes both scans and measured results under
 `tmp/external-evaluation`, and never runs HTTP security tests on these repositories.
-The latest checked-in automated summary is `observed-results-2026-09-13.json`.
-That summary is retained as historical evidence of the pre-0.4.1 parser failure;
-the 0.4.1 multi-module regression and pinned direct extraction now emit both
-`/greeting` rows without `SPOON_MODEL_FAILED`. Regenerate the platform summary
-before release once the Compose runtime is available.
+The latest checked-in automated summary is `observed-results-2026-09-15.json`.
+The September 13 summary is retained as historical evidence of the pre-0.4.1 parser
+failure. The September 15 current-analyzer platform rerun emits both `/greeting`
+rows without `SPOON_MODEL_FAILED` and records two repeated deterministic executions
+per case. A Compose rerun is not required to execute third-party code and must not
+run HTTP security tests against these repositories.
 Use `HUMAN_REVIEW.md` for the independent review step; manifest validation prevents
 an unattributed `human_reviewed` claim.
 Precision/recall/F1 for vulnerabilities and sensitivity accuracy are unset: two

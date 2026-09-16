@@ -32,12 +32,37 @@ export function Overview({
   onValidate: () => void;
 }) {
   const risk = analysis.risk_result;
+  const riskBands = risk.policy?.bands ?? [
+    { category: "LOW" as const, minimum: 0, maximum: 20 },
+    { category: "MODERATE" as const, minimum: 21, maximum: 40 },
+    { category: "MEDIUM" as const, minimum: 41, maximum: 60 },
+    { category: "HIGH" as const, minimum: 61, maximum: 80 },
+    { category: "CRITICAL" as const, minimum: 81, maximum: 100 },
+  ];
   const verdict = analysis.final_verdict ?? analysis.verdict;
   const paths = analysis.graph_delta.new_paths.length;
   const validation = analysis.validation_status ?? "NOT_RUN";
   const certainty = evidenceCertainty(analysis);
-  const headline =
-    verdict === "ALLOW"
+  const incompleteEvidence =
+    analysis.status === "DEGRADED" ||
+    analysis.quality?.incomplete === true ||
+    analysis.quality?.confidence === "LOW";
+  const presentedVerdict = incompleteEvidence ? "REVIEW" : verdict;
+  const confirmedFindings =
+    analysis.findings?.filter(
+      (finding) => finding.validation.status === "CONFIRMED",
+    ) ?? [];
+  const validationCopy =
+    confirmedFindings.length === 1
+      ? `Runtime confirmation: anonymous ${confirmedFindings[0].method} ${confirmedFindings[0].path} reproduced the expected authorization hypothesis in the registered source-bound sandbox.`
+      : confirmedFindings.length > 1
+        ? `Runtime confirmation exists for ${confirmedFindings.length} individually identified findings; inspect each finding's status below.`
+        : validation === "CONFIRMED"
+          ? "The registered source-bound sandbox reproduced the fixed anonymous HTTP authorization hypothesis."
+          : "Static assessment";
+  const headline = incompleteEvidence
+    ? "REVIEW REQUIRED — incomplete evidence"
+    : verdict === "ALLOW"
       ? "No policy review required"
       : verdict === "BLOCK"
         ? "This change is blocked by policy"
@@ -59,16 +84,18 @@ export function Overview({
         </span>
       </div>
 
-      <div className={`decision-banner decision-${verdict.toLowerCase()}`}>
+      <div
+        className={`decision-banner decision-${presentedVerdict.toLowerCase()}`}
+      >
         <div className="decision-symbol">
-          {verdict === "ALLOW" ? (
+          {presentedVerdict === "ALLOW" ? (
             <ShieldCheck size={26} />
           ) : (
             <ShieldAlert size={26} />
           )}
         </div>
         <div className="decision-signal">
-          <VerdictBadge verdict={verdict} />
+          <VerdictBadge verdict={presentedVerdict} />
           <div className="after-risk">
             <span>After risk</span>
             <strong>{risk.risk_after}</strong>
@@ -91,9 +118,7 @@ export function Overview({
               "Inspect the analysis evidence and policy reasons below."}
           </p>
           <span>
-            {validation === "CONFIRMED"
-              ? "Confirmed in the registered Docker sandbox"
-              : "Static assessment"}
+            {validationCopy}
             {validation === "NOT_RUN"
               ? " · Runtime validation has not run"
               : validation !== "CONFIRMED"
@@ -171,25 +196,21 @@ export function Overview({
             />
           </div>
           <div className="risk-range-legend">
-            <span>
-              LOW <code>0–20</code>
-            </span>
-            <span>
-              MODERATE <code>21–40</code>
-            </span>
-            <span>
-              MEDIUM <code>41–60</code>
-            </span>
-            <span>
-              HIGH <code>61–80</code>
-            </span>
-            <span>
-              CRITICAL <code>81–100</code>
-            </span>
+            {riskBands.map((band) => (
+              <span key={band.category}>
+                {band.category}{" "}
+                <code>
+                  {band.minimum}–{band.maximum}
+                </code>
+              </span>
+            ))}
           </div>
           <div className="comparison-note">
             <Fingerprint size={15} />
-            <span>Six weighted factors. Fully traceable.</span>
+            <span>
+              Six weighted factors · policy{" "}
+              {risk.policy?.version ?? risk.policy_version ?? "1.0.0"}.
+            </span>
             <a href="#analysis-evidence">
               View scoring <ArrowUpRight size={14} />
             </a>
@@ -258,15 +279,19 @@ export function Overview({
             </strong>
             <ArrowRight size={13} /> Final <strong>{verdict}</strong>
           </p>
-          {analysis.scan_id && (
-            <button
-              className="secondary-button"
-              disabled={loading || !canRun}
-              onClick={onValidate}
-            >
-              Validate registered Docker sandbox
-            </button>
-          )}
+          {analysis.scan_id &&
+            (!analysis.findings ||
+              analysis.findings.some(
+                (finding) => finding.validation_capability === "SUPPORTED",
+              )) && (
+              <button
+                className="secondary-button"
+                disabled={loading || !canRun}
+                onClick={onValidate}
+              >
+                Validate supported Docker finding
+              </button>
+            )}
           {analysis.validation && (
             <p role="status">
               {analysis.validation.status}: {analysis.validation.reason_code}

@@ -33,6 +33,14 @@ management:
         include: health,info
 
 riskgraph:
+  scan-jobs:
+    workers: ${RISKGRAPH_SCAN_JOB_WORKERS:2}
+    queue-capacity: ${RISKGRAPH_SCAN_JOB_QUEUE_CAPACITY:8}
+  enrichment:
+    workers: ${RISKGRAPH_ENRICHMENT_WORKERS:4}
+    queue-capacity: ${RISKGRAPH_ENRICHMENT_QUEUE_CAPACITY:16}
+  demo:
+    dynamic-enabled: ${RISKGRAPH_DYNAMIC_DEMO_ENABLED:false}
   services:
     graph-risk-base-url: ${GRAPH_RISK_BASE_URL:http://localhost:8082}
   web:

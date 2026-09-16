@@ -64,6 +64,91 @@
       "title": "Edge",
       "type": "object"
     },
+    "FindingRiskResult": {
+      "additionalProperties": false,
+      "properties": {
+        "route_id": {
+          "title": "Route Id",
+          "type": "string"
+        },
+        "resource_id": {
+          "title": "Resource Id",
+          "type": "string"
+        },
+        "risk_before": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Risk Before",
+          "type": "integer"
+        },
+        "risk_after": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Risk After",
+          "type": "integer"
+        },
+        "risk_delta": {
+          "maximum": 100,
+          "minimum": -100,
+          "title": "Risk Delta",
+          "type": "integer"
+        },
+        "category_before": {
+          "enum": [
+            "LOW",
+            "MODERATE",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ],
+          "title": "Category Before",
+          "type": "string"
+        },
+        "category_after": {
+          "enum": [
+            "LOW",
+            "MODERATE",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ],
+          "title": "Category After",
+          "type": "string"
+        },
+        "components": {
+          "$ref": "#/$defs/RiskComponents"
+        },
+        "components_before": {
+          "$ref": "#/$defs/RiskComponents"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "policy_version": {
+          "title": "Policy Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "route_id",
+        "resource_id",
+        "risk_before",
+        "risk_after",
+        "risk_delta",
+        "category_before",
+        "category_after",
+        "components",
+        "components_before",
+        "evidence",
+        "policy_version"
+      ],
+      "title": "FindingRiskResult",
+      "type": "object"
+    },
     "GraphDelta": {
       "additionalProperties": false,
       "properties": {
@@ -196,6 +281,41 @@
       "title": "Quality",
       "type": "object"
     },
+    "RiskBand": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "LOW",
+            "MODERATE",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "minimum": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Minimum",
+          "type": "integer"
+        },
+        "maximum": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Maximum",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "category",
+        "minimum",
+        "maximum"
+      ],
+      "title": "RiskBand",
+      "type": "object"
+    },
     "RiskComponents": {
       "additionalProperties": false,
       "properties": {
@@ -227,6 +347,57 @@
         "exploitability"
       ],
       "title": "RiskComponents",
+      "type": "object"
+    },
+    "RiskPolicyMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "weights": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Weights",
+          "type": "object"
+        },
+        "review_after": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Review After",
+          "type": "integer"
+        },
+        "block_after": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Block After",
+          "type": "integer"
+        },
+        "review_delta": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Review Delta",
+          "type": "integer"
+        },
+        "bands": {
+          "items": {
+            "$ref": "#/$defs/RiskBand"
+          },
+          "title": "Bands",
+          "type": "array"
+        }
+      },
+      "required": [
+        "version",
+        "weights",
+        "review_after",
+        "block_after",
+        "review_delta",
+        "bands"
+      ],
+      "title": "RiskPolicyMetadata",
       "type": "object"
     },
     "RiskResult": {
@@ -297,6 +468,16 @@
           "default": "1.0.0",
           "title": "Policy Version",
           "type": "string"
+        },
+        "policy": {
+          "$ref": "#/$defs/RiskPolicyMetadata"
+        },
+        "finding_results": {
+          "items": {
+            "$ref": "#/$defs/FindingRiskResult"
+          },
+          "title": "Finding Results",
+          "type": "array"
         }
       },
       "required": [
@@ -306,7 +487,8 @@
         "category_before",
         "category_after",
         "components",
-        "evidence"
+        "evidence",
+        "policy"
       ],
       "title": "RiskResult",
       "type": "object"

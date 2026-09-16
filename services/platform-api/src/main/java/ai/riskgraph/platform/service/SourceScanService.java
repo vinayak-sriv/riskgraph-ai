@@ -22,7 +22,6 @@ import ai.riskgraph.platform.client.AnalysisClient;
 
 @Service
 public class SourceScanService {
-    private static final int MAX_GRAPH_ROWS_PER_REVISION = 2000;
     private final AnalysisClient client;
     private final ContractValidator contracts;
     private final ObjectMapper mapper;
@@ -35,11 +34,10 @@ public class SourceScanService {
     private String sandboxManifest = "./samples/generated/mvp-v2/manifest.json";
     @Value("${RISKGRAPH_MAX_AI_FINDINGS:4}")
     private int maxAiFindings = 4;
-    @Value("${RISKGRAPH_AI_CONCURRENCY:4}")
-    private int aiConcurrency = 4;
     private final ScanStore store;
     private final FindingEnrichmentService findings;
     private final SourceValidationService validations;
+    private final CanonicalGraphInputBuilder graphInputs;
     private final ConcurrentHashMap<String, CompletableFuture<JsonNode>> scanFlights = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CompletableFuture<JsonNode>> validationFlights = new ConcurrentHashMap<>();
     private final Object[] storeLocks = createStoreLocks();
@@ -50,7 +48,8 @@ public class SourceScanService {
         @Value("${RISKGRAPH_ALLOWED_REPOSITORY_ROOTS:./samples/generated}") String allowedRoots, ScanStore store) {
         this(client, contracts, mapper, analyzerUrl, graphUrl, allowedRoots, store,
                 new FindingEnrichmentService(client, contracts, mapper),
-                new SourceValidationService(client, contracts, mapper));
+                new SourceValidationService(client, contracts, mapper),
+                new CanonicalGraphInputBuilder(mapper));
     }
 
     @Autowired
@@ -58,10 +57,19 @@ public class SourceScanService {
         @Value("${JAVA_ANALYZER_BASE_URL:http://localhost:8081}") String analyzerUrl,
         @Value("${GRAPH_RISK_BASE_URL:http://localhost:8082}") String graphUrl,
         @Value("${RISKGRAPH_ALLOWED_REPOSITORY_ROOTS:./samples/generated}") String allowedRoots,
-        ScanStore store, FindingEnrichmentService findings, SourceValidationService validations) {
+        ScanStore store, FindingEnrichmentService findings, SourceValidationService validations,
+        CanonicalGraphInputBuilder graphInputs) {
         this.client = client; this.contracts = contracts; this.mapper = mapper;
         this.analyzerUrl = analyzerUrl; this.graphUrl = graphUrl; this.allowedRoots = allowedRoots;
         this.store = store; this.findings = findings; this.validations = validations;
+        this.graphInputs = graphInputs;
+    }
+
+    SourceScanService(AnalysisClient client, ContractValidator contracts, ObjectMapper mapper,
+        String analyzerUrl, String graphUrl, String allowedRoots, ScanStore store,
+        FindingEnrichmentService findings, SourceValidationService validations) {
+        this(client, contracts, mapper, analyzerUrl, graphUrl, allowedRoots, store, findings,
+                validations, new CanonicalGraphInputBuilder(mapper));
     }
 
     public JsonNode analyze(String repositoryPath, String oldCommit, String newCommit) {
@@ -89,37 +97,36 @@ public class SourceScanService {
             || !envelope.at("/provenance/new_commit").asString().equals(newCommit.toLowerCase())
             || !Path.of(envelope.at("/provenance/repository_path").asString()).normalize().equals(path))
             throw new PipelineException("PROVENANCE_MISMATCH", 502, "Analyzer provenance does not match request");
-        ObjectNode graphInput = mapper.createObjectNode();
-        String confidence = "HIGH";
-        boolean incomplete = false;
-        for (String revision : new String[]{"before", "after"}) {
-            var rows = graphInput.putArray(revision);
-            for (JsonNode evidence : envelope.path(revision)) {
-                String level = evidence.at("/extraction_confidence/overall").asString();
-                if (level.equals("LOW") || (level.equals("MEDIUM") && confidence.equals("HIGH"))) confidence = level;
-                if (!level.equals("HIGH")) incomplete = true;
-                addCanonicalPaths(rows, evidence);
-            }
-            if (rows.size() > MAX_GRAPH_ROWS_PER_REVISION)
-                throw new PipelineException("ANALYSIS_TOO_LARGE", 413,
-                        "Canonical graph input exceeds 2000 rows per revision");
-        }
-        for (JsonNode diagnostic : envelope.path("diagnostics")) {
-            incomplete |= !diagnostic.path("severity").asString().equals("INFO");
-            if (diagnostic.path("severity").asString().equals("ERROR")) confidence = "LOW";
-        }
-        boolean emptyChangedSurface = !envelope.path("changed_files").isEmpty()
-            && envelope.path("before").isEmpty() && envelope.path("after").isEmpty();
-        incomplete |= emptyChangedSurface;
-        if (emptyChangedSurface) confidence = "LOW";
-        graphInput.putObject("quality").put("confidence", confidence).put("incomplete", incomplete)
-            .put("coverage_ratio", envelope.at("/coverage/coverage_ratio").asDouble());
+        CanonicalGraphInputBuilder.BuildResult build = graphInputs.build(envelope);
+        ObjectNode graphInput = build.graphInput();
+        String confidence = build.confidence();
+        boolean incomplete = build.incomplete();
         ObjectNode result = ((ObjectNode) client.post(graphUrl, "/analysis", graphInput)).deepCopy();
         contracts.validate("ir/graph-analysis.schema.json", result);
-        result.put("schema_version", "1.1.0").put("scenario", "local-source");
+        String graphConfidence = result.at("/quality/confidence").asString(confidence);
+        if (graphConfidence.equals("LOW")
+                || (graphConfidence.equals("MEDIUM") && confidence.equals("HIGH"))) {
+            confidence = graphConfidence;
+        }
+        incomplete |= result.at("/quality/incomplete").asBoolean()
+                || !graphConfidence.equals("HIGH");
+        result.put("schema_version", "1.2.0").put("scenario", "local-source");
         result.set("provenance", envelope.path("provenance"));
         result.set("coverage", envelope.path("coverage"));
-        result.set("diagnostics", envelope.path("diagnostics"));
+        ArrayNode diagnostics = (ArrayNode) envelope.path("diagnostics").deepCopy();
+        boolean unresolvedAuthorizationDelta = false;
+        for (JsonNode reason : result.path("reason_codes")) {
+            unresolvedAuthorizationDelta |= reason.asString()
+                    .equals("UNRESOLVED_AUTHORIZATION_DELTA");
+        }
+        if (unresolvedAuthorizationDelta) {
+            diagnostics.addObject()
+                    .put("severity", "WARNING")
+                    .put("code", "UNRESOLVED_AUTHORIZATION_DELTA")
+                    .put("message", "Authorization roles changed, but role ordering is outside the annotation-only MVP")
+                    .putNull("path");
+        }
+        result.set("diagnostics", diagnostics);
         result.set("source_evidence", mapper.createObjectNode().set("before", envelope.path("before")));
         ((ObjectNode) result.path("source_evidence")).set("after", envelope.path("after"));
         result.put("analyzer_version", envelope.path("analyzer_version").asString());
@@ -128,12 +135,12 @@ public class SourceScanService {
         result.put("pre_validation_verdict", result.path("verdict").asString());
         result.put("validation_status", "NOT_RUN").put("final_verdict", result.path("verdict").asString());
         result.put("status", incomplete || !confidence.equals("HIGH") ? "DEGRADED" : "COMPLETE");
-        result.put("scan_id", digest(result.toString()));
+        result.put("scan_id", ScanIdentityFactory.create(mapper, envelope, graphInput, result));
         findings.buildFindings(result);
         String scanId = result.path("scan_id").asString();
         JsonNode previous = store.get(scanId);
         if (previous != null) findings.mergePreviousEnrichment(result, previous);
-        findings.enrich(result, aiUrl, maxAiFindings, aiConcurrency);
+        findings.enrich(result, aiUrl, maxAiFindings);
         synchronized (storeLockFor(scanId)) {
             ObjectNode prepared = result;
             JsonNode updated = store.update(scanId, latest -> {
@@ -150,28 +157,6 @@ public class SourceScanService {
         LoggerFactory.getLogger(getClass()).info("scan_completed analysis_id={} verdict={}",
             result.path("analysis_id").asString(), result.path("verdict").asString());
         return result;
-    }
-
-    private void addCanonicalPaths(ArrayNode rows, JsonNode evidence) {
-        JsonNode endpoint = evidence.path("endpoint");
-        JsonNode paths = evidence.path("dependency_paths");
-        if (paths.isEmpty()) {
-            rows.add(endpoint);
-            return;
-        }
-        for (JsonNode path : paths) {
-            ObjectNode canonical = (ObjectNode) endpoint.deepCopy();
-            copyNullable(canonical, "service", path.path("service"));
-            copyNullable(canonical, "repository", path.path("repository"));
-            canonical.put("resource", path.path("resource").asString());
-            canonical.put("sensitivity", path.path("sensitivity").asString());
-            rows.add(canonical);
-        }
-    }
-
-    private void copyNullable(ObjectNode target, String name, JsonNode value) {
-        if (value.isNull() || value.isMissingNode()) target.putNull(name);
-        else target.put(name, value.asString());
     }
 
     private static Object[] createStoreLocks() {

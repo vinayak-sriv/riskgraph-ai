@@ -95,6 +95,39 @@ def test_secret_redaction():
     assert all(secret not in result for secret in ["abc", "pw", "person", "xyz"])
 
 
+def test_secret_patterns_are_scrubbed_immediately_before_inference():
+    class Provider:
+        async def generate(self, evidence, schema):
+            assert evidence == {
+                "evidence": ["token=[REDACTED] was found"],
+                "method": "GET",
+                "path": "/admin/export",
+            }
+            return {**VALID, "evidence": evidence["evidence"]}
+
+    request = EvidenceRequest(
+        evidence=["token=should-not-leave was found"],
+        method="GET",
+        path="/admin/export",
+    )
+    assert asyncio.run(explain(request, Provider())).status == "AVAILABLE"
+
+
+def test_raw_source_is_rejected_before_provider_call():
+    class Provider:
+        async def generate(self, evidence, schema):
+            raise AssertionError("Raw source must never reach the provider")
+
+    request = EvidenceRequest(
+        evidence=["package demo;\nclass SecretConfig {"],
+        method="GET",
+        path="/admin/export",
+    )
+    result = asyncio.run(explain(request, Provider()))
+    assert result.status == "DEGRADED"
+    assert result.reason_code == "AI_EVIDENCE_REJECTED"
+
+
 def test_generation_budget_rejects_oversized_evidence_without_sending_it():
     def handler(request):
         raise AssertionError("Oversized payload must never be sent")

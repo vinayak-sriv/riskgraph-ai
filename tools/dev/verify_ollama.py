@@ -15,9 +15,11 @@ ROOT = Path(__file__).resolve().parents[2]
 def call(url, payload=None):
     headers = {"Content-Type": "application/json"}
     if payload is not None:
-        token = os.environ.get("RISKGRAPH_SERVICE_TOKEN")
+        token = os.environ.get("RISKGRAPH_AI_SERVICE_TOKEN")
         if not token:
-            raise RuntimeError("RISKGRAPH_SERVICE_TOKEN is required for internal API verification")
+            raise RuntimeError(
+                "RISKGRAPH_AI_SERVICE_TOKEN is required for internal API verification"
+            )
         headers["X-RiskGraph-Service-Token"] = token
     request = urllib.request.Request(
         url, data=None if payload is None else json.dumps(payload).encode(), headers=headers

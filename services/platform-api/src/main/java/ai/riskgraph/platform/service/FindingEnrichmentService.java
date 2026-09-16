@@ -5,9 +5,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.HashSet;
+import java.util.concurrent.RejectedExecutionException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -19,17 +20,26 @@ public class FindingEnrichmentService {
     private final AnalysisClient client;
     private final ContractValidator contracts;
     private final ObjectMapper mapper;
+    private final EnrichmentExecutor executor;
 
     public FindingEnrichmentService(
             AnalysisClient client, ContractValidator contracts, ObjectMapper mapper) {
+        this(client, contracts, mapper, new EnrichmentExecutor(4, 16));
+    }
+
+    @Autowired
+    public FindingEnrichmentService(AnalysisClient client, ContractValidator contracts,
+            ObjectMapper mapper, EnrichmentExecutor executor) {
         this.client = client;
         this.contracts = contracts;
         this.mapper = mapper;
+        this.executor = executor;
     }
 
     public void buildFindings(ObjectNode result) {
         ArrayNode findings = result.putArray("findings");
         String scanId = result.path("scan_id").asString();
+        var ambiguousRoutes = new HashSet<String>();
         for (JsonNode path : result.at("/graph_delta/new_paths")) {
             if (path.path("nodes").size() < 2) continue;
             String routeId = path.at("/nodes/1").asString();
@@ -40,16 +50,76 @@ public class FindingEnrichmentService {
             finding.put("finding_id", SourceScanService.digest(
                     scanId + "\n" + routeId + "\n" + resource + "\n" + path));
             finding.put("route_id", routeId).put("method", route[1]).put("path", route[2]);
-            finding.put("resource", resource)
-                    .put("severity", result.at("/risk_result/category_after").asString());
+            finding.put("resource", resource);
+            JsonNode findingRisk = findingRisk(result, routeId, path.path("target").asString());
+            finding.put("severity", findingRisk.path("category_after").asString("MEDIUM"));
+            finding.set("risk_result", findingRisk.deepCopy());
+            boolean validationSupported = route[1].equals("GET")
+                    && route[2].equals("/admin/export");
+            finding.put("validation_capability",
+                    validationSupported ? "SUPPORTED" : "UNSUPPORTED");
             finding.set("dependency_path", path.deepCopy());
-            finding.putArray("evidence").add("Anonymous user can newly reach sensitive resource "
-                    + resource + " via " + route[1] + " " + route[2]);
-            finding.set("validation", notRunValidation());
+            ArrayNode evidence = finding.putArray("evidence");
+            findingRisk.path("evidence").forEach(item -> evidence.add(item.asString()));
+            if (evidence.isEmpty()) {
+                evidence.add("Anonymous user can newly reach sensitive resource "
+                        + resource + " via " + route[1] + " " + route[2]);
+            }
+            ArrayNode handlers = finding.putArray("handler_refs");
+            addHandlerReferences(result, handlers, route[1], route[2], resource);
+            if (handlers.size() > 1) ambiguousRoutes.add(routeId);
+            finding.set("validation", notRunValidation(validationSupported));
+        }
+        for (String routeId : ambiguousRoutes) {
+            ((ArrayNode) result.path("diagnostics")).addObject()
+                    .put("severity", "WARNING")
+                    .put("code", "AMBIGUOUS_ROUTE_HANDLERS")
+                    .put("message", "Multiple source handlers resolve to " + routeId)
+                    .putNull("path");
+            result.put("status", "DEGRADED");
+            ((ObjectNode) result.path("quality")).put("incomplete", true);
+            if (result.at("/quality/confidence").asString().equals("HIGH")) {
+                ((ObjectNode) result.path("quality")).put("confidence", "MEDIUM");
+            }
         }
     }
 
-    public void enrich(ObjectNode result, String aiUrl, int maxAiFindings, int aiConcurrency) {
+    private JsonNode findingRisk(JsonNode result, String routeId, String resourceId) {
+        for (JsonNode risk : result.at("/risk_result/finding_results")) {
+            if (risk.path("route_id").asString().equals(routeId)
+                    && risk.path("resource_id").asString().equals(resourceId)) return risk;
+        }
+        return mapper.createObjectNode();
+    }
+
+    private void addHandlerReferences(JsonNode result, ArrayNode handlers,
+            String method, String path, String resource) {
+        for (JsonNode source : result.at("/source_evidence/after")) {
+            if (!source.at("/endpoint/method").asString().equals(method)
+                    || !source.at("/endpoint/endpoint").asString().equals(path)
+                    || !usesResource(source, resource)) continue;
+            ObjectNode handler = handlers.addObject();
+            String controller = source.path("qualified_controller").asString();
+            String signature = source.path("method_signature").asString();
+            String location = source.at("/source_location/path").asString();
+            String repository = result.at("/provenance/repository_identity").asString();
+            handler.put("handler_id", SourceScanService.digest(
+                    repository + "\n" + controller + "\n" + signature + "\n" + location));
+            handler.put("qualified_controller", controller);
+            handler.put("method_signature", signature);
+            handler.set("source_location", source.path("source_location").deepCopy());
+        }
+    }
+
+    private boolean usesResource(JsonNode source, String resource) {
+        if (source.at("/endpoint/resource").asString().equals(resource)) return true;
+        for (JsonNode dependency : source.path("dependency_paths")) {
+            if (dependency.path("resource").asString().equals(resource)) return true;
+        }
+        return false;
+    }
+
+    public void enrich(ObjectNode result, String aiUrl, int maxAiFindings) {
         List<ObjectNode> findings = new ArrayList<>();
         result.path("findings").forEach(value -> {
             if (!value.has("ai")) findings.add((ObjectNode) value);
@@ -60,18 +130,17 @@ public class FindingEnrichmentService {
             finishEnrichment(result);
             return;
         }
-        int workers = Math.max(1, Math.min(aiConcurrency, Math.max(1, liveCount)));
-        ExecutorService executor = Executors.newFixedThreadPool(workers);
         List<Future<JsonNode>> futures = new ArrayList<>(liveCount);
         for (int index = 0; index < liveCount; index++) {
             ObjectNode finding = findings.get(index);
-            futures.add(executor.submit(() -> explainFinding(finding, aiUrl)));
+            try {
+                futures.add(executor.submit(() -> explainFinding(finding, aiUrl)));
+            } catch (RejectedExecutionException error) {
+                futures.add(java.util.concurrent.CompletableFuture.completedFuture(
+                        fallbackExplanation(finding, "AI_ENRICHMENT_SATURATED")));
+            }
         }
-        try {
-            applyExplanations(result, findings, futures, liveCount);
-        } finally {
-            executor.shutdownNow();
-        }
+        applyExplanations(result, findings, futures, liveCount);
         finishEnrichment(result);
     }
 
@@ -159,8 +228,9 @@ public class FindingEnrichmentService {
         }
     }
 
-    private ObjectNode notRunValidation() {
+    private ObjectNode notRunValidation(boolean supported) {
         return mapper.createObjectNode().put("status", "NOT_RUN").put("confirmed", false)
-                .put("reason_code", "NOT_RUN").put("sandbox_revision", "source-bound");
+                .put("reason_code", supported ? "NOT_RUN" : "UNSUPPORTED_SOURCE_VALIDATION")
+                .put("sandbox_revision", "source-bound");
     }
 }

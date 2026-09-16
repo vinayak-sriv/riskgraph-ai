@@ -51,8 +51,8 @@ export function Sidebar({
     {
       href: "#saved-scans",
       view: "saved-scans" as const,
-      label: "Saved scans",
-      compact: "Saved",
+      label: "Open scan by ID",
+      compact: "Open scan",
       icon: <History size={18} />,
     },
     {

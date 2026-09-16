@@ -34,8 +34,13 @@ still open.
 `datasets/external-spring/manifest.json` remains `label_status: PROVISIONAL`,
 `review_type: AI_SOURCE_REVIEW` and `human_reviewed: false`. An independent reviewer
 must complete the attribution packet in `datasets/external-spring/HUMAN_REVIEW.md`
-and the post-analyzer-0.4.1 evaluation must be rerun before:
+before:
 
 1. the Current Week marker advances beyond Week 12;
 2. Week 13 is marked complete; or
 3. the conditional Python parsing proof of concept begins.
+
+The post-analyzer-0.4.1 evaluation rerun was completed on 15 September 2026. Both
+pinned external cases matched 2/2 expected endpoint/authentication rows and failed
+closed to `REVIEW` with LOW confidence because extraction coverage was incomplete.
+This closes the rerun prerequisite but does not substitute for independent labels.

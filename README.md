@@ -51,8 +51,8 @@ The repository is currently at **Week 12** of the 16-week roadmap:
 
 - Weeks 1-11 are complete and have reproducible implementation and CI evidence.
 - Week 12 has a provisional evaluation corpus and two pinned, licensed Spring
-  repositories, but independent human review and the post-analyzer-0.4.1
-  evaluation rerun are still required.
+  repositories. The post-analyzer-0.4.1 evaluation rerun passes; independent
+  human review remains required.
 - Gate-independent Week 13 work has started. The dashboard now exposes immutable
   validation provenance, and confirmed findings can become permanent regression
   tests.
@@ -71,11 +71,13 @@ remaining work.
 - Python 3.12
 - Git
 
-From the repository root, generate an internal service token for the current
-PowerShell session:
+From the repository root, generate independent internal service tokens for the
+current PowerShell session:
 
 ```powershell
-$env:RISKGRAPH_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
+$env:RISKGRAPH_ANALYZER_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
+$env:RISKGRAPH_GRAPH_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
+$env:RISKGRAPH_AI_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
 Use `.env.example` only when you need persistent configuration. Copy it to the
@@ -133,8 +135,9 @@ data. For native Java, Python, and Node startup, see the
 - `Developer`: view access only.
 - `Security Analyst`: start analysis and validation.
 - `Admin`: manage local accounts and view all scans.
-- Source scans are private by default. The account that starts a scan receives
-  validation access and can explicitly share `VIEW` or `VALIDATE` access.
+- Source scans are private by default. The account that starts a scan becomes its
+  owner and can explicitly share `VIEW` or `VALIDATE` access. Validation access
+  alone cannot share the scan.
 - Static analysis accepts allowlisted local repositories and immutable 40-character
   commit SHAs. It never executes a target repository's build scripts.
 - The MVP analyzes annotation-based Spring authorization such as `@PreAuthorize`.
@@ -167,7 +170,7 @@ display. For the verified Compose overlay and a Kali VM setup, follow the
 
 ## Verification
 
-Run these commands from the same shell in which `RISKGRAPH_SERVICE_TOKEN` was set.
+Run these commands from the same shell in which the three audience-specific service tokens were set.
 When checking an already-running stack, its token must match the value used to
 start that stack. The same primary checks used by GitHub Actions can be run locally:
 

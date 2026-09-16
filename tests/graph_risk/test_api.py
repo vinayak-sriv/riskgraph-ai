@@ -7,14 +7,20 @@ import httpx
 from app.main import app
 from jsonschema import Draft202012Validator
 
-TEST_SERVICE_TOKEN = os.environ.setdefault("RISKGRAPH_SERVICE_TOKEN", "test-internal-token")
+TEST_SERVICE_TOKEN = os.environ.setdefault("RISKGRAPH_GRAPH_SERVICE_TOKEN", "test-graph-token")
 
 
-def post(path: str, payload: dict, *, authenticated: bool = True) -> httpx.Response:
+def post(
+    path: str,
+    payload: dict,
+    *,
+    authenticated: bool = True,
+    token: str = TEST_SERVICE_TOKEN,
+) -> httpx.Response:
     async def send() -> httpx.Response:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            headers = {"X-RiskGraph-Service-Token": TEST_SERVICE_TOKEN} if authenticated else {}
+            headers = {"X-RiskGraph-Service-Token": token} if authenticated else {}
             return await client.post(path, json=payload, headers=headers)
 
     return asyncio.run(send())
@@ -37,6 +43,14 @@ def test_internal_routes_reject_missing_service_credentials(
     authorization_removal_payload: dict,
 ) -> None:
     assert post("/analysis", authorization_removal_payload, authenticated=False).status_code == 401
+
+
+def test_internal_routes_reject_another_services_credential(
+    authorization_removal_payload: dict,
+) -> None:
+    assert (
+        post("/analysis", authorization_removal_payload, token="test-ai-token").status_code == 401
+    )
 
 
 def test_openapi_requires_internal_service_authentication() -> None:

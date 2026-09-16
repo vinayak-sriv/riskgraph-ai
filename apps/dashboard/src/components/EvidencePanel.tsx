@@ -89,6 +89,59 @@ export function EvidencePanel({
         </div>
       </div>
 
+      {!!analysis.findings?.length && (
+        <div className="surface finding-status-surface">
+          <div className="surface-heading">
+            <div>
+              <p className="eyebrow">Finding-level validation</p>
+              <h3>Independent finding status</h3>
+            </div>
+            <span className="count-badge">{analysis.findings.length}</span>
+          </div>
+          <ul className="finding-status-list">
+            {analysis.findings.map((finding) => (
+              <li key={finding.finding_id}>
+                <div>
+                  <strong>
+                    {finding.method} {finding.path}
+                  </strong>
+                  <span>
+                    {finding.resource} · {finding.severity}
+                  </span>
+                  {finding.risk_result && (
+                    <span>
+                      Risk {finding.risk_result.risk_before} →{" "}
+                      {finding.risk_result.risk_after} · delta{" "}
+                      {finding.risk_result.risk_delta >= 0 ? "+" : ""}
+                      {finding.risk_result.risk_delta}
+                    </span>
+                  )}
+                  {!!finding.handler_refs?.length && (
+                    <span>
+                      {finding.handler_refs.length}{" "}
+                      {finding.handler_refs.length === 1
+                        ? "handler"
+                        : "handlers"}
+                    </span>
+                  )}
+                </div>
+                <div className="finding-validation-badges">
+                  <span
+                    className={`validation-status status-${finding.validation.status.toLowerCase()}`}
+                  >
+                    {formatLabel(finding.validation.status)}
+                  </span>
+                  <span className="runtime-badge">
+                    {formatLabel(finding.validation_capability)}
+                  </span>
+                </div>
+                <p>{finding.validation.reason_code}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="evidence-grid">
         <div className="surface evidence-surface">
           <div className="surface-heading">
