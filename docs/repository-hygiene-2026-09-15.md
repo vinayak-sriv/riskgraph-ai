@@ -39,3 +39,19 @@ No repository content was deleted during this investigation. The large categorie
 are ignored and reproducible or are Git history. Local cleanup is optional and must
 target only verified generated directories; it is not needed to produce the bounded
 source archive.
+
+## Follow-up — 2026-09-16
+
+The authorized cleanup removed the previously inventoried generated Maven output,
+temporary verification data, generated samples, caches, and other reproducible
+workspace artifacts. The current tracked source is approximately 2 MiB. Dashboard
+dependencies are intentionally retained for the local mentor demo, remain ignored,
+and are excluded from the release archive.
+
+A later integrity check found one 53.4 MiB orphaned temporary object created by an
+interrupted Git maintenance operation. It was removed only after `git fsck --full`
+reported no corruption; the follow-up integrity check also passed. Git metadata is
+now approximately 33 MiB and remains outside the release archive.
+
+See `project-optimization-2026-09-16.md` for the code-structure changes and current
+verification results.

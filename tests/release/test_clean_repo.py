@@ -13,6 +13,9 @@ def test_cleanup_removes_generated_artifacts_and_preserves_source(tmp_path):
     keep = tmp_path / "services" / "api" / "src" / "main.py"
     generated = [
         tmp_path / "apps" / "dashboard" / "node_modules" / "pkg" / "index.js",
+        tmp_path / "apps" / "dashboard" / "coverage" / "index.html",
+        tmp_path / "apps" / "dashboard" / "playwright-report" / "index.html",
+        tmp_path / "apps" / "dashboard" / "test-results" / "trace.zip",
         tmp_path / "services" / "platform-api" / "target" / "app.jar",
         tmp_path / "samples" / "generated" / "demo" / "Application.java",
         tmp_path / "tmp" / "runtime.log",
