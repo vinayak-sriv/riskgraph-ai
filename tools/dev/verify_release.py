@@ -108,7 +108,11 @@ def main():
     ]
     results = []
     environment = os.environ.copy()
-    environment.setdefault("RISKGRAPH_SERVICE_TOKEN", "release-check-only-not-a-deployment-secret")
+    environment.setdefault(
+        "RISKGRAPH_ANALYZER_SERVICE_TOKEN", "release-analyzer-check-only-not-a-secret"
+    )
+    environment.setdefault("RISKGRAPH_GRAPH_SERVICE_TOKEN", "release-graph-check-only-not-a-secret")
+    environment.setdefault("RISKGRAPH_AI_SERVICE_TOKEN", "release-ai-check-only-not-a-secret")
     for name, command, cwd in commands:
         command[0] = shutil.which(command[0]) or command[0]
         print(f"Running {name}", flush=True)

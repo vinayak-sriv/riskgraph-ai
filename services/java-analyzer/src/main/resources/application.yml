@@ -17,6 +17,15 @@ riskgraph:
     process-isolation: ${RISKGRAPH_ANALYZER_PROCESS_ISOLATION:false}
     executable-jar: ${RISKGRAPH_ANALYZER_EXECUTABLE_JAR:}
     sensitivity-policy: ${RISKGRAPH_SENSITIVITY_POLICY:}
+    temp-cleanup-minimum-age-hours: ${RISKGRAPH_TEMP_CLEANUP_MINIMUM_AGE_HOURS:24}
+    temp-cleanup-max-candidates: ${RISKGRAPH_TEMP_CLEANUP_MAX_CANDIDATES:100}
+    temp-cleanup-delay-ms: ${RISKGRAPH_TEMP_CLEANUP_DELAY_MS:3600000}
+    temp-cleanup-initial-delay-ms: ${RISKGRAPH_TEMP_CLEANUP_INITIAL_DELAY_MS:60000}
+    snapshot-cache-root: ${RISKGRAPH_SNAPSHOT_CACHE_ROOT:}
+    snapshot-cache-max-entries: ${RISKGRAPH_SNAPSHOT_CACHE_MAX_ENTRIES:32}
+    snapshot-cache-max-bytes: ${RISKGRAPH_SNAPSHOT_CACHE_MAX_BYTES:1073741824}
+    snapshot-cache-max-age-hours: ${RISKGRAPH_SNAPSHOT_CACHE_MAX_AGE_HOURS:24}
+    extraction-cache-max-entries: ${RISKGRAPH_EXTRACTION_CACHE_MAX_ENTRIES:64}
 
 management:
   endpoints:

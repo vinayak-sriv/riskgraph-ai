@@ -113,8 +113,13 @@ def validate_compose() -> None:
     ]
     environment = os.environ.copy()
     environment.setdefault(
-        "RISKGRAPH_SERVICE_TOKEN", "contract-validation-only-not-a-deployment-secret"
+        "RISKGRAPH_ANALYZER_SERVICE_TOKEN",
+        "contract-analyzer-only-not-a-deployment-secret",
     )
+    environment.setdefault(
+        "RISKGRAPH_GRAPH_SERVICE_TOKEN", "contract-graph-only-not-a-deployment-secret"
+    )
+    environment.setdefault("RISKGRAPH_AI_SERVICE_TOKEN", "contract-ai-only-not-a-deployment-secret")
     for command in commands:
         subprocess.run(command, cwd=ROOT, check=True, stdout=subprocess.DEVNULL, env=environment)
         print(f"OK {' '.join(command[-4:])}")

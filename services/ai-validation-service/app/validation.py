@@ -6,6 +6,7 @@ Only the shipped synthetic sandbox and fixed GET /admin/export probe are support
 
 import asyncio
 import json
+import logging
 import os
 import subprocess
 import uuid
@@ -22,6 +23,21 @@ DEFAULT_PROBE_IMAGE = (
     "sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a"
 )
 APPROVED_PROBE_IMAGES = frozenset({DEFAULT_PROBE_IMAGE})
+LOGGER = logging.getLogger("riskgraph.validation")
+
+
+def validation_startup_seconds(configured: str | None = None) -> int:
+    raw = configured or os.environ.get("RISKGRAPH_VALIDATION_STARTUP_SECONDS", "45")
+    try:
+        seconds = int(raw)
+    except ValueError as error:
+        raise ValueError("Validation startup timeout must be an integer") from error
+    if not 5 <= seconds <= 60:
+        raise ValueError("Validation startup timeout must be between 5 and 60 seconds")
+    return seconds
+
+
+VALIDATION_STARTUP_SECONDS = validation_startup_seconds()
 
 
 def approved_probe_image(configured: str | None = None) -> str:
@@ -48,6 +64,7 @@ class ValidationResult(StrictModel):
     status: Literal["CONFIRMED", "REJECTED", "INCONCLUSIVE", "NOT_RUN", "ERROR"]
     confirmed: bool = False
     actual_status: int | None = None
+    observed_http_statuses: list[int] | None = None
     expected_status: int = 200
     evidence: list[str] = Field(default_factory=list)
     reason_code: str
@@ -73,12 +90,12 @@ class ValidationResult(StrictModel):
 
 # Executed only in a new non-root probe container on the private internal network.
 # The host never sends an HTTP security probe. Redirects are rejected.
-PROBE = r"""
+PROBE_TEMPLATE = r"""
 import hashlib,json,time,urllib.request,urllib.error
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs): return None
 opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
-deadline=time.monotonic()+15
+deadline=time.monotonic()+__STARTUP_SECONDS__
 while True:
     try:
         try: response=opener.open('http://sandbox:8084/admin/export',timeout=2)
@@ -101,6 +118,7 @@ while True:
             print(json.dumps({'status':'INCONCLUSIVE','actual_status':None,'reason_code':'SANDBOX_TIMEOUT'})); break
         time.sleep(.3)
 """
+PROBE = PROBE_TEMPLATE.replace("__STARTUP_SECONDS__", str(VALIDATION_STARTUP_SECONDS))
 
 
 class DockerRunner:
@@ -112,13 +130,21 @@ class DockerRunner:
             raise ValueError("Validation Docker host is not allowlisted")
         if configured:
             host = configured
-        elif os.environ.get("RISKGRAPH_REQUIRE_ISOLATED_DOCKER", "false").lower() == "true":
-            raise ValueError("Isolated validation Docker host is required")
+            self.daemon_mode = "isolated"
         else:
+            local_profile = os.environ.get("RISKGRAPH_RUNTIME_PROFILE", "").lower() == "local"
+            host_opt_in = os.environ.get("RISKGRAPH_ALLOW_HOST_DOCKER", "false").lower() == "true"
+            if not (local_profile and host_opt_in):
+                raise ValueError("Isolated validation Docker host is required")
             host = (
                 "npipe:////./pipe/dockerDesktopLinuxEngine"
                 if os.name == "nt"
                 else "unix:///var/run/docker.sock"
+            )
+            self.daemon_mode = "local-host-opt-in"
+            LOGGER.warning(
+                "validation_daemon operation=configure daemon_mode=local-host-opt-in "
+                "result=explicit-development-override"
             )
         self.command = ["docker", "--host", host]
 
@@ -146,6 +172,7 @@ class DockerRunner:
             reason_code="DOCKER_UNAVAILABLE",
             sandbox_revision=request.sandbox_revision,
         )
+        exit_category = "unknown"
         try:
             image_name = (
                 f"riskgraph-sandbox-{request.sandbox_revision}:local"
@@ -203,7 +230,7 @@ class DockerRunner:
             )
             raw = self.run(
                 ["run", "--name", probe, *restrictions, probe_image, "python", "-c", PROBE],
-                timeout=25,
+                timeout=VALIDATION_STARTUP_SECONDS + 10,
             )
             payload = json.loads(raw)
             result = ValidationResult(
@@ -217,10 +244,13 @@ class DockerRunner:
                     "Anonymous GET /admin/export executed in the shipped local Docker sandbox"
                 ],
             )
+            exit_category = result.status.lower()
         except subprocess.TimeoutExpired:
             result.reason_code = "DOCKER_TIMEOUT"
+            exit_category = "timeout"
         except (subprocess.SubprocessError, OSError, ValueError, KeyError):
             result.reason_code = "DOCKER_UNAVAILABLE_OR_INVALID"
+            exit_category = "unavailable-or-invalid"
         finally:
             if created:
                 for name in (probe, sandbox):
@@ -242,9 +272,30 @@ class DockerRunner:
         result.cleanup_complete = cleanup
         if not cleanup:
             result.status, result.confirmed, result.reason_code = "ERROR", False, "CLEANUP_FAILED"
+            exit_category = "cleanup-failed"
+        LOGGER.info(
+            "validation_run operation=http-authorization-probe run_id=%s daemon_mode=%s "
+            "exit_category=%s cleanup_complete=%s",
+            suffix,
+            self.daemon_mode,
+            exit_category,
+            cleanup,
+        )
         return result
 
 
 async def validate(request: ValidationRequest) -> ValidationResult:
     async with VALIDATION_SEMAPHORE:
-        return await asyncio.to_thread(DockerRunner().validate, request)
+        try:
+            runner = DockerRunner()
+        except ValueError:
+            LOGGER.error(
+                "validation_daemon operation=configure daemon_mode=unavailable "
+                "result=configuration-rejected"
+            )
+            return ValidationResult(
+                status="ERROR",
+                reason_code="VALIDATION_DOCKER_NOT_CONFIGURED",
+                sandbox_revision=request.sandbox_revision,
+            )
+        return await asyncio.to_thread(runner.validate, request)

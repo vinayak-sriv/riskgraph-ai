@@ -25,6 +25,9 @@ class SourceValidationTest {
         var store=new MemoryScanStore();
         ObjectNode scan=mapper.createObjectNode().put("scan_id","test").put("pre_validation_verdict","BLOCK");
         scan.put("status", "COMPLETE");
+        scan.putArray("findings").addObject().put("finding_id", "supported")
+                .put("method", "GET").put("path", "/admin/export")
+                .put("validation_capability", "SUPPORTED");
         scan.set("provenance",pair); store.save(scan);
         var service=new SourceScanService(client,new ContractValidator(),mapper,"analyzer","graph",root.toString(),store);
         ReflectionTestUtils.setField(service,"sandboxManifest",file.toString());
@@ -85,6 +88,23 @@ class SourceValidationTest {
         verifyNoInteractions(client);
     }
 
+    @Test void zeroFindingsDoNotInvokeTheValidationService() throws Exception {
+        var client = mock(AnalysisClient.class);
+        var service = service(client);
+        ObjectNode scan = (ObjectNode) service.get("test");
+        scan.putArray("findings");
+        var store = (MemoryScanStore) ReflectionTestUtils.getField(service, "store");
+        store.save(scan);
+
+        JsonNode result = service.validateSource("test");
+
+        assertThat(result.path("validation_status").asString()).isEqualTo("NOT_RUN");
+        assertThat(result.at("/validation/reason_code").asString())
+                .isEqualTo("NO_VALIDATABLE_FINDING");
+        assertThat(result.path("status").asString()).isEqualTo("COMPLETE");
+        verifyNoInteractions(client);
+    }
+
     @Test void duplicateRouteFindingsShareOneBoundValidationResult() throws Exception {
         var client = mock(AnalysisClient.class);
         var service = service(client);
@@ -124,8 +144,10 @@ class SourceValidationTest {
         var service = service(client);
         ObjectNode scan = (ObjectNode) service.get("test");
         var findings = scan.putArray("findings");
-        findings.addObject().put("finding_id", "confirmed").put("method", "GET").put("path", "/admin/export");
-        findings.addObject().put("finding_id", "unsupported").put("method", "POST").put("path", "/other");
+        findings.addObject().put("finding_id", "confirmed").put("method", "GET")
+                .put("path", "/admin/export").put("validation_capability", "SUPPORTED");
+        findings.addObject().put("finding_id", "unsupported").put("method", "POST")
+                .put("path", "/other").put("validation_capability", "UNSUPPORTED");
         var store = (MemoryScanStore) org.springframework.test.util.ReflectionTestUtils.getField(service, "store");
         store.save(scan);
         when(client.post(any(), eq("/validation/http"), any())).thenReturn(mapper.createObjectNode()
@@ -144,5 +166,34 @@ class SourceValidationTest {
         assertThat(validated.at("/validation/confirmed").asBoolean()).isFalse();
         assertThat(validated.at("/findings/0/validation/status").asString()).isEqualTo("CONFIRMED");
         assertThat(validated.at("/findings/1/validation/status").asString()).isEqualTo("NOT_RUN");
+        assertThat(validated.at("/findings/0/validation_capability").asString())
+                .isEqualTo("SUPPORTED");
+        assertThat(validated.at("/findings/1/validation_capability").asString())
+                .isEqualTo("UNSUPPORTED");
+    }
+
+    @Test void aggregatedRejectionPreservesObserved401WithoutInventing403() throws Exception {
+        var client = mock(AnalysisClient.class);
+        var service = service(client);
+        ObjectNode scan = (ObjectNode) service.get("test");
+        var findings = scan.putArray("findings");
+        findings.addObject().put("finding_id", "one").put("method", "GET")
+                .put("path", "/admin/export").put("validation_capability", "SUPPORTED");
+        findings.addObject().put("finding_id", "two").put("method", "GET")
+                .put("path", "/admin/export").put("validation_capability", "SUPPORTED");
+        var store = (MemoryScanStore) ReflectionTestUtils.getField(service, "store");
+        store.save(scan);
+        when(client.post(any(), eq("/validation/http"), any())).thenReturn(mapper.createObjectNode()
+                .put("status", "REJECTED").put("confirmed", false)
+                .put("reason_code", "HTTP_AUTH_PROBE").put("sandbox_revision", "vulnerable")
+                .put("cleanup_complete", true).put("actual_status", 401)
+                .put("source_commit", "b".repeat(40)));
+
+        JsonNode validated = service.validateSource("test");
+
+        assertThat(validated.path("validation_status").asString()).isEqualTo("REJECTED");
+        assertThat(validated.at("/validation/actual_status").isMissingNode()).isTrue();
+        assertThat(validated.at("/validation/observed_http_statuses/0").asInt()).isEqualTo(401);
+        verify(client, times(1)).post(any(), eq("/validation/http"), any());
     }
 }

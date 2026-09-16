@@ -73,6 +73,11 @@
                 </includes>
             </resource>
             <resource><directory>../../infrastructure/db/migrations</directory><targetPath>db/migration</targetPath></resource>
+            <resource>
+                <directory>../../apps/dashboard/src</directory>
+                <targetPath>demo</targetPath>
+                <includes><include>fixtures.json</include></includes>
+            </resource>
         </resources>
         <plugins>
             <plugin>

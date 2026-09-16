@@ -60,6 +60,22 @@ def redact(value: str) -> str:
     return value[:2000]
 
 
+def sanitize_evidence_payload(request: EvidenceRequest) -> dict:
+    """Allow only deterministic summary fields immediately before inference."""
+    scrubbed = []
+    source_markers = re.compile(
+        r"(?im)(?:^|\n)\s*(?:package|import)\s+[\w.]+;|\b(?:class|interface|enum)\s+\w+\s*\{"
+    )
+    for item in request.evidence:
+        if "\x00" in item or source_markers.search(item):
+            raise ValueError("AI_RAW_SOURCE_REJECTED")
+        scrubbed.append(redact(item.replace("\r", " ").replace("\n", " ")))
+    payload = {"evidence": scrubbed, "method": request.method, "path": request.path}
+    if set(payload) != {"evidence", "method", "path"}:
+        raise ValueError("AI_EVIDENCE_ALLOWLIST_VIOLATION")
+    return payload
+
+
 class OllamaProvider:
     def __init__(self, transport=None):
         self.base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
@@ -157,9 +173,10 @@ class OllamaProvider:
 
 async def explain(request: EvidenceRequest, provider: LLMProvider | None = None) -> Explanation:
     evidence = [redact(value) for value in request.evidence]
-    payload = dict(evidence=evidence, method=request.method, path=request.path)
     reason = "OLLAMA_UNAVAILABLE"
     try:
+        payload = sanitize_evidence_payload(request)
+        evidence = payload["evidence"]
         raw = await (provider or OllamaProvider()).generate(payload, AI_ANALYSIS_SCHEMA)
         result = AIAnalysis.model_validate(raw)
         if not set(result.evidence).issubset(evidence):
@@ -181,8 +198,12 @@ async def explain(request: EvidenceRequest, provider: LLMProvider | None = None)
         )
     except InferenceCapacityExceeded:
         reason = "OLLAMA_CAPACITY_EXCEEDED"
-    except (ValueError, KeyError, ValidationError):
-        reason = "INVALID_AI_OUTPUT"
+    except (ValueError, KeyError, ValidationError) as error:
+        reason = (
+            "AI_EVIDENCE_REJECTED"
+            if str(error) in {"AI_RAW_SOURCE_REJECTED", "AI_EVIDENCE_ALLOWLIST_VIOLATION"}
+            else "INVALID_AI_OUTPUT"
+        )
     except (httpx.HTTPError, TimeoutError, OSError):
         pass
     return Explanation(

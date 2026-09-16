@@ -6,13 +6,15 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DemoScenarioServiceTest {
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
     private final RecordingGraphRiskClient graphRiskClient = new RecordingGraphRiskClient();
-    private final DemoScenarioService service = new DemoScenarioService(graphRiskClient, objectMapper);
+    private final DemoScenarioService service = new DemoScenarioService(graphRiskClient, objectMapper, true);
 
     @Test
     void sendsCanonicalAuthorizationRemovalFixturesToGraphService() {
@@ -26,6 +28,28 @@ class DemoScenarioServiceTest {
         assertThat(request.at("/after/0/authentication").asBoolean()).isFalse();
         assertThat(request.at("/after/0/required_role").isNull()).isTrue();
         assertThat(result.path("verdict").stringValue()).isEqualTo("BLOCK");
+    }
+
+    @Test
+    void deployedModeReadsPrecomputedResultWithoutCallingGraphService() {
+        var precomputed = new DemoScenarioService(graphRiskClient, objectMapper, false)
+                .analyzeScenario("safe-change");
+
+        assertThat(precomputed.path("scenario").asString()).isEqualTo("safe-change");
+        assertThat(precomputed.path("mode").asString()).isEqualTo("OFFLINE_FIXTURE");
+        assertThat(graphRiskClient.request).isNull();
+    }
+
+    @Test
+    void localDynamicModeHasABoundedRequestRate() {
+        var bounded = new DemoScenarioService(graphRiskClient, objectMapper, true);
+        ReflectionTestUtils.setField(bounded, "maxDynamicRequestsPerMinute", 1);
+
+        bounded.analyzeScenario("safe-change");
+
+        assertThatThrownBy(() -> bounded.analyzeScenario("safe-change"))
+                .isInstanceOfSatisfying(PipelineException.class,
+                        error -> assertThat(error.code).isEqualTo("DEMO_RATE_LIMIT"));
     }
 
     private final class RecordingGraphRiskClient extends GraphRiskClient {

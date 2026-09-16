@@ -62,7 +62,7 @@ public class SourceValidationService {
         String commit = registered.path("new_commit").asString();
         if (result.path("findings").isEmpty()) {
             return new ValidationPatch(null, Map.of(),
-                    runSourceValidation(commit, "GET", "/admin/export", aiUrl));
+                    notRunResult("NO_VALIDATABLE_FINDING"));
         }
         return new ValidationPatch(null, findingValidations(result, commit, aiUrl), null);
     }
@@ -102,7 +102,7 @@ public class SourceValidationService {
                 .anyMatch(value -> "CONFIRMED".equals(value.path("status").asString()));
         result.put("final_verdict", DecisionPolicy.finalVerdict(
                 result.path("pre_validation_verdict").asString(), anyConfirmed ? "CONFIRMED" : status));
-        if (validations.stream().anyMatch(value -> Set.of("ERROR", "INCONCLUSIVE", "NOT_RUN")
+        if (validations.stream().anyMatch(value -> Set.of("ERROR", "INCONCLUSIVE")
                 .contains(value.path("status").asString()))) {
             result.put("status", "DEGRADED");
         }
@@ -119,9 +119,7 @@ public class SourceValidationService {
             JsonNode validation = method.equals("GET") && path.equals("/admin/export")
                     ? routeResults.computeIfAbsent(routeKey,
                             ignored -> runSourceValidation(commit, method, path, aiUrl)).deepCopy()
-                    : mapper.createObjectNode().put("status", "NOT_RUN").put("confirmed", false)
-                            .put("reason_code", "UNSUPPORTED_SOURCE_VALIDATION")
-                            .put("sandbox_revision", "source-bound");
+                    : notRunResult("UNSUPPORTED_SOURCE_VALIDATION");
             findingResults.put(finding.path("finding_id").asString(), validation.deepCopy());
         }
         return Map.copyOf(findingResults);
@@ -177,12 +175,24 @@ public class SourceValidationService {
                 .put("confirmed", status.equals("CONFIRMED"))
                 .put("reason_code", "AGGREGATED_FINDING_VALIDATIONS")
                 .put("sandbox_revision", "source-bound").put("cleanup_complete", cleanupComplete);
-        if (status.equals("CONFIRMED")) summary.put("actual_status", 200);
-        if (status.equals("REJECTED")) summary.put("actual_status", 403);
+        var observedHttpStatuses = validations.stream()
+                .filter(value -> value.path("actual_status").isInt())
+                .map(value -> value.path("actual_status").asInt())
+                .distinct().sorted().toList();
+        var statusArray = summary.putArray("observed_http_statuses");
+        observedHttpStatuses.forEach(statusArray::add);
         if (result.at("/provenance/new_commit").isString()) {
             summary.put("source_commit", result.at("/provenance/new_commit").asString());
         }
-        summary.putArray("evidence").add("Summary of " + validations.size() + " finding validations");
+        var evidence = summary.putArray("evidence");
+        evidence.add("Summary of " + validations.size() + " finding validations");
+        for (JsonNode finding : result.path("findings")) {
+            if (finding.at("/validation/status").asString().equals("CONFIRMED")) {
+                evidence.add("Runtime confirmed anonymous " + finding.path("method").asString()
+                        + " " + finding.path("path").asString()
+                        + " in the registered source-bound sandbox");
+            }
+        }
         return summary;
     }
 
@@ -201,6 +211,11 @@ public class SourceValidationService {
     private ObjectNode errorResult(String reasonCode, String revision) {
         return mapper.createObjectNode().put("status", "ERROR").put("confirmed", false)
                 .put("reason_code", reasonCode).put("sandbox_revision", revision);
+    }
+
+    private ObjectNode notRunResult(String reasonCode) {
+        return mapper.createObjectNode().put("status", "NOT_RUN").put("confirmed", false)
+                .put("reason_code", reasonCode).put("sandbox_revision", "source-bound");
     }
 
     public record ValidationPatch(

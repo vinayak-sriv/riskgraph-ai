@@ -3,8 +3,8 @@ info:
   title: RiskGraph Platform API
   version: 2.0.0
   description: Source and account APIs require a platform session. POST operations
-    also require the CSRF token returned by /auth/csrf. The endpoint IR shape remains
-    compatible; the source-analysis envelope is version 1.1.0.
+    also require the CSRF token returned by /auth/csrf. The endpoint IR remains compatible;
+    source envelopes are 1.1.0 and scan results are 1.2.0.
 paths:
   /health:
     get:
@@ -17,7 +17,13 @@ paths:
       security: []
   /scans:
     post:
-      summary: Run a scan synchronously
+      summary: Submit a bounded asynchronous scan job
+      parameters:
+      - in: header
+        name: X-CSRF-TOKEN
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -25,8 +31,8 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateScanRequest'
       responses:
-        '200':
-          description: Scan completed
+        '202':
+          description: Job accepted or an identical reusable job returned
           content:
             application/json:
               schema:
@@ -35,12 +41,102 @@ paths:
           description: Authentication required
         '403':
           description: Insufficient role, disallowed origin, or invalid CSRF token
+        '413':
+          description: Canonical graph input exceeds 2,000 rows in either revision
+        '429':
+          description: Bounded scan-job queue is saturated
+    get:
+      summary: List cursor-paginated scan jobs visible to the current member
       parameters:
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Membership-filtered scan history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanHistory'
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+  /scan-jobs/{jobId}:
+    get:
+      summary: Read owned or shared scan-job status
+      parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Persistent job state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanJob'
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
+        '401':
+          description: Authentication required
+    delete:
+      summary: Cancel an owned running or queued job
+      parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
       - in: header
         name: X-CSRF-TOKEN
         required: true
         schema:
           type: string
+      responses:
+        '200':
+          description: Terminal or cancelled job state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanJob'
+        '403':
+          description: Cancellation denied
+  /scan-jobs/{jobId}/result:
+    get:
+      summary: Read the canonical result referenced by a completed job
+      parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Versioned deterministic scan result
+          content:
+            application/json:
+              schema:
+                $ref: ../ir/scan-result.schema.json
+        '409':
+          description: Job is not completed
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role, disallowed origin, or invalid CSRF token
   /scans/{scanId}:
     get:
       summary: Read scan status and result
@@ -434,11 +530,17 @@ components:
       type: object
       additionalProperties: false
       required:
-      - scan_id
+      - job_id
       - status
+      - reused
       properties:
-        scan_id:
+        job_id:
           type: string
+          format: uuid
+        scan_id:
+          type:
+          - string
+          - 'null'
         status:
           type: string
           enum:
@@ -447,6 +549,99 @@ components:
           - COMPLETE
           - DEGRADED
           - FAILED
+        reused:
+          type: boolean
+    ScanJob:
+      type: object
+      additionalProperties: false
+      required:
+      - job_id
+      - status
+      - stage
+      - progress
+      - created_at
+      - updated_at
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - QUEUED
+          - RUNNING
+          - COMPLETED
+          - FAILED
+          - CANCELLED
+        stage:
+          type: string
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        reason_code:
+          type:
+          - string
+          - 'null'
+        scan_id:
+          type:
+          - string
+          - 'null'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ScanHistory:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required:
+            - job_id
+            - repository
+            - old_commit
+            - new_commit
+            - status
+            - updated_at
+            properties:
+              job_id:
+                type: string
+                format: uuid
+              scan_id:
+                type:
+                - string
+                - 'null'
+              repository:
+                type: string
+              old_commit:
+                type: string
+              new_commit:
+                type: string
+              status:
+                type: string
+              risk_delta:
+                type:
+                - integer
+                - 'null'
+              verdict:
+                type:
+                - string
+                - 'null'
+              updated_at:
+                type: string
+                format: date-time
+        next_cursor:
+          type:
+          - string
+          - 'null'
     ScanResult:
       type: object
       additionalProperties: false

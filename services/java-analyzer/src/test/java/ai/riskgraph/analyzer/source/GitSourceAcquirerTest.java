@@ -42,8 +42,8 @@ class GitSourceAcquirerTest {
             assertThat(Files.readString(oldSnapshot.resolve("src/App.java"))).contains("value = 1");
             assertThat(Files.readString(newSnapshot.resolve("src/App.java"))).contains("value = 2");
         }
-        assertThat(oldSnapshot).doesNotExist();
-        assertThat(newSnapshot).doesNotExist();
+        assertThat(oldSnapshot).exists();
+        assertThat(newSnapshot).exists();
     }
 
     @Test

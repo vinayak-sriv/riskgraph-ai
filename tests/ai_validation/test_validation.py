@@ -1,3 +1,4 @@
+import asyncio
 import json
 import subprocess
 
@@ -8,6 +9,8 @@ from ai_app.validation import (
     ValidationRequest,
     ValidationResult,
     approved_probe_image,
+    validate,
+    validation_startup_seconds,
 )
 from pydantic import ValidationError
 
@@ -32,6 +35,7 @@ def test_arbitrary_targets_and_requests_rejected(fields):
 class FakeDocker(DockerRunner):
     def __init__(self, outcome="CONFIRMED", timeout=False, cleanup_failure=False):
         self.calls = []
+        self.daemon_mode = "test"
         self.outcome = outcome
         self.timeout = timeout
         self.cleanup_failure = cleanup_failure
@@ -102,9 +106,20 @@ def test_commit_binding_rejects_mismatched_image_before_network_creation():
     assert runner.calls == [["image", "inspect", "riskgraph-sandbox-vulnerable:local"]]
 
 
-def test_remote_docker_context_cannot_select_validation_target(monkeypatch):
+def test_missing_isolated_daemon_fails_closed_and_ignores_ambient_context(monkeypatch):
     monkeypatch.setenv("DOCKER_HOST", "tcp://example.com:2375")
     monkeypatch.setenv("DOCKER_CONTEXT", "remote")
+    monkeypatch.delenv("RISKGRAPH_VALIDATION_DOCKER_HOST", raising=False)
+    monkeypatch.delenv("RISKGRAPH_ALLOW_HOST_DOCKER", raising=False)
+    monkeypatch.delenv("RISKGRAPH_RUNTIME_PROFILE", raising=False)
+    with pytest.raises(ValueError, match="required"):
+        DockerRunner()
+
+
+def test_host_daemon_requires_both_local_profile_and_explicit_opt_in(monkeypatch):
+    monkeypatch.delenv("RISKGRAPH_VALIDATION_DOCKER_HOST", raising=False)
+    monkeypatch.setenv("RISKGRAPH_RUNTIME_PROFILE", "local")
+    monkeypatch.setenv("RISKGRAPH_ALLOW_HOST_DOCKER", "true")
     command = DockerRunner().command
     assert command[:2] == ["docker", "--host"]
     assert command[2] in (
@@ -123,15 +138,44 @@ def test_only_dedicated_validation_daemon_can_be_configured(monkeypatch):
 
 def test_isolated_mode_fails_closed_without_daemon(monkeypatch):
     monkeypatch.delenv("RISKGRAPH_VALIDATION_DOCKER_HOST", raising=False)
-    monkeypatch.setenv("RISKGRAPH_REQUIRE_ISOLATED_DOCKER", "true")
+    monkeypatch.setenv("RISKGRAPH_RUNTIME_PROFILE", "production")
+    monkeypatch.setenv("RISKGRAPH_ALLOW_HOST_DOCKER", "true")
     with pytest.raises(ValueError, match="required"):
         DockerRunner()
+
+
+def test_unconfigured_validation_returns_sanitized_error(monkeypatch):
+    monkeypatch.delenv("RISKGRAPH_VALIDATION_DOCKER_HOST", raising=False)
+    monkeypatch.delenv("RISKGRAPH_RUNTIME_PROFILE", raising=False)
+    monkeypatch.delenv("RISKGRAPH_ALLOW_HOST_DOCKER", raising=False)
+    result = asyncio.run(validate(ValidationRequest(sandbox_revision="protected")))
+    assert result.status == "ERROR"
+    assert result.reason_code == "VALIDATION_DOCKER_NOT_CONFIGURED"
+
+
+def test_operational_log_has_run_mode_exit_and_cleanup_without_response(caplog):
+    runner = FakeDocker("CONFIRMED")
+    with caplog.at_level("INFO", logger="riskgraph.validation"):
+        runner.validate(ValidationRequest(sandbox_revision="vulnerable"))
+    message = caplog.messages[-1]
+    assert "operation=http-authorization-probe" in message
+    assert "daemon_mode=test" in message
+    assert "exit_category=confirmed" in message
+    assert "cleanup_complete=True" in message
+    assert "customer_export" not in message
 
 
 def test_probe_image_must_match_the_digest_pinned_allowlist():
     assert approved_probe_image(DEFAULT_PROBE_IMAGE) == DEFAULT_PROBE_IMAGE
     with pytest.raises(ValueError, match="not an approved digest-pinned image"):
         approved_probe_image("python:latest")
+
+
+def test_validation_startup_timeout_is_bounded_and_embedded_in_fixed_probe():
+    assert validation_startup_seconds("45") == 45
+    for invalid in ("4", "61", "not-a-number"):
+        with pytest.raises(ValueError, match="timeout"):
+            validation_startup_seconds(invalid)
 
 
 @pytest.mark.parametrize(

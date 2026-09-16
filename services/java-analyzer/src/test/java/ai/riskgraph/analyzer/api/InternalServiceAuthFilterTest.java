@@ -32,6 +32,16 @@ class InternalServiceAuthFilterTest {
     }
 
     @Test
+    void rejectsCredentialForAnotherServiceAudience() throws Exception {
+        var request = new MockHttpServletRequest("POST", "/analyze");
+        request.addHeader("X-RiskGraph-Service-Token", "graph-only-secret");
+        var response = new MockHttpServletResponse();
+        new InternalServiceAuthFilter("analyzer-only-secret")
+                .doFilter(request, response, new MockFilterChain());
+        assertThat(response.getStatus()).isEqualTo(401);
+    }
+
+    @Test
     void leavesHealthEndpointPublic() throws Exception {
         var response = new MockHttpServletResponse();
         new InternalServiceAuthFilter("").doFilter(

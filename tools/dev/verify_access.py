@@ -1,6 +1,7 @@
 """Exercise authenticated local platform access with persistent verification accounts."""
 
 import json
+import re
 import secrets
 import urllib.error
 import urllib.request
@@ -14,6 +15,11 @@ def status(action):
         return 200
     except urllib.error.HTTPError as error:
         return error.code
+    except RuntimeError as error:
+        match = re.search(r"HTTP (\d{3}):", str(error))
+        if match is None:
+            raise
+        return int(match.group(1))
 
 
 def main():
@@ -43,13 +49,11 @@ def main():
     for role, user in users.items():
         client = PlatformSession(username=user["username"], password=user["password"])
         assert client.call("/auth/session")["user"]["role"] == role
-        assert status(lambda client=client: client.call("/analyses/missing")) == 404
+        assert status(lambda client=client: client.call("/analyses/missing")) == 403
         assert status(lambda client=client: client.call("/analyses", {})) == (
             403 if role == "DEVELOPER" else 400
         )
-        assert status(lambda client=client: client.call("/analyses/missing/validation", {})) == (
-            403 if role == "DEVELOPER" else 404
-        )
+        assert status(lambda client=client: client.call("/analyses/missing/validation", {})) == 403
         assert status(lambda client=client: client.call("/admin/users")) == 403
         checks[role] = "PASS"
     assert status(lambda: urllib.request.urlopen("http://localhost:8080/analyses/missing")) == 401

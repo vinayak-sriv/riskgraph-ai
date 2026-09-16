@@ -9,6 +9,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
@@ -27,6 +28,8 @@ public class PlatformSecurity {
                 .requestMatchers(HttpMethod.GET, "/health", "/actuator/health", "/auth/csrf", "/auth/session",
                     "/auth/github/connect", "/oauth2/authorization/**", "/login/oauth2/code/**").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/scan-jobs/**").hasAnyRole("DEVELOPER", "ANALYST", "ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/scan-jobs/**").hasAnyRole("ANALYST", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/analyses/**", "/scans/**").hasAnyRole("DEVELOPER", "ANALYST", "ADMIN")
                 .requestMatchers(HttpMethod.POST, "/analyses", "/analyses/**", "/scans").hasAnyRole("ANALYST", "ADMIN")
                 .anyRequest().denyAll())
@@ -45,7 +48,8 @@ public class PlatformSecurity {
                 }))
             .exceptionHandling(errors -> errors
                 .authenticationEntryPoint((request, response, exception) -> error(response, 401, "AUTHENTICATION_REQUIRED"))
-                .accessDeniedHandler((request, response, exception) -> error(response, 403, "ACCESS_DENIED")))
+                .accessDeniedHandler((request, response, exception) -> error(response, 403,
+                    exception instanceof CsrfException ? "INVALID_CSRF_TOKEN" : "ACCESS_DENIED")))
             .requestCache(cache -> cache.disable())
             ;
         if (github.configured()) {

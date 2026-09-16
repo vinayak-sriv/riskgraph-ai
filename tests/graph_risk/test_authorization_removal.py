@@ -125,6 +125,41 @@ def test_low_sensitivity_public_resource_is_not_a_sensitive_path() -> None:
     assert delta.new_paths == []
 
 
+def test_each_new_route_resource_path_has_its_own_risk_result() -> None:
+    medium = {
+        "endpoint": "/customer-profile",
+        "method": "GET",
+        "controller": "CustomerController",
+        "authentication": False,
+        "required_role": None,
+        "service": "CustomerService",
+        "repository": "CustomerRepository",
+        "resource": "CustomerProfile",
+        "sensitivity": "MEDIUM",
+    }
+    high = {
+        **medium,
+        "endpoint": "/payment-export",
+        "controller": "PaymentController",
+        "repository": "PaymentRepository",
+        "resource": "PaymentExport",
+        "sensitivity": "HIGH",
+    }
+    request = AnalysisRequest.model_validate({"before": [], "after": [medium, high]})
+    delta = compare_graphs(request.before, request.after)
+    risk = score_risk(request.before, request.after, delta)
+
+    assert [item.route_id for item in risk.finding_results] == [
+        "endpoint:GET:/customer-profile",
+        "endpoint:GET:/payment-export",
+    ]
+    assert [item.category_after for item in risk.finding_results] == ["MEDIUM", "HIGH"]
+    assert [item.risk_after for item in risk.finding_results] == [57, 61]
+    assert risk.risk_after == 61
+    assert risk.policy.bands[-1].category == "CRITICAL"
+    assert risk.policy.review_delta == 21
+
+
 def test_implementation_rename_is_not_a_new_security_path() -> None:
     before = {
         "endpoint": "/customers",

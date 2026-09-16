@@ -6,22 +6,30 @@ from ai_app.main import app
 from ai_app.reasoning import AIAnalysis, Explanation
 from ai_app.validation import ValidationResult
 
-TEST_SERVICE_TOKEN = os.environ.setdefault("RISKGRAPH_SERVICE_TOKEN", "test-internal-token")
+TEST_SERVICE_TOKEN = os.environ.setdefault("RISKGRAPH_AI_SERVICE_TOKEN", "test-ai-token")
 
 
-def call(method, route, payload=None, *, authenticated=True):
+def call(method, route, payload=None, *, authenticated=True, token=TEST_SERVICE_TOKEN):
     async def send():
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
-            headers = {"X-RiskGraph-Service-Token": TEST_SERVICE_TOKEN} if authenticated else {}
+            headers = {"X-RiskGraph-Service-Token": token} if authenticated else {}
             return await client.request(method, route, json=payload, headers=headers)
 
     return asyncio.run(send())
 
 
-def test_health_does_not_require_ollama_or_docker():
-    assert call("GET", "/health").status_code == 200
+def test_health_is_minimal_and_does_not_expose_provider_topology(monkeypatch):
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://internal-ollama.example:11434")
+    monkeypatch.setenv("OLLAMA_MODEL", "private-model-name")
+
+    response = call("GET", "/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "service": "ai-validation-service"}
+    assert "internal-ollama" not in response.text
+    assert "private-model-name" not in response.text
 
 
 def test_internal_routes_reject_missing_service_credentials():
@@ -30,8 +38,24 @@ def test_internal_routes_reject_missing_service_credentials():
     )
 
 
+def test_internal_routes_reject_another_services_credential():
+    response = call(
+        "POST",
+        "/ai/analyze",
+        {"evidence": ["fact"]},
+        token="test-graph-token",
+    )
+    assert response.status_code == 401
+
+
 def test_openapi_requires_internal_service_authentication():
     schema = app.openapi()
+    health_schema = schema["components"]["schemas"]["HealthResponse"]
+    assert health_schema["additionalProperties"] is False
+    assert health_schema["required"] == ["status", "service"]
+    assert schema["paths"]["/health"]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/HealthResponse"}
     scheme = schema["components"]["securitySchemes"]["APIKeyHeader"]
     assert scheme == {
         "type": "apiKey",

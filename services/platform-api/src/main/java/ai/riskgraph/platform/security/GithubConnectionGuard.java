@@ -25,4 +25,8 @@ public class GithubConnectionGuard {
                 "Connect your GitHub account to access this service");
         }
     }
+
+    public boolean required() {
+        return required;
+    }
 }

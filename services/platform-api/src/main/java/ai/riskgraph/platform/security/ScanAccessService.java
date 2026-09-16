@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ScanAccessService {
-    public enum Access { VIEW, VALIDATE }
+    public enum Access { OWNER, VALIDATE, VIEW }
 
     private final JdbcTemplate db;
     private final ScanStore scans;
@@ -30,7 +30,18 @@ public class ScanAccessService {
     @Transactional
     public void claim(String scanId) {
         String username = current().getName();
-        put(scanId, username, Access.VALIDATE, true);
+        put(scanId, username, Access.OWNER, true);
+    }
+
+    @Transactional
+    public void claimFor(String scanId, String username) {
+        put(scanId, username, Access.OWNER, true);
+    }
+
+    public boolean canView(String scanId, String username, boolean administrator) {
+        if (administrator) return true;
+        Access granted = get(scanId, username);
+        return granted == Access.OWNER || granted == Access.VALIDATE || granted == Access.VIEW;
     }
 
     public void requireView(String scanId) {
@@ -43,7 +54,11 @@ public class ScanAccessService {
 
     @Transactional
     public void grant(String scanId, String username, Access access) {
-        require(scanId, Access.VALIDATE);
+        requireOwner(scanId);
+        if (access == Access.OWNER) {
+            throw new PipelineException("SCAN_OWNER_TRANSFER_UNSUPPORTED", 400,
+                    "Ownership cannot be delegated through the access endpoint");
+        }
         if (scans.get(scanId) == null) {
             throw new PipelineException("SCAN_NOT_FOUND", 404, "Scan not found");
         }
@@ -59,10 +74,21 @@ public class ScanAccessService {
         Authentication authentication = current();
         if (isAdmin(authentication)) return;
         Access granted = get(scanId, authentication.getName());
-        boolean allowed = granted == Access.VALIDATE || required == Access.VIEW && granted == Access.VIEW;
+        boolean allowed = granted == Access.OWNER
+                || required == Access.VALIDATE && granted == Access.VALIDATE
+                || required == Access.VIEW && (granted == Access.VIEW || granted == Access.VALIDATE);
         if (!allowed) {
             // Avoid revealing whether an unshared scan identifier exists.
             throw new PipelineException("SCAN_ACCESS_DENIED", 403, "This scan has not been shared with your account");
+        }
+    }
+
+    private void requireOwner(String scanId) {
+        Authentication authentication = current();
+        if (isAdmin(authentication)) return;
+        if (get(scanId, authentication.getName()) != Access.OWNER) {
+            throw new PipelineException("SCAN_SHARE_DENIED", 403,
+                    "Only the scan owner or an administrator can share this scan");
         }
     }
 
@@ -81,7 +107,7 @@ public class ScanAccessService {
             if (preserveValidation) {
                 local.computeIfAbsent(scanId, ignored -> new ConcurrentHashMap<>()).merge(
                         username, access, (oldAccess, newAccess) ->
-                                oldAccess == Access.VALIDATE ? oldAccess : newAccess);
+                                oldAccess == Access.OWNER ? oldAccess : newAccess);
             } else {
                 local.computeIfAbsent(scanId, ignored -> new ConcurrentHashMap<>()).put(username, access);
             }
@@ -92,8 +118,8 @@ public class ScanAccessService {
                 SELECT s.id,u.id,? FROM scans s CROSS JOIN users u
                 WHERE s.external_id=? AND u.username=? AND u.enabled
                 ON CONFLICT (scan_id,user_id) DO UPDATE SET
-                    access_level=CASE WHEN ? AND scan_memberships.access_level='VALIDATE'
-                        THEN 'VALIDATE' ELSE excluded.access_level END,
+                    access_level=CASE WHEN ? AND scan_memberships.access_level='OWNER'
+                        THEN 'OWNER' ELSE excluded.access_level END,
                     updated_at=now()
                 """, access.name(), scanId, username, preserveValidation);
         if (updated != 1) {

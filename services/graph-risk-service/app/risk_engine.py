@@ -4,8 +4,11 @@ from .graph_engine import endpoint_node_id, resource_node_id
 from .models import (
     ComponentScore,
     EndpointIr,
+    FindingRiskResult,
     GraphDelta,
+    RiskBand,
     RiskComponents,
+    RiskPolicyMetadata,
     RiskResult,
     Verdict,
 )
@@ -31,6 +34,9 @@ class RawScores:
     exploitability: int
 
 
+RiskCandidate = tuple[str, str, RawScores, RawScores]
+
+
 def score_risk(
     before: list[EndpointIr],
     after: list[EndpointIr],
@@ -40,6 +46,7 @@ def score_risk(
     affected_routes = {
         (path.nodes[1], path.target) for path in graph_delta.new_paths if len(path.nodes) > 1
     }
+    finding_results: list[FindingRiskResult] = []
     if affected_routes:
         before_by_route_resource: dict[tuple[str, str], list[EndpointIr]] = {}
         after_by_route_resource: dict[tuple[str, str], list[EndpointIr]] = {}
@@ -50,7 +57,7 @@ def score_risk(
             key = (endpoint_node_id(endpoint), resource_node_id(endpoint.resource))
             after_by_route_resource.setdefault(key, []).append(endpoint)
 
-        candidates = []
+        candidates: list[RiskCandidate] = []
         for route_id, resource_id in sorted(affected_routes):
             current = after_by_route_resource.get((route_id, resource_id), [])
             previous = before_by_route_resource.get((route_id, resource_id), [])
@@ -59,14 +66,41 @@ def score_risk(
             after_state = _state_scores(current, True, route_removal)
             candidates.append(
                 (
-                    _weighted_total(after_state),
-                    _weighted_total(before_state),
                     route_id,
+                    resource_id,
                     before_state,
                     after_state,
                 )
             )
-        _, risk_before, _, before_scores, after_scores = max(candidates)
+            risk_before = _weighted_total(before_state)
+            risk_after = _weighted_total(after_state)
+            evidence = []
+            if route_removal and previous and current:
+                role = previous[0].required_role or "authenticated-user"
+                evidence.append(
+                    f"{role} authorization removed from {current[0].method} {current[0].endpoint}"
+                )
+            evidence.append(
+                "Anonymous user can newly reach sensitive resource "
+                + resource_id.removeprefix("resource:")
+            )
+            finding_results.append(
+                FindingRiskResult(
+                    route_id=route_id,
+                    resource_id=resource_id,
+                    risk_before=risk_before,
+                    risk_after=risk_after,
+                    risk_delta=risk_after - risk_before,
+                    category_before=category_for(risk_before),
+                    category_after=category_for(risk_after),
+                    components=_components(after_state),
+                    components_before=_components(before_state),
+                    evidence=evidence,
+                    policy_version=POLICY.version,
+                )
+            )
+        _, _, before_scores, after_scores = max(candidates, key=_candidate_rank)
+        risk_before = _weighted_total(before_scores)
         risk_after = _weighted_total(after_scores)
     else:
         before_scores = _highest_state(before)
@@ -83,6 +117,8 @@ def score_risk(
         components_before=_components(before_scores),
         policy_version=POLICY.version,
         evidence=_evidence(before, after, graph_delta, removed_auth),
+        policy=_policy_metadata(),
+        finding_results=finding_results,
     )
 
 
@@ -96,7 +132,12 @@ def decide(risk: RiskResult, graph_delta: GraphDelta, insufficient: bool = False
     return "ALLOW"
 
 
-def reason_codes(risk: RiskResult, delta: GraphDelta, insufficient: bool) -> list[str]:
+def reason_codes(
+    risk: RiskResult,
+    delta: GraphDelta,
+    insufficient: bool,
+    unresolved_authorization_delta: bool = False,
+) -> list[str]:
     reasons = []
     if delta.new_paths:
         reasons.append("NEW_ANONYMOUS_SENSITIVE_PATH")
@@ -106,6 +147,8 @@ def reason_codes(risk: RiskResult, delta: GraphDelta, insufficient: bool) -> lis
         reasons.append("RISK_AFTER_REVIEW_THRESHOLD")
     if risk.risk_delta >= POLICY.review_delta:
         reasons.append("RISK_DELTA_REVIEW_THRESHOLD")
+    if unresolved_authorization_delta:
+        reasons.append("UNRESOLVED_AUTHORIZATION_DELTA")
     if insufficient:
         reasons.append("INSUFFICIENT_EXTRACTION_EVIDENCE")
     return reasons or ["NO_REVIEW_CONDITION"]
@@ -186,6 +229,18 @@ def _weighted_total(scores: RawScores) -> int:
     return round(sum(getattr(scores, name) * weight for name, weight in WEIGHTS.items()))
 
 
+def _candidate_rank(candidate: RiskCandidate) -> tuple[int, int, str, str]:
+    """Rank affected route/resource states without ordering domain objects.
+
+    Post-change impact is primary. An equal impact selects the largest increase;
+    stable route/resource identities are deterministic final tie breakers.
+    """
+    route_id, resource_id, before_scores, after_scores = candidate
+    risk_before = _weighted_total(before_scores)
+    risk_after = _weighted_total(after_scores)
+    return risk_after, risk_after - risk_before, route_id, resource_id
+
+
 def _components(scores: RawScores) -> RiskComponents:
     values = {
         name: ComponentScore(
@@ -196,6 +251,23 @@ def _components(scores: RawScores) -> RiskComponents:
         for name, weight in WEIGHTS.items()
     }
     return RiskComponents(**values)
+
+
+def _policy_metadata() -> RiskPolicyMetadata:
+    return RiskPolicyMetadata(
+        version=POLICY.version,
+        weights=POLICY.weights,
+        review_after=POLICY.review_after,
+        block_after=POLICY.block_after,
+        review_delta=POLICY.review_delta,
+        bands=[
+            RiskBand(category="LOW", minimum=0, maximum=20),
+            RiskBand(category="MODERATE", minimum=21, maximum=40),
+            RiskBand(category="MEDIUM", minimum=41, maximum=60),
+            RiskBand(category="HIGH", minimum=61, maximum=80),
+            RiskBand(category="CRITICAL", minimum=81, maximum=100),
+        ],
+    )
 
 
 def _evidence(

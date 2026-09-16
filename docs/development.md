@@ -34,7 +34,9 @@ Internal APIs fail closed unless every process shares a service credential. Set 
 long random value in the shell before starting any service manually:
 
 ```powershell
-$env:RISKGRAPH_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
+$env:RISKGRAPH_ANALYZER_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
+$env:RISKGRAPH_GRAPH_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
+$env:RISKGRAPH_AI_SERVICE_TOKEN = python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
 ```powershell

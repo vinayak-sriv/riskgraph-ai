@@ -15,4 +15,7 @@ RUN apk add --no-cache git \
 
 FROM postgres:16.15-alpine3.24@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
 COPY --from=gosu-builder /go/bin/gosu /usr/local/bin/gosu
-USER postgres
+
+# Keep the upstream entrypoint's initial root phase. It owns a fresh named volume,
+# then immediately execs PostgreSQL as the postgres user through the rebuilt gosu.
+# Setting USER postgres here prevents clean-volume initialization on Docker Desktop.

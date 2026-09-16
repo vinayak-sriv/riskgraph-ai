@@ -15,7 +15,7 @@ import static org.springframework.http.HttpStatus.BAD_GATEWAY;
 public class GraphRiskClient {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
-    @Value("${RISKGRAPH_SERVICE_TOKEN:}")
+    @Value("${RISKGRAPH_GRAPH_SERVICE_TOKEN:}")
     private String serviceToken = "";
     @Value("${RISKGRAPH_MAX_DEPENDENCY_RESPONSE_BYTES:33554432}")
     private int maxResponseBytes = 32 * 1024 * 1024;

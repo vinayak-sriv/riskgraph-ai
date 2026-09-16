@@ -14,17 +14,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Queue;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,31 +30,28 @@ import org.springframework.stereotype.Component;
 import spoon.Launcher;
 import spoon.reflect.CtModel;
 import spoon.reflect.code.CtExpression;
-import spoon.reflect.code.CtInvocation;
-import spoon.reflect.code.CtLiteral;
-import spoon.reflect.code.CtNewArray;
 import spoon.reflect.declaration.CtAnnotation;
-import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtType;
-import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.visitor.filter.TypeFilter;
 
 @Component
 public class SpringEndpointExtractor {
-    private static final Pattern ROLE_PATTERN = Pattern.compile(
-            "has(?:Any)?(?:Role|Authority)\\s*\\(\\s*['\\\"]([^'\\\"]+)['\\\"]");
     private static final Pattern REQUEST_METHOD_PATTERN = Pattern.compile("RequestMethod\\.([A-Z]+)");
     private static final Set<String> MAPPING_ANNOTATIONS = Set.of(
             "GetMapping", "PostMapping", "PutMapping", "PatchMapping", "DeleteMapping", "RequestMapping");
-    private static final List<String> AUTHORIZATION_ANNOTATIONS = List.of(
-            "PreAuthorize", "Secured", "RolesAllowed");
 
     private final SensitivityPolicy sensitivityPolicy;
     private final SpringMappingResolver mappingResolver = new SpringMappingResolver();
+    private final AnnotationAuthorizationExtractor authorizationExtractor =
+            new AnnotationAuthorizationExtractor();
+    private final ChangedSurfaceAnalyzer changedSurface = new ChangedSurfaceAnalyzer(MAPPING_ANNOTATIONS);
+    private final ConfidenceEvaluator confidenceEvaluator = new ConfidenceEvaluator();
+    private final DependencyPathResolver dependencyResolver;
 
     public SpringEndpointExtractor(SensitivityPolicy sensitivityPolicy) {
         this.sensitivityPolicy = sensitivityPolicy;
+        this.dependencyResolver = new DependencyPathResolver(sensitivityPolicy, changedSurface);
     }
 
     public ExtractionResult extract(Path snapshot, Map<String, List<ChangedRange>> changedRanges) {
@@ -145,22 +138,22 @@ public class SpringEndpointExtractor {
                         relativePath(snapshot, type.getPosition().getFile())));
                 continue;
             }
-            CtAnnotation<?> classAuthorization = authorizationAnnotation(type);
-            boolean classSecurityChanged = classSecurityChanged(snapshot, type, changedRanges);
+            CtAnnotation<?> classAuthorization = authorizationExtractor.find(type);
+            boolean classSecurityChanged = changedSurface.classSecurityChanged(snapshot, type, changedRanges);
             boolean wiringChanged = type.getFields().stream()
-                .anyMatch(field -> intersectsChangedRanges(snapshot, field, changedRanges));
+                .anyMatch(field -> changedSurface.intersects(snapshot, field, changedRanges));
             if (type instanceof spoon.reflect.declaration.CtClass<?> concrete) {
                 wiringChanged |= concrete.getConstructors().stream()
-                    .anyMatch(constructor -> intersectsChangedRanges(snapshot, constructor, changedRanges));
+                    .anyMatch(constructor -> changedSurface.intersects(snapshot, constructor, changedRanges));
             }
             for (CtMethod<?> method : type.getMethods()) {
                 CtAnnotation<?> mapping = mappingAnnotation(method);
                 if (mapping == null) {
                     continue;
                 }
-                Resolution resolution = resolveDependencies(
+                DependencyPathResolver.Result resolution = dependencyResolver.resolve(
                         snapshot, method, executableResolver, changedRanges);
-                boolean endpointChanged = methodSurfaceChanged(snapshot, method, changedRanges);
+                boolean endpointChanged = changedSurface.methodSurfaceChanged(snapshot, method, changedRanges);
                 if (!endpointChanged && !classSecurityChanged && !filterSecurityChanged
                         && !wiringChanged && !resolution.changedDependency()) {
                     continue;
@@ -174,19 +167,27 @@ public class SpringEndpointExtractor {
                     continue;
                 }
                 List<String> httpMethods = httpMethods(mapping);
-                CtAnnotation<?> authorization = authorizationAnnotation(method);
+                CtAnnotation<?> authorization = authorizationExtractor.find(method);
                 if (authorization == null) {
                     authorization = classAuthorization;
                 }
-                String annotationRole = requiredRole(authorization);
+                String annotationRole = authorizationExtractor.requiredRole(authorization);
                 boolean annotationAuthenticated = authorization != null;
-                DependencyPath primaryPath = primaryPath(resolution.paths(), type);
-                SensitivityPolicy.Classification classification = sensitivityPolicy.classify(primaryPath.resource());
+                DependencyPath primaryPath = dependencyResolver.primaryPath(resolution.paths(), type);
+                SensitivityPolicy.Classification classification = sensitivityPolicy.classify(
+                        primaryPath.resource(), primaryPath.repository() != null);
                 SourceLocation location = sourceLocation(snapshot, method);
-                String callConfidence = callConfidence(resolution);
+                String callConfidence = confidenceEvaluator.callConfidence(resolution);
 
                 addDiagnostics(diagnostics, location, annotationAuthenticated, annotationRole, resolution);
-                if (annotationAuthenticated && annotationRole != null && !simpleAuthorization(authorization)) {
+                if (classification.defaulted() && primaryPath.repository() != null) {
+                    diagnostics.add(new Diagnostic("INFO", "SENSITIVITY_POLICY_DEFAULTED",
+                            "Unmatched repository-backed resource was conservatively classified as "
+                                    + classification.sensitivity(),
+                            location.path()));
+                }
+                if (annotationAuthenticated && annotationRole != null
+                        && !authorizationExtractor.isSimple(authorization)) {
                     diagnostics.add(new Diagnostic("WARNING", "COMPLEX_AUTHORIZATION",
                         "Authorization cannot be fully represented by a single canonical role", location.path()));
                 }
@@ -197,7 +198,8 @@ public class SpringEndpointExtractor {
                         String requiredRole = annotationAuthenticated ? annotationRole : null;
                         boolean unresolvedFilter = !annotationAuthenticated
                                 && filterSecurityPresent;
-                        String authorizationConfidence = (annotationAuthenticated && !simpleAuthorization(authorization))
+                        String authorizationConfidence = (annotationAuthenticated
+                                && !authorizationExtractor.isSimple(authorization))
                                 || unresolvedFilter ? "LOW" : "HIGH";
                         if (unresolvedFilter) {
                             diagnostics.add(new Diagnostic("WARNING", "UNRESOLVED_ROUTE_AUTHORIZATION",
@@ -205,7 +207,7 @@ public class SpringEndpointExtractor {
                         }
                         ExtractionConfidence confidence = new ExtractionConfidence(
                                 "HIGH", authorizationConfidence, callConfidence,
-                                minimumConfidence("HIGH", authorizationConfidence, callConfidence));
+                                confidenceEvaluator.minimum("HIGH", authorizationConfidence, callConfidence));
                         for (String httpMethod : httpMethods) {
                             EndpointIr endpoint = new EndpointIr(
                                     route, httpMethod, type.getSimpleName(), authenticated,
@@ -296,7 +298,7 @@ public class SpringEndpointExtractor {
             SourceLocation location,
             boolean authenticated,
             String requiredRole,
-            Resolution resolution
+            DependencyPathResolver.Result resolution
     ) {
         if (authenticated && requiredRole == null) {
             diagnostics.add(new Diagnostic("WARNING", "UNRESOLVED_AUTHORIZATION",
@@ -313,162 +315,11 @@ public class SpringEndpointExtractor {
         }
     }
 
-    private Resolution resolveDependencies(
-            Path snapshot,
-            CtMethod<?> endpointMethod,
-            ExecutableResolver executableResolver,
-            Map<String, List<ChangedRange>> changedRanges
-    ) {
-        Set<DependencyPath> paths = new LinkedHashSet<>();
-        Set<String> discoveredServices = new LinkedHashSet<>();
-        Queue<TraversalState> queue = new ArrayDeque<>();
-        Set<String> visited = new HashSet<>();
-        queue.add(new TraversalState(null, endpointMethod));
-        boolean changedDependency = false;
-        boolean ambiguous = false;
-
-        while (!queue.isEmpty()) {
-            TraversalState state = queue.remove();
-            CtMethod<?> method = state.method();
-            String methodKey = state.rootService() + ":" + method.getDeclaringType().getQualifiedName()
-                    + "#" + method.getSignature();
-            if (!visited.add(methodKey)) {
-                continue;
-            }
-            if (method != endpointMethod && intersectsChangedRanges(snapshot, method, changedRanges)) {
-                changedDependency = true;
-            }
-            for (CtInvocation<?> invocation : directInvocations(method)) {
-                ExecutableResolver.TypeResult typeResult = executableResolver.resolveType(invocation);
-                if (typeResult.ambiguous()) {
-                    ambiguous = true;
-                    continue;
-                }
-                CtType<?> target = typeResult.type();
-                String targetName = target == null ? invocationType(invocation) : target.getSimpleName();
-                if (targetName == null) {
-                    continue;
-                }
-                if (isRepository(targetName, target)) {
-                    String resource = targetName.replaceFirst("Repository$", "");
-                    paths.add(dependencyPath(state.rootService(), targetName, resource));
-                    ExecutableResolver.MethodResult methodResult = target == null
-                            ? new ExecutableResolver.MethodResult(null, false)
-                            : executableResolver.resolveMethod(invocation, target);
-                    ambiguous |= methodResult.ambiguous();
-                    if (methodResult.method() != null
-                            && intersectsChangedRanges(snapshot, methodResult.method(), changedRanges)) {
-                        changedDependency = true;
-                    }
-                } else if (isService(targetName, target)) {
-                    String rootService = state.rootService() == null ? targetName : state.rootService();
-                    if (target == null) {
-                        ambiguous = true;
-                        continue;
-                    }
-                    ExecutableResolver.MethodResult methodResult = executableResolver.resolveMethod(invocation, target);
-                    if (methodResult.ambiguous() || methodResult.method() == null) {
-                        ambiguous = true;
-                        continue;
-                    }
-                    discoveredServices.add(rootService);
-                    queue.add(new TraversalState(rootService, methodResult.method()));
-                }
-            }
-        }
-
-        for (String service : discoveredServices) {
-            if (paths.stream().noneMatch(path -> service.equals(path.service()))) {
-                paths.add(dependencyPath(service, null, service.replaceFirst("Service$", "")));
-            }
-        }
-        List<DependencyPath> ordered = paths.stream()
-                .sorted(Comparator.comparing((DependencyPath path) -> path.service() == null ? "" : path.service())
-                        .thenComparing(path -> path.repository() == null ? "" : path.repository())
-                        .thenComparing(DependencyPath::resource))
-                .toList();
-        return new Resolution(ordered, changedDependency, ambiguous);
-    }
-
-    private List<CtInvocation<?>> directInvocations(CtMethod<?> method) {
-        return method.getElements(new TypeFilter<>(CtInvocation.class)).stream()
-                .<CtInvocation<?>>map(invocation -> invocation)
-                .filter(invocation -> invocation.getParent(CtMethod.class) == method)
-                .toList();
-    }
-
-    private DependencyPath primaryPath(List<DependencyPath> paths, CtType<?> controller) {
-        if (!paths.isEmpty()) {
-            return paths.getFirst();
-        }
-        return dependencyPath(null, null, controller.getSimpleName().replaceFirst("Controller$", ""));
-    }
-
-    private DependencyPath dependencyPath(String service, String repository, String resource) {
-        return new DependencyPath(service, repository, resource, sensitivityPolicy.classify(resource).sensitivity());
-    }
-
-    private CtAnnotation<?> authorizationAnnotation(CtType<?> type) {
-        return AUTHORIZATION_ANNOTATIONS.stream()
-                .map(name -> annotation(type, name)).filter(Objects::nonNull).findFirst().orElse(null);
-    }
-
-    private CtAnnotation<?> authorizationAnnotation(CtMethod<?> method) {
-        return AUTHORIZATION_ANNOTATIONS.stream()
-                .map(name -> annotation(method, name)).filter(Objects::nonNull).findFirst().orElse(null);
-    }
-
-    private String requiredRole(CtAnnotation<?> authorization) {
-        if (authorization == null) {
-            return null;
-        }
-        CtExpression<?> value = authorization.getValues().get("value");
-        List<String> values = expressionStrings(value);
-        String annotationName = authorization.getAnnotationType().getSimpleName();
-        if ("Secured".equals(annotationName) || "RolesAllowed".equals(annotationName)) {
-            return values.stream().findFirst().map(role -> role.replaceFirst("^ROLE_", "")).orElse(null);
-        }
-        String expression = values.stream().findFirst().orElse(value == null ? "" : value.toString());
-        Matcher matcher = ROLE_PATTERN.matcher(expression);
-        return matcher.find() ? matcher.group(1).replaceFirst("^ROLE_", "") : null;
-    }
-
-    private boolean simpleAuthorization(CtAnnotation<?> authorization) {
-        if (authorization == null) return true;
-        List<String> values = expressionStrings(authorization.getValues().get("value"));
-        if (values.size() != 1) return false;
-        if (!"PreAuthorize".equals(authorization.getAnnotationType().getSimpleName())) return true;
-        // A role substring inside arbitrary SpEL is not a resolved access rule.
-        return values.getFirst().matches("\\s*has(?:Role|Authority)\\s*\\(\\s*['\\\"][A-Za-z0-9_:-]+['\\\"]\\s*\\)\\s*");
-    }
-
-    private boolean classSecurityChanged(
-            Path snapshot, CtType<?> type, Map<String, List<ChangedRange>> changedRanges) {
-        boolean annotationChanged = type.getAnnotations().stream()
-                .filter(annotation -> MAPPING_ANNOTATIONS.contains(annotation.getAnnotationType().getSimpleName())
-                        || AUTHORIZATION_ANNOTATIONS.contains(annotation.getAnnotationType().getSimpleName())
-                        || "RestController".equals(annotation.getAnnotationType().getSimpleName())
-                        || "Controller".equals(annotation.getAnnotationType().getSimpleName()))
-                .anyMatch(annotation -> intersectsChangedRanges(snapshot, annotation, changedRanges));
-        if (annotationChanged || !type.getPosition().isValidPosition()) {
-            return annotationChanged;
-        }
-        List<ChangedRange> ranges = rangesFor(snapshot, type, changedRanges);
-        return intersects(type.getPosition().getLine(), type.getPosition().getLine(), ranges);
-    }
-
-    private boolean methodSurfaceChanged(
-            Path snapshot, CtMethod<?> method, Map<String, List<ChangedRange>> changedRanges) {
-        return intersectsChangedRanges(snapshot, method, changedRanges)
-                || method.getAnnotations().stream()
-                .anyMatch(annotation -> intersectsChangedRanges(snapshot, annotation, changedRanges));
-    }
-
     private boolean securityFilterChanged(
             Path snapshot, CtModel model, Map<String, List<ChangedRange>> changedRanges) {
         return model.getElements(new TypeFilter<>(CtMethod.class)).stream()
                 .filter(this::isSecurityFilterChainMethod)
-                .anyMatch(method -> intersectsChangedRanges(snapshot, method, changedRanges));
+                .anyMatch(method -> changedSurface.intersects(snapshot, method, changedRanges));
     }
 
     private boolean hasSecurityFilterChain(CtModel model) {
@@ -483,42 +334,6 @@ public class SpringEndpointExtractor {
 
     public String configurationFingerprint() {
         return sensitivityPolicy.fingerprint();
-    }
-
-    private boolean intersectsChangedRanges(
-            Path snapshot, CtElement element, Map<String, List<ChangedRange>> changedRanges) {
-        if (!element.getPosition().isValidPosition()) {
-            return false;
-        }
-        return intersects(element.getPosition().getLine(), element.getPosition().getEndLine(),
-                rangesFor(snapshot, element, changedRanges));
-    }
-
-    private List<ChangedRange> rangesFor(
-            Path snapshot, CtElement element, Map<String, List<ChangedRange>> changedRanges) {
-        if (!element.getPosition().isValidPosition()) {
-            return List.of();
-        }
-        return changedRanges.getOrDefault(relativePath(snapshot, element.getPosition().getFile()), List.of());
-    }
-
-    private boolean intersects(int startLine, int endLine, List<ChangedRange> ranges) {
-        return ranges.stream().anyMatch(range -> startLine <= range.end_line() && range.start_line() <= endLine);
-    }
-
-    private String callConfidence(Resolution resolution) {
-        if (resolution.ambiguous()) {
-            return "LOW";
-        }
-        if (resolution.paths().stream().anyMatch(path -> path.repository() != null)) {
-            return "HIGH";
-        }
-        return resolution.paths().isEmpty() ? "LOW" : "MEDIUM";
-    }
-
-    private String minimumConfidence(String... values) {
-        List<String> order = List.of("LOW", "MEDIUM", "HIGH");
-        return Arrays.stream(values).min(Comparator.comparingInt(order::indexOf)).orElse("LOW");
     }
 
     private boolean isController(CtType<?> type) {
@@ -543,18 +358,6 @@ public class SpringEndpointExtractor {
                 .findFirst().orElse(null);
     }
 
-    private List<String> expressionStrings(CtExpression<?> expression) {
-        if (expression instanceof CtLiteral<?> literal && literal.getValue() instanceof String value) {
-            return List.of(value);
-        }
-        if (expression instanceof CtNewArray<?> array) {
-            return array.getElements().stream()
-                    .filter(CtLiteral.class::isInstance).map(CtLiteral.class::cast).map(CtLiteral::getValue)
-                    .filter(String.class::isInstance).map(String.class::cast).toList();
-        }
-        return List.of();
-    }
-
     private List<String> httpMethods(CtAnnotation<?> mapping) {
         String annotationName = mapping.getAnnotationType().getSimpleName();
         if (!"RequestMapping".equals(annotationName)) {
@@ -573,26 +376,6 @@ public class SpringEndpointExtractor {
         return methods.isEmpty() ? List.of("DELETE", "GET", "PATCH", "POST", "PUT") : methods;
     }
 
-    private String invocationType(CtInvocation<?> invocation) {
-        CtTypeReference<?> type = invocation.getTarget() == null ? null : invocation.getTarget().getType();
-        if (type == null) {
-            type = invocation.getExecutable().getDeclaringType();
-        }
-        return type == null ? null : type.getSimpleName();
-    }
-
-    private boolean isService(String name, CtType<?> type) {
-        return name.endsWith("Service") || (type != null && annotation(type, "Service") != null);
-    }
-
-    private boolean isRepository(String name, CtType<?> type) {
-        if (name.endsWith("Repository") || (type != null && annotation(type, "Repository") != null)) {
-            return true;
-        }
-        return type != null && type.getSuperInterfaces().stream()
-                .anyMatch(value -> value.getSimpleName().endsWith("Repository"));
-    }
-
     private SourceLocation sourceLocation(Path snapshot, CtMethod<?> method) {
         return new SourceLocation(relativePath(snapshot, method.getPosition().getFile()),
                 method.getPosition().getLine(), method.getPosition().getEndLine());
@@ -605,12 +388,6 @@ public class SpringEndpointExtractor {
     private String normalizePath(String classPath, String methodPath) {
         String joined = ("/" + classPath + "/" + methodPath).replaceAll("/{2,}", "/");
         return joined.length() > 1 && joined.endsWith("/") ? joined.substring(0, joined.length() - 1) : joined;
-    }
-
-    private record TraversalState(String rootService, CtMethod<?> method) {
-    }
-
-    private record Resolution(List<DependencyPath> paths, boolean changedDependency, boolean ambiguous) {
     }
 
     private record ModelExtraction(List<EndpointEvidence> endpoints, int controllers) {

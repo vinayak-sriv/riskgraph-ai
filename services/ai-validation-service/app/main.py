@@ -1,13 +1,21 @@
-import os
 from contextlib import asynccontextmanager
+from typing import Literal
 
 from fastapi import Depends, FastAPI
+from pydantic import BaseModel, ConfigDict
 
 from .reasoning import EvidenceRequest, Explanation, OllamaProvider, explain
 from .service_auth import require_service_token
 from .validation import ValidationRequest, ValidationResult, validate
 
 ollama = OllamaProvider()
+
+
+class HealthResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    status: Literal["ok"]
+    service: Literal["ai-validation-service"]
 
 
 @asynccontextmanager
@@ -19,14 +27,9 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="RiskGraph AI Validation Service", version="0.1.0", lifespan=lifespan)
 
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {
-        "status": "ok",
-        "service": "ai-validation-service",
-        "ollama_base_url": os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"),
-        "ollama_model": os.environ.get("OLLAMA_MODEL", "llama3.1:8b"),
-    }
+@app.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
+    return HealthResponse(status="ok", service="ai-validation-service")
 
 
 @app.post("/ai/analyze", response_model=Explanation, dependencies=[Depends(require_service_token)])

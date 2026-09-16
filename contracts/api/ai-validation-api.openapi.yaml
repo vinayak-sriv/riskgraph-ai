@@ -13,10 +13,7 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties:
-                  type: string
-                type: object
-                title: Response Health Health Get
+                $ref: '#/components/schemas/HealthResponse'
   /ai/analyze:
     post:
       summary: Analyze
@@ -203,6 +200,22 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    HealthResponse:
+      properties:
+        status:
+          type: string
+          const: ok
+          title: Status
+        service:
+          type: string
+          const: ai-validation-service
+          title: Service
+      additionalProperties: false
+      type: object
+      required:
+      - status
+      - service
+      title: HealthResponse
     ValidationError:
       properties:
         loc:
@@ -292,6 +305,13 @@ components:
           - type: integer
           - type: 'null'
           title: Actual Status
+        observed_http_statuses:
+          anyOf:
+          - items:
+              type: integer
+            type: array
+          - type: 'null'
+          title: Observed Http Statuses
         expected_status:
           type: integer
           title: Expected Status

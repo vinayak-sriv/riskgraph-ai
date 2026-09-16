@@ -6,7 +6,7 @@ import {
   GitBranch,
   LoaderCircle,
 } from "lucide-react";
-import { api } from "../api";
+import { api, clearCsrfToken } from "../api";
 export type Account = {
   username: string;
   name: string;
@@ -49,6 +49,7 @@ export function AccountPanel({
       });
       if (!response.ok)
         throw new Error("Sign-in failed. Check your username and password.");
+      clearCsrfToken();
       const session = await (await api("/auth/session")).json();
       onUserChange(session.user);
       if (session.github) onGithubChange?.(session.github);
@@ -67,6 +68,7 @@ export function AccountPanel({
     try {
       const response = await api("/auth/logout", { method: "POST" });
       if (!response.ok) throw new Error("Sign-out failed. Please try again.");
+      clearCsrfToken();
       onUserChange(null);
       onGithubChange?.({ status: "DISCONNECTED" });
       setAccounts([]);

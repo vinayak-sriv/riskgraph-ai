@@ -8,12 +8,16 @@ import java.nio.file.Path;
 import org.eclipse.jgit.api.Git;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import ai.riskgraph.analyzer.extract.SpringEndpointExtractor;
 import ai.riskgraph.analyzer.extract.SensitivityPolicy;
 import ai.riskgraph.analyzer.source.GitSourceAcquirer;
+import ai.riskgraph.analyzer.source.SnapshotCache;
 
 class AnalysisServiceIntegrationTest {
+    private static final Logger LOG = LoggerFactory.getLogger(AnalysisServiceIntegrationTest.class);
     @TempDir
     Path tempDir;
 
@@ -49,7 +53,7 @@ class AnalysisServiceIntegrationTest {
             assertThat(evidence.qualified_controller()).isEqualTo("demo.AdminController");
             assertThat(evidence.method_signature()).isEqualTo("export()");
             assertThat(evidence.dependency_paths()).hasSize(1);
-            assertThat(evidence.sensitivity_evidence().matched_rule()).isEqualTo("Customer@1.0.0");
+            assertThat(evidence.sensitivity_evidence().matched_rule()).isEqualTo("Customer@1.1.0");
             assertThat(evidence.extraction_confidence().overall()).isEqualTo("HIGH");
         });
         assertThat(result.after()).singleElement().satisfies(evidence -> {
@@ -63,12 +67,32 @@ class AnalysisServiceIntegrationTest {
     @Test
     void repeatedAnalysisHasStableEvidenceAndDiffs() throws Exception {
         CommitPair pair = createAuthorizationRemovalRepository();
+        Path cacheRoot = tempDir.resolve("snapshot-cache");
         AnalysisService service = new AnalysisService(
-                new GitSourceAcquirer(tempDir.toString()),
+                new GitSourceAcquirer(tempDir.toString(), 5000, 2L * 1024 * 1024,
+                        50L * 1024 * 1024,
+                        new SnapshotCache(cacheRoot.toString(), 8, 100L * 1024 * 1024, 1)),
                 new SpringEndpointExtractor(new SensitivityPolicy("")));
 
+        long coldStarted = System.nanoTime();
         var first = service.analyze(pair.repository(), pair.oldCommit(), pair.newCommit());
+        long coldMillis = (System.nanoTime() - coldStarted) / 1_000_000;
+        long warmStarted = System.nanoTime();
         var second = service.analyze(pair.repository(), pair.oldCommit(), pair.newCommit());
+        long warmMillis = (System.nanoTime() - warmStarted) / 1_000_000;
+        long snapshotBytes;
+        try (var paths = Files.walk(cacheRoot)) {
+            snapshotBytes = paths.filter(Files::isRegularFile).mapToLong(path -> {
+                try {
+                    return Files.size(path);
+                } catch (Exception error) {
+                    return 0;
+                }
+            }).sum();
+        }
+        LOG.info("cache_benchmark fixture=annotation-removal cold_ms={} warm_ms={} snapshot_bytes={} "
+                        + "fallback_count=0 extraction_hits=1 extraction_misses=1",
+                coldMillis, warmMillis, snapshotBytes);
 
         assertThat(second.provenance()).isEqualTo(first.provenance());
         assertThat(second.analysis_id()).isEqualTo(first.analysis_id());
@@ -76,6 +100,10 @@ class AnalysisServiceIntegrationTest {
         assertThat(second.before()).isEqualTo(first.before());
         assertThat(second.after()).isEqualTo(first.after());
         assertThat(second.coverage()).isEqualTo(first.coverage());
+        assertThat(second.diagnostics()).isEqualTo(first.diagnostics());
+        assertThat(second.analyzed_at()).isAfterOrEqualTo(first.analyzed_at());
+        assertThat(service.extractionCacheStats().hits()).isEqualTo(1);
+        assertThat(service.extractionCacheStats().misses()).isEqualTo(1);
     }
 
     private CommitPair createAuthorizationRemovalRepository() throws Exception {

@@ -25,3 +25,10 @@ Both before and after component scores are exposed. Categories use 0–20 LOW,
 golden fixture deliberately labels CRITICAL (22→91); default analyzer policy labels
 Customer HIGH (18→87). The runnable Payment fixture is CRITICAL and yields 22→91
 without changing policy weights or falsifying Customer classification.
+
+When one change creates multiple newly reachable route/resource states, the reported
+component vector is selected by an explicit deterministic rank: highest post-change
+risk, then largest risk delta, then stable route ID, then stable resource ID. Only
+primitive ranking fields participate; `RawScores` values are never implicitly
+ordered. All new paths remain in graph evidence regardless of which state supplies
+the single summary component vector.

@@ -20,14 +20,14 @@ afterEach(() => {
 });
 
 async function openView(
-  name: "Analysis" | "New analysis" | "Saved scans" | "Account",
+  name: "Analysis" | "New analysis" | "Open scan by ID" | "Account",
 ) {
   const hash =
     name === "Analysis"
       ? "analysis"
       : name === "New analysis"
         ? "new-analysis"
-        : name === "Saved scans"
+        : name === "Open scan by ID"
           ? "saved-scans"
           : "account";
   const navigation = screen.getByRole("navigation", {
@@ -41,7 +41,7 @@ async function openView(
       ? "Security analysis"
       : name === "New analysis"
         ? "Compare source revisions"
-        : name === "Saved scans"
+        : name === "Open scan by ID"
           ? "Open previous analysis"
           : "Identity and connections";
   await screen.findByRole("heading", { name: heading });
@@ -57,6 +57,7 @@ function authResult(url: string) {
         login: "octocat",
         permissions: ["Identity verified"],
       },
+      github_connection_required: true,
     };
   if (url.endsWith("/auth/csrf"))
     return { headerName: "X-CSRF-TOKEN", token: "test-csrf" };
@@ -119,7 +120,7 @@ it("sends immutable source input and shows failure honestly", async () => {
     ([, options]) => options?.method === "POST",
   );
   expect(JSON.parse(call![1]!.body as string)).toEqual({
-    repository_path: "/allowlisted/repo",
+    repository: "/allowlisted/repo",
     old_commit: "a".repeat(40),
     new_commit: "b".repeat(40),
   });
@@ -149,7 +150,7 @@ it("keeps source mutation controls disabled for Developers", async () => {
   render(<App />);
   await openView("New analysis");
   expect(screen.getByRole("button", { name: "Run Analysis" })).toBeDisabled();
-  await openView("Saved scans");
+  await openView("Open scan by ID");
   fireEvent.change(screen.getByLabelText("Saved scan ID"), {
     target: { value: "d".repeat(64) },
   });
@@ -158,7 +159,7 @@ it("keeps source mutation controls disabled for Developers", async () => {
   expect(screen.queryByText("Manage accounts")).not.toBeInTheDocument();
 });
 
-it("replaces protected service interfaces with a GitHub connection gate", async () => {
+it("requires platform sign-in before showing protected service interfaces", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => ({
@@ -174,19 +175,79 @@ it("replaces protected service interfaces with a GitHub connection gate", async 
   );
   render(<App />);
   await openView("New analysis");
-  expect(
-    screen.getByText("Connect your GitHub account to access this page"),
-  ).toBeInTheDocument();
+  expect(screen.getByText("Sign in to access this page")).toBeInTheDocument();
   expect(screen.queryByLabelText("Repository path")).not.toBeInTheDocument();
-  await openView("Saved scans");
-  expect(
-    screen.getByText("Connect your GitHub account to access this page"),
-  ).toBeInTheDocument();
+  await openView("Open scan by ID");
+  expect(screen.getByText("Sign in to access this page")).toBeInTheDocument();
   expect(screen.queryByLabelText("Saved scan ID")).not.toBeInTheDocument();
   await openView("Account");
   expect(
     screen.getByRole("link", { name: /Continue with GitHub/ }),
   ).toHaveAttribute("href", "http://localhost:8080/auth/github/connect");
+});
+
+it("requires GitHub when the backend capability says it is mandatory", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () =>
+        url.endsWith("/auth/session")
+          ? {
+              authenticated: true,
+              user: {
+                username: "analyst",
+                name: "Connected-mode analyst",
+                role: "ANALYST",
+              },
+              github: { status: "DISCONNECTED", permissions: [] },
+              github_connection_required: true,
+            }
+          : fixtures["authorization-removal"],
+    })),
+  );
+
+  render(<App />);
+  await openView("New analysis");
+  expect(
+    screen.getByText("Connect your GitHub account to access this page"),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText("Repository path")).not.toBeInTheDocument();
+  await openView("Open scan by ID");
+  expect(
+    screen.getByText("Connect your GitHub account to access this page"),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText("Saved scan ID")).not.toBeInTheDocument();
+});
+
+it("fails closed when the backend omits the GitHub requirement capability", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () =>
+        url.endsWith("/auth/session")
+          ? {
+              authenticated: true,
+              user: {
+                username: "analyst",
+                name: "Legacy-response analyst",
+                role: "ANALYST",
+              },
+              github: { status: "NOT_CONFIGURED", permissions: [] },
+            }
+          : fixtures["authorization-removal"],
+    })),
+  );
+
+  render(<App />);
+  await openView("New analysis");
+  expect(
+    screen.getByText("Connect your GitHub account to access this page"),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText("Repository path")).not.toBeInTheDocument();
+  await openView("Open scan by ID");
+  expect(screen.queryByLabelText("Saved scan ID")).not.toBeInTheDocument();
 });
 
 it("labels saved fixtures when the platform is unavailable", async () => {
@@ -210,6 +271,98 @@ const sourceResult = {
   analyzer_version: "test-analyzer",
 };
 
+it("loads membership-filtered scan history and opens a completed result", async () => {
+  const history = {
+    items: [
+      {
+        job_id: "11111111-1111-1111-1111-111111111111",
+        scan_id: sourceResult.scan_id,
+        repository: "local:history-repository",
+        old_commit: "a".repeat(40),
+        new_commit: "b".repeat(40),
+        status: "COMPLETED",
+        risk_delta: 69,
+        verdict: "BLOCK",
+        updated_at: "2026-09-16T00:00:00Z",
+      },
+    ],
+    next_cursor: null,
+  };
+  const fetcher = vi.fn(async (url: string) => ({
+    ok: true,
+    json: async () =>
+      authResult(url) ??
+      (url.includes("/scans?")
+        ? history
+        : url.includes(`/analyses/${sourceResult.scan_id}`)
+          ? sourceResult
+          : fixtures["authorization-removal"]),
+  }));
+  vi.stubGlobal("fetch", fetcher);
+
+  render(<App />);
+  await openView("Open scan by ID");
+  await screen.findByText("local:history-repository");
+  expect(screen.getByText("COMPLETED")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "View" }));
+  await screen.findByText("Repository analysis");
+  expect(fetcher).toHaveBeenCalledWith(
+    expect.stringContaining(`/analyses/${sourceResult.scan_id}`),
+    expect.objectContaining({ credentials: "include" }),
+  );
+});
+
+it("submits an asynchronous scan job and polls until the canonical result is ready", async () => {
+  const jobId = "22222222-2222-2222-2222-222222222222";
+  let polls = 0;
+  const fetcher = vi.fn(async (url: string, options?: RequestInit) => {
+    const auth = authResult(url);
+    if (auth) return { ok: true, status: 200, json: async () => auth };
+    if (url.endsWith("/scans") && options?.method === "POST") {
+      return {
+        ok: true,
+        status: 202,
+        json: async () => ({ job_id: jobId, status: "QUEUED" }),
+      };
+    }
+    if (url.endsWith(`/scan-jobs/${jobId}`)) {
+      polls += 1;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          job_id: jobId,
+          status: polls === 1 ? "RUNNING" : "COMPLETED",
+        }),
+      };
+    }
+    if (url.endsWith(`/scan-jobs/${jobId}/result`)) {
+      return { ok: true, status: 200, json: async () => sourceResult };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => fixtures["authorization-removal"],
+    };
+  });
+  vi.stubGlobal("fetch", fetcher);
+
+  render(<App />);
+  await openView("New analysis");
+  fillSource();
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Run Analysis" })).toBeEnabled(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Run Analysis" }));
+
+  await screen.findByText("Repository analysis", {}, { timeout: 4000 });
+  expect(polls).toBe(2);
+  expect(fetcher).toHaveBeenCalledWith(
+    expect.stringContaining(`/scan-jobs/${jobId}/result`),
+    expect.objectContaining({ credentials: "include" }),
+  );
+});
+
 function fillSource() {
   fireEvent.change(screen.getByLabelText("Repository path"), {
     target: { value: "/allowlisted/repo" },
@@ -221,6 +374,78 @@ function fillSource() {
     target: { value: "b".repeat(40) },
   });
 }
+
+it("uses the backend capability contract in GitHub-optional local mode", async () => {
+  const fetcher = vi.fn(async (url: string, options?: RequestInit) => ({
+    ok: true,
+    json: async () =>
+      url.endsWith("/auth/session")
+        ? {
+            authenticated: true,
+            user: {
+              username: "analyst",
+              name: "Local analyst",
+              role: "ANALYST",
+            },
+            github: { status: "NOT_CONFIGURED", permissions: [] },
+            github_connection_required: false,
+          }
+        : url.endsWith("/auth/csrf")
+          ? { headerName: "X-CSRF-TOKEN", token: "test-csrf" }
+          : options?.method === "POST"
+            ? sourceResult
+            : fixtures["authorization-removal"],
+  }));
+  vi.stubGlobal("fetch", fetcher);
+
+  render(<App />);
+  await openView("New analysis");
+  fillSource();
+  const run = screen.getByRole("button", { name: "Run Analysis" });
+  await waitFor(() => expect(run).toBeEnabled());
+  fireEvent.click(run);
+  await screen.findByText("Repository analysis");
+
+  await openView("Open scan by ID");
+  expect(screen.getByLabelText("Saved scan ID")).toBeInTheDocument();
+  expect(
+    screen.queryByText("Connect your GitHub account to access this page"),
+  ).not.toBeInTheDocument();
+  expect(
+    fetcher.mock.calls.some(
+      ([url, options]) => url.endsWith("/scans") && options?.method === "POST",
+    ),
+  ).toBe(true);
+});
+
+it("keeps local-mode Developers read-only without requiring GitHub", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () =>
+        url.endsWith("/auth/session")
+          ? {
+              authenticated: true,
+              user: {
+                username: "developer",
+                name: "Local developer",
+                role: "DEVELOPER",
+              },
+              github: { status: "NOT_CONFIGURED", permissions: [] },
+              github_connection_required: false,
+            }
+          : fixtures["authorization-removal"],
+    })),
+  );
+
+  render(<App />);
+  await openView("New analysis");
+  expect(screen.getByLabelText("Repository path")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Run Analysis" })).toBeDisabled();
+  await openView("Open scan by ID");
+  expect(screen.getByLabelText("Saved scan ID")).toBeInTheDocument();
+});
 
 it("refreshes the displayed source revisions instead of unsaved form edits", async () => {
   const fetcher = vi.fn(async (url: string, options?: RequestInit) => ({
@@ -255,7 +480,7 @@ it("refreshes the displayed source revisions instead of unsaved form edits", asy
     ([, options]) => options?.method === "POST",
   );
   expect(JSON.parse(posts[1][1]!.body as string)).toEqual({
-    repository_path: "/allowlisted/repo",
+    repository: "/allowlisted/repo",
     old_commit: "a".repeat(40),
     new_commit: "b".repeat(40),
   });
@@ -268,6 +493,48 @@ it("refreshes the displayed source revisions instead of unsaved form edits", asy
     target: { value: "authorization-removal" },
   });
   await screen.findByText("Spring Boot demo");
+});
+
+it("marks retained evidence stale when a source refresh fails", async () => {
+  let analysisRequests = 0;
+  const fetcher = vi.fn(async (url: string, options?: RequestInit) => {
+    const auth = authResult(url);
+    if (auth) return { ok: true, json: async () => auth };
+    if (url.endsWith("/scans") && options?.method === "POST") {
+      analysisRequests += 1;
+      if (analysisRequests === 1) {
+        return { ok: true, json: async () => sourceResult };
+      }
+      return {
+        ok: false,
+        json: async () => ({
+          code: "DEPENDENCY_UNAVAILABLE",
+          message: "Analyzer unavailable",
+        }),
+      };
+    }
+    return { ok: true, json: async () => fixtures["authorization-removal"] };
+  });
+  vi.stubGlobal("fetch", fetcher);
+
+  render(<App />);
+  await openView("New analysis");
+  fillSource();
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Run Analysis" })).toBeEnabled(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Run Analysis" }));
+  await screen.findByText("Repository analysis");
+  fireEvent.click(screen.getByRole("button", { name: "Refresh analysis" }));
+
+  const stale = (await screen.findByText("STALE RESULT")).closest(
+    '[role="alert"]',
+  );
+  expect(stale).not.toBeNull();
+  expect(stale).toHaveTextContent("STALE RESULT");
+  expect(stale).toHaveTextContent("local:test");
+  expect(stale).toHaveTextContent("aaaaaaa → bbbbbbb");
+  expect(screen.getByText("Repository analysis")).toBeInTheDocument();
 });
 
 it("opens a saved scan for a Developer without enabling mutations", async () => {
@@ -290,7 +557,7 @@ it("opens a saved scan for a Developer without enabling mutations", async () => 
   }));
   vi.stubGlobal("fetch", fetcher);
   render(<App />);
-  await openView("Saved scans");
+  await openView("Open scan by ID");
   fireEvent.change(screen.getByLabelText("Saved scan ID"), {
     target: { value: sourceResult.scan_id },
   });
@@ -304,7 +571,7 @@ it("opens a saved scan for a Developer without enabling mutations", async () => 
     screen.getByRole("button", { name: "Refresh analysis" }),
   ).toBeDisabled();
   expect(
-    screen.getByRole("button", { name: "Validate registered Docker sandbox" }),
+    screen.getByRole("button", { name: "Validate supported Docker finding" }),
   ).toBeDisabled();
 });
 
@@ -328,13 +595,13 @@ it("uses the final policy verdict after validation and retains the preliminary v
   }));
   vi.stubGlobal("fetch", fetcher);
   render(<App />);
-  await openView("Saved scans");
+  await openView("Open scan by ID");
   fireEvent.change(screen.getByLabelText("Saved scan ID"), {
     target: { value: sourceResult.scan_id },
   });
   fireEvent.click(screen.getByRole("button", { name: "Open scan" }));
   const validate = await screen.findByRole("button", {
-    name: "Validate registered Docker sandbox",
+    name: "Validate supported Docker finding",
   });
   fireEvent.click(validate);
   await screen.findByRole("heading", {
@@ -358,7 +625,7 @@ it("does not restore a protected result when an in-flight request finishes after
     finish = resolve;
   });
   const fetcher = vi.fn(async (url: string, options?: RequestInit) => {
-    if (url.endsWith("/analyses") && options?.method === "POST") return pending;
+    if (url.endsWith("/scans") && options?.method === "POST") return pending;
     return {
       ok: true,
       json: async () => authResult(url) ?? fixtures["authorization-removal"],
@@ -373,18 +640,18 @@ it("does not restore a protected result when an in-flight request finishes after
   );
   fireEvent.click(screen.getByRole("button", { name: "Run Analysis" }));
   await waitFor(() =>
-    expect(fetcher.mock.calls.some(([url]) => url.endsWith("/analyses"))).toBe(
+    expect(fetcher.mock.calls.some(([url]) => url.endsWith("/scans"))).toBe(
       true,
     ),
   );
   await openView("Account");
   fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
   await screen.findByRole("button", { name: "Sign in" });
-  const call = fetcher.mock.calls.find(([url]) => url.endsWith("/analyses"));
+  const call = fetcher.mock.calls.find(([url]) => url.endsWith("/scans"));
   expect(call![1]!.signal!.aborted).toBe(true);
   finish({ ok: true, json: async () => sourceResult });
   await openView("New analysis");
-  await screen.findByText("Connect your GitHub account to access this page");
+  await screen.findByText("Sign in to access this page");
   expect(screen.queryByLabelText("Repository path")).not.toBeInTheDocument();
   await openView("Analysis");
   expect(screen.queryByText("Repository analysis")).not.toBeInTheDocument();
@@ -511,7 +778,7 @@ it("keeps source locations, extraction diagnostics, and AI hypotheses distinct",
     })),
   );
   render(<App />);
-  await openView("Saved scans");
+  await openView("Open scan by ID");
   fireEvent.change(screen.getByLabelText("Saved scan ID"), {
     target: { value: sourceResult.scan_id },
   });

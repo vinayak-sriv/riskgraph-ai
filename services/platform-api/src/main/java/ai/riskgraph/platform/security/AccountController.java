@@ -16,8 +16,10 @@ import org.springframework.web.bind.annotation.*;
 public class AccountController {
     private final AccountService accounts;
     private final GithubOAuthSettings github;
-    public AccountController(AccountService accounts, GithubOAuthSettings github) {
-        this.accounts = accounts; this.github = github;
+    private final GithubConnectionGuard githubGuard;
+    public AccountController(AccountService accounts, GithubOAuthSettings github,
+            GithubConnectionGuard githubGuard) {
+        this.accounts = accounts; this.github = github; this.githubGuard = githubGuard;
     }
 
     @GetMapping("/auth/csrf") public Map<String, String> csrf(CsrfToken csrf) {
@@ -33,6 +35,7 @@ public class AccountController {
         result.put("github", error == null
             ? accounts.githubConnection(principal == null ? null : principal.getName(), github.configured())
             : new AccountService.GithubConnection(AccountService.GithubStatus.ERROR, null, List.of(), error));
+        result.put("github_connection_required", githubGuard.required());
         return result;
     }
     @GetMapping("/auth/github/connect") public void connectGithub(Principal principal, HttpServletRequest request,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -12,14 +12,15 @@ import {
 } from "lucide-react";
 import type { Account } from "./AccountPanel";
 import type { AnalysisResult } from "../types";
-import type { SourceInput } from "../useAnalysis";
+import type { SavedScanHistoryItem, SourceInput } from "../useAnalysis";
 
 const SHA_PATTERN = /^[0-9a-fA-F]{40}$/;
 
 export function NewAnalysisPanel({
   analysis,
   user,
-  githubConnected,
+  sourceAccessEnabled,
+  githubConnectionRequired,
   loading,
   requestError,
   onRun,
@@ -27,7 +28,8 @@ export function NewAnalysisPanel({
 }: {
   analysis: AnalysisResult;
   user: Account | null;
-  githubConnected: boolean;
+  sourceAccessEnabled: boolean;
+  githubConnectionRequired: boolean;
   loading: boolean;
   requestError: string | null;
   onRun: (input: SourceInput) => Promise<boolean | undefined>;
@@ -85,8 +87,11 @@ export function NewAnalysisPanel({
           <Terminal size={14} /> Local workspace
         </span>
       </div>
-      {!githubConnected ? (
-        <GitHubRequired />
+      {!sourceAccessEnabled ? (
+        <SourceAccessRequired
+          authenticated={!!user}
+          githubConnectionRequired={githubConnectionRequired}
+        />
       ) : (
         <form
           className="analysis-form surface analysis-form-refined"
@@ -237,27 +242,45 @@ export function NewAnalysisPanel({
 }
 
 export function SavedScansPanel({
-  analysis,
   user,
-  githubConnected,
+  sourceAccessEnabled,
+  githubConnectionRequired,
   loading,
   requestError,
   onOpen,
   onSuccess,
+  history,
+  nextCursor,
+  historyLoading,
+  historyError,
+  onLoadHistory,
 }: {
-  analysis: AnalysisResult;
   user: Account | null;
-  githubConnected: boolean;
+  sourceAccessEnabled: boolean;
+  githubConnectionRequired: boolean;
   loading: boolean;
   requestError: string | null;
   onOpen: (id: string) => Promise<boolean | undefined>;
   onSuccess: () => void;
+  history: SavedScanHistoryItem[];
+  nextCursor: string | null;
+  historyLoading: boolean;
+  historyError: string | null;
+  onLoadHistory: (cursor?: string) => Promise<void>;
 }) {
   const [savedScan, setSavedScan] = useState("");
+  const historyRequested = useRef(false);
   useEffect(() => {
     if (!user) setSavedScan("");
   }, [user]);
-  const currentScan = analysis.scan_id && analysis.provenance ? analysis : null;
+  useEffect(() => {
+    if (!sourceAccessEnabled) {
+      historyRequested.current = false;
+    } else if (!historyRequested.current) {
+      historyRequested.current = true;
+      void onLoadHistory();
+    }
+  }, [sourceAccessEnabled, onLoadHistory]);
   return (
     <section className="workspace-view" aria-labelledby="saved-scans-title">
       <div className="page-heading compact-heading">
@@ -266,12 +289,15 @@ export function SavedScansPanel({
             <History size={13} /> Saved scans
           </p>
           <h1 id="saved-scans-title">Open previous analysis</h1>
-          <p>Return to a registered scan without rerunning source analysis.</p>
+          <p>Browse scan jobs and results shared with your account.</p>
         </div>
-        <span className="runtime-badge">Listing API pending</span>
+        <span className="runtime-badge">Direct lookup</span>
       </div>
-      {!githubConnected ? (
-        <GitHubRequired />
+      {!sourceAccessEnabled ? (
+        <SourceAccessRequired
+          authenticated={!!user}
+          githubConnectionRequired={githubConnectionRequired}
+        />
       ) : (
         <>
           <form
@@ -307,16 +333,24 @@ export function SavedScansPanel({
           <div className="surface saved-scans-table-wrap">
             <div className="surface-heading">
               <div>
-                <p className="eyebrow">Available in this session</p>
-                <h2>Recent result</h2>
+                <p className="eyebrow">Membership-filtered</p>
+                <h2>Scan jobs</h2>
               </div>
-              <span className="count-badge">{currentScan ? 1 : 0}</span>
+              <span className="count-badge">{history.length}</span>
             </div>
-            {currentScan ? (
+            {historyLoading && history.length === 0 ? (
+              <div className="empty-surface" role="status">
+                Loading saved scans…
+              </div>
+            ) : historyError && history.length === 0 ? (
+              <div className="empty-surface" role="alert">
+                {historyError}
+              </div>
+            ) : history.length > 0 ? (
               <div
                 className="source-table-wrap"
                 role="region"
-                aria-label="Current saved scan"
+                aria-label="Saved scan history"
                 tabIndex={0}
               >
                 <table className="source-table saved-scans-table">
@@ -326,51 +360,68 @@ export function SavedScansPanel({
                       <th>Revisions</th>
                       <th>Verdict</th>
                       <th>Risk delta</th>
-                      <th>Confidence</th>
+                      <th>Status</th>
                       <th>
                         <span className="sr-only">Action</span>
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td>{currentScan.provenance!.repository_identity}</td>
-                      <td>
-                        <code>
-                          {currentScan.provenance!.old_commit.slice(0, 7)} →{" "}
-                          {currentScan.provenance!.new_commit.slice(0, 7)}
-                        </code>
-                      </td>
-                      <td>
-                        {currentScan.final_verdict ?? currentScan.verdict}
-                      </td>
-                      <td>
-                        <code>
-                          {currentScan.risk_result.risk_delta > 0 ? "+" : ""}
-                          {currentScan.risk_result.risk_delta}
-                        </code>
-                      </td>
-                      <td>{currentScan.quality?.confidence ?? "UNKNOWN"}</td>
-                      <td>
-                        <button
-                          className="secondary-button"
-                          type="button"
-                          onClick={onSuccess}
-                        >
-                          View
-                        </button>
-                      </td>
-                    </tr>
+                    {history.map((item) => (
+                      <tr key={item.job_id}>
+                        <td>{item.repository}</td>
+                        <td>
+                          <code>
+                            {item.old_commit.slice(0, 7)} →{" "}
+                            {item.new_commit.slice(0, 7)}
+                          </code>
+                        </td>
+                        <td>{item.verdict ?? "—"}</td>
+                        <td>
+                          <code>
+                            {item.risk_delta == null
+                              ? "—"
+                              : `${item.risk_delta > 0 ? "+" : ""}${item.risk_delta}`}
+                          </code>
+                        </td>
+                        <td>{item.status}</td>
+                        <td>
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            disabled={!item.scan_id}
+                            onClick={() =>
+                              item.scan_id &&
+                              void onOpen(item.scan_id).then((opened) => {
+                                if (opened) onSuccess();
+                              })
+                            }
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
+                {nextCursor && (
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    disabled={historyLoading}
+                    onClick={() => void onLoadHistory(nextCursor)}
+                  >
+                    Load more
+                  </button>
+                )}
               </div>
             ) : (
               <div className="empty-surface">
                 <History size={20} />
-                <strong>No source scan opened in this session</strong>
+                <strong>No saved scans are visible</strong>
                 <p>
-                  Enter a known scan ID above. Searchable history will appear
-                  here when the platform exposes its scan-listing API.
+                  Completed and in-progress jobs appear after submission or
+                  sharing.
                 </p>
               </div>
             )}
@@ -386,19 +437,31 @@ export function SavedScansPanel({
   );
 }
 
-function GitHubRequired() {
+function SourceAccessRequired({
+  authenticated,
+  githubConnectionRequired,
+}: {
+  authenticated: boolean;
+  githubConnectionRequired: boolean;
+}) {
+  const githubRequired = authenticated && githubConnectionRequired;
   return (
     <div className="state-panel state-empty github-required" role="status">
       <LockKeyhole size={20} />
       <div>
-        <strong>Connect your GitHub account to access this page</strong>
+        <strong>
+          {githubRequired
+            ? "Connect your GitHub account to access this page"
+            : "Sign in to access this page"}
+        </strong>
         <p>
-          GitHub authorization is required before RiskGraph can open source
-          scans, saved evidence, or validation services.
+          {githubRequired
+            ? "GitHub authorization is required before RiskGraph can open source scans, saved evidence, or validation services."
+            : "A RiskGraph account is required before you can open source scans or saved evidence."}
         </p>
       </div>
       <a className="primary-button" href="#account">
-        Connect GitHub
+        {githubRequired ? "Connect GitHub" : "Sign in"}
       </a>
     </div>
   );

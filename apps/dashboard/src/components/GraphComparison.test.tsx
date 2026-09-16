@@ -134,3 +134,86 @@ it("selects and copies each server-provided path using the original node IDs", a
   await screen.findByTitle("Copy attack path");
   expect(writeText).toHaveBeenCalledWith("user:anonymous -> resource:Other");
 });
+
+it("does not mount an oversized graph until focused detail is requested", () => {
+  const nodes = Array.from({ length: 501 }, (_, index) => ({
+    id: `function:${index}`,
+    node_type: "FUNCTION",
+    name: `Function ${index}`,
+  }));
+  const largeAnalysis: AnalysisResult = {
+    ...(fixtures["safe-change"] as AnalysisResult),
+    graph_delta: {
+      before: { nodes, edges: [] },
+      after: { nodes, edges: [] },
+      new_paths: [],
+      removed_paths: [],
+    },
+  };
+
+  render(
+    <GraphComparison
+      analysis={largeAnalysis}
+      theme="dark"
+      onNotify={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByText("Summary graph mode")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("region", { name: /After change/ }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Node clusters by type")).toHaveTextContent(
+    "Function501",
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Load focused graph detail" }),
+  );
+  expect(
+    screen.getByRole("region", { name: /After change/ }),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Page 1 of 6")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(screen.getByText("Page 2 of 6")).toBeInTheDocument();
+});
+
+it("defaults medium graphs to one focused revision", () => {
+  const base = fixtures["safe-change"] as AnalysisResult;
+  const nodes = [
+    ...base.graph_delta.after.nodes,
+    ...Array.from(
+      { length: 101 - base.graph_delta.after.nodes.length },
+      (_, index) => ({
+        id: `function:${index}`,
+        node_type: "FUNCTION",
+        name: `Function ${index}`,
+      }),
+    ),
+  ];
+  const mediumAnalysis: AnalysisResult = {
+    ...base,
+    graph_delta: {
+      ...base.graph_delta,
+      before: { nodes, edges: base.graph_delta.before.edges },
+      after: { nodes, edges: base.graph_delta.after.edges },
+    },
+  };
+
+  render(
+    <GraphComparison
+      analysis={mediumAnalysis}
+      theme="dark"
+      onNotify={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByText("Focused graph mode")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Compare" })).toBeDisabled();
+  expect(
+    screen.queryByRole("region", { name: /Before change/ }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("region", { name: /After change/ }),
+  ).toBeInTheDocument();
+});

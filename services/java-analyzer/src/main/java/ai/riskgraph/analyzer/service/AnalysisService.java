@@ -37,6 +37,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import ai.riskgraph.analyzer.extract.SpringEndpointExtractor;
 import ai.riskgraph.analyzer.extract.SpringEndpointExtractor.ExtractionResult;
+import ai.riskgraph.analyzer.service.DeterministicExtractionCache.CachedExtraction;
 import ai.riskgraph.analyzer.source.GitSourceAcquirer;
 
 @Service
@@ -53,6 +54,7 @@ public class AnalysisService {
     private final boolean processIsolation;
     private final String executableJar;
     private final ObjectMapper mapper;
+    private final DeterministicExtractionCache extractionCache;
 
     @Autowired
     public AnalysisService(
@@ -63,10 +65,12 @@ public class AnalysisService {
             @Value("${riskgraph.analyzer.max-queued-analyses:4}") int maxQueuedAnalyses,
             @Value("${riskgraph.analyzer.process-isolation:false}") boolean processIsolation,
             @Value("${riskgraph.analyzer.executable-jar:}") String executableJar,
+            @Value("${riskgraph.analyzer.extraction-cache-max-entries:64}") int extractionCacheMaxEntries,
             ObjectMapper mapper
     ) {
         this(sourceAcquirer, extractor, Clock.systemUTC(), maxAnalysisSeconds,
-                maxConcurrentAnalyses, maxQueuedAnalyses, processIsolation, executableJar, mapper);
+                maxConcurrentAnalyses, maxQueuedAnalyses, processIsolation, executableJar, mapper,
+                extractionCacheMaxEntries);
     }
 
     public AnalysisService(GitSourceAcquirer sourceAcquirer, SpringEndpointExtractor extractor) {
@@ -105,6 +109,22 @@ public class AnalysisService {
             String executableJar,
             ObjectMapper mapper
     ) {
+        this(sourceAcquirer, extractor, clock, maxAnalysisSeconds, maxConcurrentAnalyses,
+                maxQueuedAnalyses, processIsolation, executableJar, mapper, 64);
+    }
+
+    AnalysisService(
+            GitSourceAcquirer sourceAcquirer,
+            SpringEndpointExtractor extractor,
+            Clock clock,
+            int maxAnalysisSeconds,
+            int maxConcurrentAnalyses,
+            int maxQueuedAnalyses,
+            boolean processIsolation,
+            String executableJar,
+            ObjectMapper mapper,
+            int extractionCacheMaxEntries
+    ) {
         this.sourceAcquirer = sourceAcquirer;
         this.extractor = extractor;
         this.clock = clock;
@@ -112,6 +132,7 @@ public class AnalysisService {
         this.processIsolation = processIsolation;
         this.executableJar = executableJar;
         this.mapper = mapper;
+        this.extractionCache = new DeterministicExtractionCache(extractionCacheMaxEntries);
         int workers = Math.max(1, maxConcurrentAnalyses);
         int queueSize = Math.max(1, maxQueuedAnalyses);
         this.executor = new ThreadPoolExecutor(workers, workers, 0, TimeUnit.MILLISECONDS,
@@ -188,8 +209,18 @@ public class AnalysisService {
                 process.descendants().forEach(handle -> handle.destroyForcibly());
                 process.destroyForcibly();
             }
-            try { if (output != null) Files.deleteIfExists(output); } catch (IOException ignored) { }
-            try { if (log != null) Files.deleteIfExists(log); } catch (IOException ignored) { }
+            cleanupWorkerArtifact(output, "output");
+            cleanupWorkerArtifact(log, "log");
+        }
+    }
+
+    private void cleanupWorkerArtifact(Path artifact, String kind) {
+        if (artifact == null) return;
+        try {
+            Files.deleteIfExists(artifact);
+        } catch (IOException error) {
+            LOG.warn("worker_temp_cleanup_failed artifact_kind={} artifact={} error_type={}",
+                    kind, artifact.getFileName(), error.getClass().getSimpleName());
         }
     }
 
@@ -200,6 +231,12 @@ public class AnalysisService {
                     acquired.repositoryIdentity(), acquired.oldCommit(), acquired.newCommit(), configHash);
             LOG.info("analysis_started analysis_id={} old_commit={} new_commit={}",
                     analysisId, acquired.oldCommit(), acquired.newCommit());
+            var cached = extractionCache.get(analysisId);
+            if (cached.isPresent()) {
+                LOG.info("extraction_cache_hit analysis_id={}", analysisId);
+                return response(acquired, configHash, analysisId, cached.orElseThrow());
+            }
+            LOG.info("extraction_cache_miss analysis_id={}", analysisId);
             ExtractionResult before = extractor.extract(
                     acquired.oldSnapshot(), changedRanges(acquired.changedFiles(), true));
             ExtractionResult after = extractor.extract(
@@ -210,7 +247,27 @@ public class AnalysisService {
                 diagnostics.add(new Diagnostic("INFO", "NO_JAVA_CHANGES",
                         "No changed Java files were found between the commits", null));
             }
-            AnalysisResponse response = new AnalysisResponse(
+            CachedExtraction extraction = new CachedExtraction(
+                    before.endpoints(), after.endpoints(), combine(before.coverage(), after.coverage()), diagnostics)
+                    .immutableCopy();
+            if (extractionCache.put(analysisId, extraction)) {
+                LOG.info("extraction_cache_evicted analysis_id={}", analysisId);
+            }
+            AnalysisResponse response = response(acquired, configHash, analysisId, extraction);
+            LOG.info("analysis_completed analysis_id={} changed_files={} endpoints={} diagnostics={}",
+                    analysisId, acquired.changedFiles().size(), response.coverage().endpoints_emitted(),
+                    response.diagnostics().size());
+            return response;
+        }
+    }
+
+    private AnalysisResponse response(
+            GitSourceAcquirer.AcquiredRevisions acquired,
+            String configHash,
+            String analysisId,
+            CachedExtraction extraction
+    ) {
+        return new AnalysisResponse(
                     SCHEMA_VERSION,
                     ANALYZER_VERSION,
                     configHash,
@@ -219,14 +276,14 @@ public class AnalysisService {
                     new RepositoryProvenance(acquired.repositoryPath().toString(), acquired.repositoryIdentity(),
                             acquired.oldCommit(), acquired.newCommit()),
                     acquired.changedFiles(),
-                    before.endpoints(),
-                    after.endpoints(),
-                    combine(before.coverage(), after.coverage()),
-                    List.copyOf(diagnostics));
-            LOG.info("analysis_completed analysis_id={} changed_files={} endpoints={} diagnostics={}",
-                    analysisId, acquired.changedFiles().size(), response.coverage().endpoints_emitted(), diagnostics.size());
-            return response;
-        }
+                    extraction.before(),
+                    extraction.after(),
+                    extraction.coverage(),
+                    extraction.diagnostics());
+    }
+
+    DeterministicExtractionCache.CacheStats extractionCacheStats() {
+        return extractionCache.stats();
     }
 
     private Map<String, List<ai.riskgraph.analyzer.model.AnalysisModels.ChangedRange>> changedRanges(

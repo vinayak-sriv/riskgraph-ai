@@ -13,6 +13,8 @@ import {
 import type { Viewport } from "@xyflow/react";
 import { SecurityGraph } from "./SecurityGraph";
 import { NodeInspector } from "./NodeInspector";
+import { useGraphDiff, type DiffFilter } from "./useGraphDiff";
+import { useGraphPresentationMode } from "./useGraphPresentationMode";
 import type {
   AnalysisResult,
   SecurityGraph as SecurityGraphData,
@@ -25,7 +27,6 @@ import {
 } from "../view-model";
 
 type GraphMode = "compare" | "before" | "after";
-type DiffFilter = "all" | "changed" | "path";
 type FocusTarget = { nodeId: string; requestId: number };
 
 export function GraphComparison({
@@ -41,11 +42,24 @@ export function GraphComparison({
   focusTarget?: FocusTarget | null;
   onEvidenceFocus?: (evidence: string) => void;
 }) {
+  const presentation = useGraphPresentationMode(analysis);
   const [graphMode, setGraphMode] = useState<GraphMode>(() =>
-    window.matchMedia("(max-width: 760px)").matches ? "after" : "compare",
+    presentation.allowCompare &&
+    !window.matchMedia("(max-width: 760px)").matches
+      ? "compare"
+      : "after",
   );
   const [nodeTypeFilter, setNodeTypeFilter] = useState("ALL");
-  const [diffFilter, setDiffFilter] = useState<DiffFilter>("all");
+  const [diffFilter, setDiffFilter] = useState<DiffFilter>(() =>
+    presentation.mode === "NORMAL"
+      ? "all"
+      : analysis.graph_delta.new_paths.length
+        ? "path"
+        : "changed",
+  );
+  const [detailedLoaded, setDetailedLoaded] = useState(
+    !presentation.requiresDetailedLoad,
+  );
   const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
   const [copied, setCopied] = useState(false);
   const [pathIndex, setPathIndex] = useState(0);
@@ -59,10 +73,23 @@ export function GraphComparison({
     setSelectedNode(null);
     setPathIndex(0);
     setNodeTypeFilter("ALL");
-    setDiffFilter("all");
+    setGraphMode(
+      presentation.allowCompare &&
+        !window.matchMedia("(max-width: 760px)").matches
+        ? "compare"
+        : "after",
+    );
+    setDiffFilter(
+      presentation.mode === "NORMAL"
+        ? "all"
+        : analysis.graph_delta.new_paths.length
+          ? "path"
+          : "changed",
+    );
+    setDetailedLoaded(!presentation.requiresDetailedLoad);
     setCopied(false);
     setSharedViewport(undefined);
-  }, [analysis]);
+  }, [analysis, presentation]);
   useEffect(() => {
     if (!copied) return;
     const timer = window.setTimeout(() => setCopied(false), 1600);
@@ -118,71 +145,9 @@ export function GraphComparison({
     ],
     [analysis],
   );
-  const graphDiff = useMemo(() => {
-    const beforeEdgeKeys = new Set(
-      analysis.graph_delta.before.edges.map(edgeKey),
-    );
-    const afterEdgeKeys = new Set(
-      analysis.graph_delta.after.edges.map(edgeKey),
-    );
-    const beforeNodeIds = new Set(
-      analysis.graph_delta.before.nodes.map((node) => node.id),
-    );
-    const afterNodeIds = new Set(
-      analysis.graph_delta.after.nodes.map((node) => node.id),
-    );
-    const addedEdges = analysis.graph_delta.after.edges.filter(
-      (edge) => !beforeEdgeKeys.has(edgeKey(edge)),
-    );
-    const removedEdges = analysis.graph_delta.before.edges.filter(
-      (edge) => !afterEdgeKeys.has(edgeKey(edge)),
-    );
-    const addedNodes = analysis.graph_delta.after.nodes.filter(
-      (node) => !beforeNodeIds.has(node.id),
-    );
-    const removedNodes = analysis.graph_delta.before.nodes.filter(
-      (node) => !afterNodeIds.has(node.id),
-    );
-    const changedAfterIds = new Set([
-      ...addedNodes.map((node) => node.id),
-      ...addedEdges.flatMap((edge) => [edge.source_id, edge.target_id]),
-    ]);
-    const changedBeforeIds = new Set([
-      ...removedNodes.map((node) => node.id),
-      ...removedEdges.flatMap((edge) => [edge.source_id, edge.target_id]),
-    ]);
-    const pathNodeIds = new Set(newPath?.nodes ?? []);
-    return {
-      addedEdges,
-      removedEdges,
-      addedNodes,
-      removedNodes,
-      visibleBefore: filterGraph(
-        analysis.graph_delta.before,
-        diffFilter === "changed"
-          ? changedBeforeIds
-          : diffFilter === "path"
-            ? pathNodeIds
-            : null,
-      ),
-      visibleAfter: filterGraph(
-        analysis.graph_delta.after,
-        diffFilter === "changed"
-          ? changedAfterIds
-          : diffFilter === "path"
-            ? pathNodeIds
-            : null,
-      ),
-    };
-  }, [analysis, diffFilter, newPath]);
-  const {
-    addedEdges,
-    removedEdges,
-    addedNodes,
-    removedNodes,
-    visibleBefore,
-    visibleAfter,
-  } = graphDiff;
+  const graphDiff = useGraphDiff(analysis, diffFilter, newPath);
+  const { visibleBefore, visibleAfter, changeCounts, afterNodeCounts } =
+    graphDiff;
 
   const selectNode = (
     nodeId: string,
@@ -209,6 +174,7 @@ export function GraphComparison({
       : analysis.graph_delta.before;
     const revision = afterNode ? "After" : "Before";
     if (graph.nodes.some((node) => node.id === focusTarget.nodeId)) {
+      setDetailedLoaded(true);
       setGraphMode(revision === "After" ? "after" : "before");
       setDiffFilter("all");
       selectNode(focusTarget.nodeId, graph, revision);
@@ -345,6 +311,7 @@ export function GraphComparison({
                 key={mode}
                 className={graphMode === mode ? "active" : ""}
                 aria-pressed={graphMode === mode}
+                disabled={mode === "compare" && !presentation.allowCompare}
                 onClick={() => setGraphMode(mode)}
               >
                 {formatLabel(mode)}
@@ -389,25 +356,34 @@ export function GraphComparison({
           </span>
         </div>
       </details>
+      {presentation.mode !== "NORMAL" && (
+        <div className="graph-size-notice" role="status">
+          <strong>{formatLabel(presentation.mode)} graph mode</strong>
+          <span>
+            Largest revision: {presentation.largestRevisionNodes} nodes. Full
+            deterministic counts remain available below.
+          </span>
+        </div>
+      )}
       <div className="graph-change-summary" aria-label="Graph changes">
-        {addedEdges.map((edge) => (
-          <span className="change-added" key={`added-${edgeKey(edge)}`}>
-            + {formatLabel(edge.relationship)} edge
+        {changeCounts.addedEdges.map(({ type, count }) => (
+          <span className="change-added" key={`added-edge-${type}`}>
+            + {count} {formatLabel(type)} {count === 1 ? "edge" : "edges"}
           </span>
         ))}
-        {removedEdges.map((edge) => (
-          <span className="change-removed" key={`removed-${edgeKey(edge)}`}>
-            − {formatLabel(edge.relationship)} edge
+        {changeCounts.removedEdges.map(({ type, count }) => (
+          <span className="change-removed" key={`removed-edge-${type}`}>
+            − {count} {formatLabel(type)} {count === 1 ? "edge" : "edges"}
           </span>
         ))}
-        {addedNodes.map((node) => (
-          <span className="change-added" key={`added-${node.id}`}>
-            + {formatLabel(node.node_type)} node
+        {changeCounts.addedNodes.map(({ type, count }) => (
+          <span className="change-added" key={`added-node-${type}`}>
+            + {count} {formatLabel(type)} {count === 1 ? "node" : "nodes"}
           </span>
         ))}
-        {removedNodes.map((node) => (
-          <span className="change-removed" key={`removed-${node.id}`}>
-            − {formatLabel(node.node_type)} node
+        {changeCounts.removedNodes.map(({ type, count }) => (
+          <span className="change-removed" key={`removed-node-${type}`}>
+            − {count} {formatLabel(type)} {count === 1 ? "node" : "nodes"}
           </span>
         ))}
       </div>
@@ -463,52 +439,64 @@ export function GraphComparison({
         </div>
       )}
 
-      <div className={`graph-workspace graph-mode-${graphMode}`}>
-        {graphMode !== "after" && (
-          <GraphPanel
-            title="Before change"
-            subtitle="Previous revision"
-            graph={visibleBefore}
-            fullGraph={analysis.graph_delta.before}
-            status="Before"
-            nodeTypeFilter={nodeTypeFilter}
-            selectedNodeId={
-              selectedNode?.revision === "Before" ? selectedNode.node.id : null
-            }
-            onNodeSelect={(nodeId) =>
-              selectNode(nodeId, analysis.graph_delta.before, "Before")
-            }
-            theme={theme}
-            viewport={syncViews ? sharedViewport : undefined}
-            onViewportChange={syncViews ? setSharedViewport : undefined}
-          />
-        )}
-        {graphMode !== "before" && (
-          <GraphPanel
-            title="After change"
-            subtitle={
-              newPath
-                ? "New anonymous access detected"
-                : "No new anonymous sensitive path"
-            }
-            graph={visibleAfter}
-            fullGraph={analysis.graph_delta.after}
-            status={newPath ? "New path" : "No new path"}
-            danger={Boolean(newPath)}
-            highlightedPath={newPath}
-            nodeTypeFilter={nodeTypeFilter}
-            selectedNodeId={
-              selectedNode?.revision === "After" ? selectedNode.node.id : null
-            }
-            onNodeSelect={(nodeId) =>
-              selectNode(nodeId, analysis.graph_delta.after, "After")
-            }
-            theme={theme}
-            viewport={syncViews ? sharedViewport : undefined}
-            onViewportChange={syncViews ? setSharedViewport : undefined}
-          />
-        )}
-      </div>
+      {!detailedLoaded && (
+        <GraphSummary
+          analysis={analysis}
+          afterNodeCounts={afterNodeCounts}
+          onLoad={() => setDetailedLoaded(true)}
+        />
+      )}
+
+      {detailedLoaded && (
+        <div className={`graph-workspace graph-mode-${graphMode}`}>
+          {graphMode !== "after" && (
+            <GraphPanel
+              title="Before change"
+              subtitle="Previous revision"
+              graph={visibleBefore}
+              fullGraph={analysis.graph_delta.before}
+              status="Before"
+              nodeTypeFilter={nodeTypeFilter}
+              selectedNodeId={
+                selectedNode?.revision === "Before"
+                  ? selectedNode.node.id
+                  : null
+              }
+              onNodeSelect={(nodeId) =>
+                selectNode(nodeId, analysis.graph_delta.before, "Before")
+              }
+              theme={theme}
+              viewport={syncViews ? sharedViewport : undefined}
+              onViewportChange={syncViews ? setSharedViewport : undefined}
+            />
+          )}
+          {graphMode !== "before" && (
+            <GraphPanel
+              title="After change"
+              subtitle={
+                newPath
+                  ? "New anonymous access detected"
+                  : "No new anonymous sensitive path"
+              }
+              graph={visibleAfter}
+              fullGraph={analysis.graph_delta.after}
+              status={newPath ? "New path" : "No new path"}
+              danger={Boolean(newPath)}
+              highlightedPath={newPath}
+              nodeTypeFilter={nodeTypeFilter}
+              selectedNodeId={
+                selectedNode?.revision === "After" ? selectedNode.node.id : null
+              }
+              onNodeSelect={(nodeId) =>
+                selectNode(nodeId, analysis.graph_delta.after, "After")
+              }
+              theme={theme}
+              viewport={syncViews ? sharedViewport : undefined}
+              onViewportChange={syncViews ? setSharedViewport : undefined}
+            />
+          )}
+        </div>
+      )}
       <div className="graph-caption">
         <span>
           <Network size={14} /> NetworkX · BFS shortest path
@@ -557,6 +545,14 @@ function GraphPanel({
   viewport?: Viewport;
   onViewportChange?: (viewport: Viewport) => void;
 }) {
+  const pageSize = 100;
+  const [directoryPage, setDirectoryPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(fullGraph.nodes.length / pageSize));
+  useEffect(() => setDirectoryPage(0), [fullGraph]);
+  const directoryNodes = fullGraph.nodes.slice(
+    directoryPage * pageSize,
+    (directoryPage + 1) * pageSize,
+  );
   return (
     <article className={`graph-panel ${danger ? "danger" : ""}`}>
       <header>
@@ -585,10 +581,11 @@ function GraphPanel({
       />
       <details className="node-directory">
         <summary>
-          Inspect {graph.nodes.length} nodes <span>Text view</span>
+          Inspect all {fullGraph.nodes.length} nodes{" "}
+          <span>Paginated text view</span>
         </summary>
         <ul>
-          {graph.nodes.slice(0, 500).map((node) => (
+          {directoryNodes.map((node) => (
             <li key={node.id}>
               <button type="button" onClick={() => onNodeSelect(node.id)}>
                 <span>{formatLabel(node.node_type)}</span>
@@ -598,31 +595,66 @@ function GraphPanel({
             </li>
           ))}
         </ul>
-        {graph.nodes.length > 500 && (
-          <p>
-            Showing the first 500 nodes. Use graph filters to narrow the view.
-          </p>
-        )}
+        <nav
+          className="node-directory-pagination"
+          aria-label={`${title} node pages`}
+        >
+          <button
+            type="button"
+            disabled={directoryPage === 0}
+            onClick={() => setDirectoryPage((page) => page - 1)}
+          >
+            Previous
+          </button>
+          <span aria-live="polite">
+            Page {directoryPage + 1} of {pageCount}
+          </span>
+          <button
+            type="button"
+            disabled={directoryPage + 1 >= pageCount}
+            onClick={() => setDirectoryPage((page) => page + 1)}
+          >
+            Next
+          </button>
+        </nav>
       </details>
     </article>
   );
 }
 
-function edgeKey(edge: SecurityGraphData["edges"][number]) {
-  return `${edge.source_id}|${edge.target_id}|${edge.relationship}`;
-}
-
-function filterGraph(
-  graph: SecurityGraphData,
-  visibleIds: Set<string> | null,
-): SecurityGraphData {
-  if (!visibleIds) return graph;
-  const nodes = graph.nodes.filter((node) => visibleIds.has(node.id));
-  const ids = new Set(nodes.map((node) => node.id));
-  return {
-    nodes,
-    edges: graph.edges.filter(
-      (edge) => ids.has(edge.source_id) && ids.has(edge.target_id),
-    ),
-  };
+function GraphSummary({
+  analysis,
+  afterNodeCounts,
+  onLoad,
+}: {
+  analysis: AnalysisResult;
+  afterNodeCounts: { type: string; count: number }[];
+  onLoad: () => void;
+}) {
+  return (
+    <section
+      className="graph-cluster-summary"
+      aria-labelledby="cluster-summary-title"
+    >
+      <div>
+        <h3 id="cluster-summary-title">After-change graph summary</h3>
+        <p>
+          {analysis.graph_delta.after.nodes.length} nodes and{" "}
+          {analysis.graph_delta.after.edges.length} edges. Interactive layout is
+          deferred to protect browser responsiveness.
+        </p>
+      </div>
+      <ul aria-label="Node clusters by type">
+        {afterNodeCounts.map(({ type, count }) => (
+          <li key={type}>
+            <span>{formatLabel(type)}</span>
+            <strong>{count}</strong>
+          </li>
+        ))}
+      </ul>
+      <button className="secondary-button" type="button" onClick={onLoad}>
+        Load focused graph detail
+      </button>
+    </section>
+  );
 }

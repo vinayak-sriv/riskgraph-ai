@@ -60,7 +60,9 @@ docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile a
 | `SPRING_PROFILES_ACTIVE` | Omit for PostgreSQL; `local` opts into memory storage |
 | `RISKGRAPH_ANALYZER_PROCESS_ISOLATION` | `false` natively; Compose sets `true` so analyzer deadlines kill a separate JVM |
 | `RISKGRAPH_ANALYZER_EXECUTABLE_JAR` | Packaged analyzer jar used by isolated worker mode |
-| `RISKGRAPH_VALIDATION_DOCKER_HOST` | Dedicated daemon only; the sole accepted configured value is `tcp://validation-docker:2375` |
+| `RISKGRAPH_VALIDATION_DOCKER_HOST` | Required by default; the sole accepted configured value is `tcp://validation-docker:2375` |
+| `RISKGRAPH_RUNTIME_PROFILE`, `RISKGRAPH_ALLOW_HOST_DOCKER` | Both must be `local`/`true` to opt into the host daemon for native development; never set in deployment |
+| `RISKGRAPH_TRUSTED_PROXY_ADDRESSES` | Exact direct-peer IP allowlist permitted to supply `X-Forwarded-For`; empty means direct peer only |
 | `RISKGRAPH_REQUIRE_GITHUB_CONNECTION` | `false` only for local launcher/Compose; set `true` in connected deployments |
 | `RISKGRAPH_MAX_JAVA_FILES` | 5000 |
 | `RISKGRAPH_MAX_JAVA_FILE_BYTES` | 2097152 |
@@ -68,8 +70,22 @@ docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile a
 | `RISKGRAPH_MAX_ANALYSIS_SECONDS` | 60 |
 | `RISKGRAPH_MAX_CONCURRENT_ANALYSES` | 2; bounded analyzer workers |
 | `RISKGRAPH_MAX_QUEUED_ANALYSES` | 4; excess work receives HTTP 429 |
-| `RISKGRAPH_SERVICE_TOKEN` | Required shared internal-service secret; native launcher generates one when absent |
+| `RISKGRAPH_ENRICHMENT_WORKERS` | 4; one shared platform AI-enrichment worker pool |
+| `RISKGRAPH_ENRICHMENT_QUEUE_CAPACITY` | 16; excess enrichment degrades with `AI_ENRICHMENT_SATURATED` |
+| `RISKGRAPH_SCAN_JOB_WORKERS` | 2; bounded asynchronous source-scan workers |
+| `RISKGRAPH_SCAN_JOB_QUEUE_CAPACITY` | 8; excess submissions fail with HTTP 429 |
+| `RISKGRAPH_TEMP_CLEANUP_MINIMUM_AGE_HOURS` | 24; minimum age for owned analyzer temp cleanup |
+| `RISKGRAPH_TEMP_CLEANUP_MAX_CANDIDATES` | 100; maximum owned temp artifacts examined per sweep |
+| `RISKGRAPH_SNAPSHOT_CACHE_MAX_ENTRIES` | 32 immutable commit snapshots |
+| `RISKGRAPH_SNAPSHOT_CACHE_MAX_BYTES` | 1073741824; aggregate cache ceiling |
+| `RISKGRAPH_SNAPSHOT_CACHE_MAX_AGE_HOURS` | 24; inactive snapshot expiry |
+| `RISKGRAPH_SNAPSHOT_CACHE_ROOT` | Optional cache root; Compose uses a dedicated named volume |
+| `RISKGRAPH_EXTRACTION_CACHE_MAX_ENTRIES` | 64 immutable deterministic extraction records per analyzer process |
+| `RISKGRAPH_ANALYZER_SERVICE_TOKEN` | Analyzer-only internal credential; native launcher generates one when absent |
+| `RISKGRAPH_GRAPH_SERVICE_TOKEN` | Graph-service-only internal credential; native launcher generates one when absent |
+| `RISKGRAPH_AI_SERVICE_TOKEN` | AI/validation-only internal credential; native launcher generates one when absent |
 | `RISKGRAPH_VALIDATION_CONCURRENCY` | 2; bounds local Docker workers |
+| `RISKGRAPH_VALIDATION_STARTUP_SECONDS` | 45; bounded 5–60 second readiness window for the resource-capped Java sandbox |
 | `RISKGRAPH_MAX_DEPENDENCY_RESPONSE_BYTES` | 33554432; bounded response size aligned with the 2,000-row contract |
 | `RISKGRAPH_LOGIN_MAX_FAILURES` | 5 failures per username before throttling |
 | `RISKGRAPH_LOGIN_IP_MAX_FAILURES` | 50 failures per source IP before throttling username rotation |
@@ -88,10 +104,29 @@ Compose with host Ollama change its URL to `host.docker.internal`. A Kali VM req
 the actual reachable VM URL. Verify `/api/tags` before integration. No hosted API key
 is required. Live model availability is never silently mocked.
 
+## Supported analysis size
+
+The local MVP accepts at most **2,000 canonical graph rows per revision**. This
+limit is applied independently to `before` and `after` after the Java analyzer's
+response has passed schema and provenance validation, but before the graph-risk
+service is called.
+
+Canonicalization expands analyzer evidence by dependency path. One extracted
+endpoint with 2,000 dependency paths therefore produces 2,000 graph rows; an
+endpoint without a dependency path produces one row. The limit applies to the
+expanded row count, not the number of source endpoints or changed files.
+
+A revision producing 2,001 or more rows fails explicitly with HTTP `413`, code
+`ANALYSIS_TOO_LARGE`, and no partial graph result is persisted. The bound is a
+deliberate resource-exhaustion control. Do not raise or remove it without a
+separately reviewed compaction, chunking, or pagination design and corresponding
+contract and load-test changes.
+
 ## API and local reporting
 
 Platform API 2.0 requires authentication for source scans. The endpoint IR shape
-remains compatible, while the source-analysis envelope is version 1.1.0. Use the
+remains compatible, while the source-analysis envelope is version 1.1.0 and the
+additive platform scan result is version 1.2.0. Use the
 dashboard sign-in form or `tools/dev/platform_session.py`.
 The client obtains `/auth/csrf`, posts URL-encoded credentials to `/auth/login`, and
 fetches a fresh CSRF token. Cookie sessions are HttpOnly, SameSite=Strict, expire
@@ -109,9 +144,11 @@ Run `python tools/dev/init_auth.py` before Compose startup. It preserves existin
 credentials. Losing the file does not reset a database account; do not delete the
 database to recover a password. Missing bootstrap configuration leaves source APIs
 locked, with public demo fixtures still available. Compose publishes only the platform
-and dashboard ports. Analyzer, graph, and AI ports remain internal and require the
-shared service token. Native development binds them to loopback. This remains a
-trusted local prototype, not a multi-tenant deployment.
+and dashboard ports. Analyzer, graph, and AI ports remain internal and each requires
+its own audience-specific service token. Rotate one token at a time by updating the
+platform and its matching service together; a token for one audience is rejected by
+the other two. Native development binds them to loopback. This remains a trusted
+local prototype, not a multi-tenant deployment.
 
 POST `/analyses` accepts only `repository_path`, `old_commit`, `new_commit`; both SHAs
 must be complete immutable 40-character IDs. GET `/analyses/{scan_id}` retrieves a
@@ -158,8 +195,10 @@ python tools/evaluation/external_spring.py --compose
 The first command retains exact logs and results under `tmp/release-checks`. The
 second writes `tmp/evidence-bundle` and compares repeated deterministic results.
 The runtime verifier restarts only the named Compose platform and confirms database
-roundtrip, normalized validation consistency, CORS and probe cleanup. It assumes the
-default local database/user names; use it while no other validation is running.
+roundtrip, normalized validation consistency, CORS and probe cleanup. It also
+regenerates the offline PR Check/SARIF fixture before validating its schema, so no
+stale `tmp/github-event` prerequisite is required. It assumes the default local
+database/user names; use it while no other validation is running.
 
 ## Isolated validation daemon
 
@@ -177,6 +216,13 @@ one-shot loader builds the two source-bound images and the demonstration image i
 that private daemon and pulls the fixed probe image before the validation API starts.
 The daemon has its own named image store; deleting that volume is not a routine repair
 operation.
+
+Without `RISKGRAPH_VALIDATION_DOCKER_HOST`, validation is unavailable. Native host
+Docker is accepted only when `RISKGRAPH_RUNTIME_PROFILE=local` and
+`RISKGRAPH_ALLOW_HOST_DOCKER=true` are both explicit; startup emits a warning for that
+development-only mode. Deployed services must not use it. Forwarded client addresses
+are likewise ignored unless the direct proxy peer is listed in
+`RISKGRAPH_TRUSTED_PROXY_ADDRESSES`.
 
 ## Local Ollama in Compose
 

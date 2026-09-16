@@ -23,33 +23,44 @@ public class LoginAttemptService {
     private final int networkMaxFailures;
     private final long windowMillis;
     private final long blockMillis;
+    private final ClientAddressResolver clientAddresses;
 
     @Autowired
     public LoginAttemptService(
             @Value("${RISKGRAPH_LOGIN_MAX_FAILURES:5}") int maxFailures,
             @Value("${RISKGRAPH_LOGIN_IP_MAX_FAILURES:50}") int networkMaxFailures,
             @Value("${RISKGRAPH_LOGIN_WINDOW_SECONDS:300}") long windowSeconds,
-            @Value("${RISKGRAPH_LOGIN_BLOCK_SECONDS:60}") long blockSeconds) {
-        this(Clock.systemUTC(), maxFailures, networkMaxFailures, windowSeconds, blockSeconds);
+            @Value("${RISKGRAPH_LOGIN_BLOCK_SECONDS:60}") long blockSeconds,
+            ClientAddressResolver clientAddresses) {
+        this(Clock.systemUTC(), maxFailures, networkMaxFailures, windowSeconds, blockSeconds,
+                clientAddresses);
     }
 
     LoginAttemptService(Clock clock, int maxFailures, long windowSeconds, long blockSeconds) {
-        this(clock, maxFailures, maxFailures * 10, windowSeconds, blockSeconds);
+        this(clock, maxFailures, maxFailures * 10, windowSeconds, blockSeconds,
+                new ClientAddressResolver(""));
     }
 
     LoginAttemptService(Clock clock, int maxFailures, int networkMaxFailures,
             long windowSeconds, long blockSeconds) {
+        this(clock, maxFailures, networkMaxFailures, windowSeconds, blockSeconds,
+                new ClientAddressResolver(""));
+    }
+
+    LoginAttemptService(Clock clock, int maxFailures, int networkMaxFailures,
+            long windowSeconds, long blockSeconds, ClientAddressResolver clientAddresses) {
         this.clock = clock;
         this.maxFailures = Math.max(2, maxFailures);
         this.networkMaxFailures = Math.max(this.maxFailures, networkMaxFailures);
         this.windowMillis = Math.max(10, windowSeconds) * 1_000;
         this.blockMillis = Math.max(10, blockSeconds) * 1_000;
+        this.clientAddresses = clientAddresses;
     }
 
     public boolean blocked(HttpServletRequest request) {
         cleanupOccasionally();
         return blocked(accountAttempts, username(request))
-                || blocked(networkAttempts, request.getRemoteAddr());
+                || blocked(networkAttempts, clientAddresses.resolve(request));
     }
 
     private boolean blocked(ConcurrentHashMap<String, Attempt> attempts, String key) {
@@ -64,7 +75,7 @@ public class LoginAttemptService {
     public void failed(HttpServletRequest request) {
         long now = clock.millis();
         recordFailure(accountAttempts, username(request), maxFailures, now);
-        recordFailure(networkAttempts, request.getRemoteAddr(), networkMaxFailures, now);
+        recordFailure(networkAttempts, clientAddresses.resolve(request), networkMaxFailures, now);
     }
 
     private void recordFailure(ConcurrentHashMap<String, Attempt> attempts, String key,

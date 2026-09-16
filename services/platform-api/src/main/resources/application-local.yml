@@ -3,3 +3,6 @@ spring:
   autoconfigure:
     exclude:
       - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+riskgraph:
+  demo:
+    dynamic-enabled: ${RISKGRAPH_DYNAMIC_DEMO_ENABLED:true}

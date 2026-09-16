@@ -5,6 +5,7 @@ COPY services/platform-api/src ./src
 COPY config/checkstyle.xml /config/checkstyle.xml
 COPY contracts /contracts
 COPY infrastructure/db/migrations /infrastructure/db/migrations
+COPY apps/dashboard/src/fixtures.json /apps/dashboard/src/fixtures.json
 RUN mvn -q -DskipTests package
 
 FROM eclipse-temurin:21.0.12_8-jre-noble@sha256:d35199d74a3b2dff1bfb435d9adde4ef974e74a7d2a4fcb3079063c55926edb5

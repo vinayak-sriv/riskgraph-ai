@@ -56,12 +56,14 @@ export default function App() {
     analysis,
     user,
     github,
-    githubConnected,
+    githubConnectionRequired,
+    canRead,
     canRun,
     loading,
     operation,
     error,
     offline,
+    staleResult,
     toast,
     setToast,
     handleUserChange,
@@ -70,6 +72,11 @@ export default function App() {
     runSource,
     runValidation,
     openScan,
+    history,
+    historyCursor,
+    historyLoading,
+    historyError,
+    loadHistory,
     refresh,
   } = useAnalysis();
   const [activeView, setActiveView] = useState<WorkspaceView>(currentView);
@@ -204,6 +211,7 @@ export default function App() {
             operation={operation}
             error={error}
             offline={offline}
+            staleResult={staleResult}
             canRun={canRun}
             theme={theme}
             graphFocus={graphFocus}
@@ -223,7 +231,8 @@ export default function App() {
           <NewAnalysisPanel
             analysis={analysis}
             user={user}
-            githubConnected={githubConnected}
+            sourceAccessEnabled={canRead}
+            githubConnectionRequired={githubConnectionRequired}
             loading={loading}
             requestError={offline ? null : error}
             onRun={runSource}
@@ -232,13 +241,18 @@ export default function App() {
         )}
         {activeView === "saved-scans" && (
           <SavedScansPanel
-            analysis={analysis}
             user={user}
-            githubConnected={githubConnected}
+            sourceAccessEnabled={canRead}
+            githubConnectionRequired={githubConnectionRequired}
             loading={loading}
             requestError={offline ? null : error}
             onOpen={openScan}
             onSuccess={showAnalysis}
+            history={history}
+            nextCursor={historyCursor}
+            historyLoading={historyLoading}
+            historyError={historyError}
+            onLoadHistory={loadHistory}
           />
         )}
         {activeView === "account" && (
@@ -296,6 +310,7 @@ function AnalysisView({
   operation,
   error,
   offline,
+  staleResult,
   canRun,
   theme,
   graphFocus,
@@ -311,6 +326,7 @@ function AnalysisView({
   operation: string;
   error: string | null;
   offline: boolean;
+  staleResult: ReturnType<typeof useAnalysis>["staleResult"];
   canRun: boolean;
   theme: Theme;
   graphFocus: { nodeId: string; requestId: number } | null;
@@ -394,6 +410,20 @@ function AnalysisView({
               {offline ? "Offline fixture active" : "Request failed"}
             </strong>
             <span>{error}</span>
+          </div>
+        </div>
+      )}
+      {staleResult && (
+        <div className="state-banner state-stale" role="alert">
+          <AlertTriangle size={17} />
+          <div>
+            <strong>STALE RESULT</strong>
+            <span>
+              Displaying {staleResult.repository} ·{" "}
+              {staleResult.oldCommit.slice(0, 7)} →{" "}
+              {staleResult.newCommit.slice(0, 7)} after the latest request
+              failed.
+            </span>
           </div>
         </div>
       )}

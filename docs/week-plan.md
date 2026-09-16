@@ -1,8 +1,8 @@
 # RiskGraph AI Delivery Plan
 
 > **Current week: 12**
-> Weeks 1–11 are complete. Week 12 external evidence exists, but independent human
-> review and the post-0.4.1 platform summary rerun remain open.
+> Weeks 1–11 are complete. Week 12 external evidence and the post-0.4.1 platform
+> rerun exist, but independent human review remains open.
 
 ## Delivery Principle
 
@@ -25,7 +25,7 @@ tests, and demo procedure must all work from a clean checkout.
 | 9 | Complete | Add Ollama-backed structured explanations and HTTP-test proposals behind a swappable interface | Schema-constrained output, deterministic degraded mode, and provider backpressure are tested |
 | 10 | Complete | Execute the proposed authorization test only inside a hardened Docker sandbox and combine evidence into the decision engine | Docker-only validation and deterministic final policy pass in the Linux container exercise |
 | 11 | Complete | Analyze pull requests through GitHub and publish Checks, SARIF, fingerprints, and concise evidence | PR #18 publishes a schema-valid evidence artifact, neutral Check, SARIF, summary, and exact head identity |
-| 12 | Current | Measure accuracy, false positives, performance, and extraction coverage; freeze the demo build | Synthetic metrics and two pinned OSS cases exist; independent human review and a post-0.4.1 platform rerun remain pending |
+| 12 | Current | Measure accuracy, false positives, performance, and extraction coverage; freeze the demo build | Synthetic metrics and two pinned OSS cases pass the post-0.4.1 rerun; independent human review remains pending |
 | 13 | Started (gate-limited) | Polish graph visualization and generate permanent regression tests from confirmed findings | The dashboard exposes immutable validation provenance and permanent regressions verify confirmation integrity; Python parsing remains blocked on the Week 12 gate |
 | 14 | Planned | Reliability buffer, report/paper, architecture diagrams, and recorded demo | Clean-install rehearsal and failure-recovery checklist pass |
 | 15 | Planned | Release documentation, deployment packaging, security review, and presentation rehearsal | A new machine can reproduce the demo from the README |

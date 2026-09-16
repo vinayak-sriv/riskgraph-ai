@@ -7,6 +7,7 @@ retrieval, normalized statuses, CORS, malformed requests, reporting and cleanup.
 import argparse
 import json
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -39,6 +40,8 @@ def main():
         args.project,
         "-f",
         str(ROOT / "infrastructure/docker-compose.yml"),
+        "-f",
+        str(ROOT / "infrastructure/docker-compose.validation.yml"),
     ]
     subprocess.run(
         compose + ["restart", "platform-api"], check=True, timeout=30, capture_output=True
@@ -85,13 +88,31 @@ def main():
     try:
         session.call("/analyses", dict(repository_path="..", old_commit="bad", new_commit="bad"))
         raise AssertionError("Malformed input accepted")
-    except urllib.error.HTTPError as error:
-        result = json.load(error)
-        assert error.code == 400 and result["final_verdict"] == "REVIEW"
+    except RuntimeError as error:
+        detail = str(error)
+        assert "HTTP 400" in detail
+        assert '"final_verdict":"REVIEW"' in detail
+        assert '"code":"INVALID_REQUEST"' in detail
     checks["malformed_request_fails_closed"] = True
+    report_output = ROOT / "tmp/github-event"
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "tools/reporting/submit_event.py"),
+            str(ROOT / "contracts/github/examples/pull-request.json"),
+            str(ROOT / "samples/generated/mvp-v2/authorization-removal"),
+            "--container-repository",
+            "/analysis-repositories/mvp-v2/authorization-removal",
+            "--output",
+            str(report_output),
+        ],
+        check=True,
+        timeout=120,
+        capture_output=True,
+    )
     schema = json.loads((ROOT / "contracts/reporting/sarif-2.1.0.schema.json").read_text())
     validator_for(schema)(schema).validate(
-        json.loads((ROOT / "tmp/github-event/results.sarif").read_text())
+        json.loads((report_output / "results.sarif").read_text())
     )
     checks["github_event_and_sarif"] = True
     for command in (
@@ -99,7 +120,11 @@ def main():
         ["network", "ls", "-q", "--filter", "label=ai.riskgraph.run"],
     ):
         result = subprocess.run(
-            ["docker", *command], check=True, timeout=10, capture_output=True, text=True
+            compose + ["exec", "-T", "validation-docker", "docker", *command],
+            check=True,
+            timeout=10,
+            capture_output=True,
+            text=True,
         )
         assert not result.stdout.strip(), (
             "A RiskGraph validation resource was not cleaned up (or a probe is still running)"

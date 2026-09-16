@@ -6,6 +6,9 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -116,6 +119,52 @@ class SourceScanServiceTest {
         assertThatThrownBy(() -> service.analyze(root.toString(),
                 envelope.at("/provenance/old_commit").asString(), envelope.at("/provenance/new_commit").asString()))
                 .hasMessage("checked");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"before, 1999", "before, 2000", "after, 1999", "after, 2000"})
+    void acceptsCanonicalRowsThroughTheDocumentedPerRevisionLimit(
+            String revision, int rowCount) throws Exception {
+        var client = mock(AnalysisClient.class);
+        ObjectNode envelope = envelopeWithRows(revision, rowCount);
+        when(client.post(eq("analyzer"), eq("/analyze"), any())).thenReturn(envelope);
+        when(client.post(eq("graph"), eq("/analysis"), any())).thenAnswer(call -> {
+            JsonNode payload = call.getArgument(2);
+            assertThat(envelope.path(revision)).hasSize(1);
+            assertThat(payload.path(revision)).hasSize(rowCount);
+            throw new PipelineException("CHECKED", 503, "checked boundary");
+        });
+        var service = new SourceScanService(client, new ContractValidator(), mapper,
+                "analyzer", "graph", root.toString(), new MemoryScanStore());
+
+        assertThatThrownBy(() -> service.analyze(root.toString(),
+                envelope.at("/provenance/old_commit").asString(),
+                envelope.at("/provenance/new_commit").asString()))
+                .isInstanceOf(PipelineException.class).hasMessage("checked boundary");
+        verify(client).post(eq("graph"), eq("/analysis"), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"before", "after"})
+    void rejectsCanonicalRowsAboveTheLimitBeforeCallingTheGraphService(String revision)
+            throws Exception {
+        var client = mock(AnalysisClient.class);
+        var store = mock(ScanStore.class);
+        ObjectNode envelope = envelopeWithRows(revision, 2001);
+        when(client.post(eq("analyzer"), eq("/analyze"), any())).thenReturn(envelope);
+        var service = new SourceScanService(client, new ContractValidator(), mapper,
+                "analyzer", "graph", root.toString(), store);
+
+        PipelineException failure = catchThrowableOfType(PipelineException.class, () -> service.analyze(
+                root.toString(), envelope.at("/provenance/old_commit").asString(),
+                envelope.at("/provenance/new_commit").asString()));
+
+        assertThat(envelope.path(revision)).hasSize(1);
+        assertThat(failure.code).isEqualTo("ANALYSIS_TOO_LARGE");
+        assertThat(failure.status).isEqualTo(413);
+        assertThat(failure).hasMessage("Canonical graph input exceeds 2000 rows per revision");
+        verify(client, never()).post(eq("graph"), eq("/analysis"), any());
+        verifyNoInteractions(store);
     }
 
     @Test void eachFindingReceivesItsOwnAiExplanation() throws Exception {
@@ -244,6 +293,19 @@ class SourceScanServiceTest {
         ObjectNode envelope = (ObjectNode) mapper.readTree(getClass().getResourceAsStream(
                 "/contracts/ir/examples/analysis-envelope.json"));
         ((ObjectNode) envelope.path("provenance")).put("repository_path", root.toRealPath().toString());
+        return envelope;
+    }
+
+    private ObjectNode envelopeWithRows(String revision, int rowCount) throws Exception {
+        ObjectNode envelope = envelopeForRoot();
+        var paths = (tools.jackson.databind.node.ArrayNode) envelope.at(
+                "/" + revision + "/0/dependency_paths");
+        ObjectNode template = ((ObjectNode) paths.get(0)).deepCopy();
+        paths.removeAll();
+        for (int index = 0; index < rowCount; index++) {
+            paths.add(template.deepCopy().put("repository", "Repository" + index)
+                    .put("resource", "Resource" + index));
+        }
         return envelope;
     }
 

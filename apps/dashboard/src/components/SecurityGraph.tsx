@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
-import dagre from "@dagrejs/dagre";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Database,
@@ -26,6 +25,7 @@ import type {
   PathEvidence,
   SecurityGraph as SecurityGraphData,
 } from "../types";
+import { requestGraphLayout } from "./graph-layout";
 
 const NODE_WIDTH = 240;
 const NODE_HEIGHT = 64;
@@ -70,47 +70,6 @@ function SecurityNode({ data }: NodeProps<SecurityFlowNode>) {
       </span>
       <Handle type="source" position={Position.Bottom} />
     </button>
-  );
-}
-
-function layoutPositions(graph: SecurityGraphData) {
-  const layout = new dagre.graphlib.Graph();
-  layout.setDefaultEdgeLabel(() => ({}));
-  layout.setGraph({
-    rankdir: "TB",
-    ranksep: 30,
-    nodesep: 28,
-    marginx: 22,
-    marginy: 22,
-  });
-
-  graph.nodes.forEach((node) =>
-    layout.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT }),
-  );
-  graph.edges.forEach((edge) => layout.setEdge(edge.source_id, edge.target_id));
-  const endpoints = graph.nodes.filter((node) => node.node_type === "ENDPOINT");
-  const nodesWithOutgoingEdges = new Set(
-    graph.edges.map((edge) => edge.source_id),
-  );
-  graph.nodes
-    .filter(
-      (node) =>
-        node.node_type === "USER" && !nodesWithOutgoingEdges.has(node.id),
-    )
-    .forEach((user, index) => {
-      const endpoint = endpoints[index] ?? endpoints[0];
-      if (endpoint) layout.setEdge(user.id, endpoint.id);
-    });
-  dagre.layout(layout);
-
-  return new Map(
-    graph.nodes.map((node) => {
-      const position = layout.node(node.id);
-      return [
-        node.id,
-        { x: position.x - NODE_WIDTH / 2, y: position.y - NODE_HEIGHT / 2 },
-      ];
-    }),
   );
 }
 
@@ -206,12 +165,26 @@ export function SecurityGraph({
   viewport?: Viewport;
   onViewportChange?: (viewport: Viewport) => void;
 }) {
-  const positions = useMemo(() => layoutPositions(graph), [graph]);
+  const [positions, setPositions] = useState<
+    Map<string, { x: number; y: number }> | undefined
+  >();
+  useEffect(() => {
+    const controller = new AbortController();
+    setPositions(undefined);
+    void requestGraphLayout(graph, controller.signal)
+      .then(setPositions)
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setPositions(new Map());
+        }
+      });
+    return () => controller.abort();
+  }, [graph]);
   const elements = useMemo(
     () =>
       graphElements(
         graph,
-        positions,
+        positions ?? new Map(),
         highlightedPath,
         nodeTypeFilter,
         selectedNodeId,
@@ -249,6 +222,14 @@ export function SecurityGraph({
     return (
       <div className="graph-empty">
         No graph nodes were produced for this revision.
+      </div>
+    );
+  }
+
+  if (!positions) {
+    return (
+      <div className="graph-empty" role="status">
+        Preparing graph layout…
       </div>
     );
   }
