@@ -1,8 +1,8 @@
 # Week 13 product-polish progress
 
-Week 13 has started without changing the repository's **Current week: 12** marker.
-The marker remains at Week 12 because the independent external-source review gate is
-still open.
+The Week 13 engineering deliverables are complete without changing the repository's
+**Current week: 12** marker. The marker remains at Week 12 because the independent
+external-source review gate is still open.
 
 ## Implemented
 
@@ -29,7 +29,7 @@ still open.
 - PR #18 at `eb714ca377ef1968fdf4815bd46e829d331253d7` is clean and mergeable with PR
   analysis, PR CI and push CI green.
 
-## Gate still open
+## External gate still open
 
 `datasets/external-spring/manifest.json` remains `label_status: PROVISIONAL`,
 `review_type: AI_SOURCE_REVIEW` and `human_reviewed: false`. An independent reviewer
@@ -37,7 +37,7 @@ must complete the attribution packet in `datasets/external-spring/HUMAN_REVIEW.m
 before:
 
 1. the Current Week marker advances beyond Week 12;
-2. Week 13 is marked complete; or
+2. Week 13 is marked complete without the `gate-limited` qualifier; or
 3. the conditional Python parsing proof of concept begins.
 
 The post-analyzer-0.4.1 evaluation rerun was completed on 15 September 2026. Both

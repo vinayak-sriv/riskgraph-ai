@@ -1,7 +1,8 @@
 # Release rehearsal
 
-This is the supported Week 15 rehearsal. Run it from a clean checkout. Do not create
-a tag until every exit condition is satisfied.
+This is the Week 14 clean-install gate and the supported Week 15 release rehearsal.
+Run it from a clean checkout. Do not create a tag until every exit condition is
+satisfied.
 
 ## Local deterministic gate
 
@@ -11,9 +12,10 @@ python tools/release/package.py --output dist/riskgraph-source.zip --manifest di
 ```
 
 The verifier installs the dashboard from `package-lock.json`, runs Python, Java,
-frontend, contract, corpus, Compose-model, audit, and diff checks, and retains logs in
-`tmp/release-checks`. The packager uses an explicit allowlist policy, fixed timestamps,
-sorted paths, post-build verification, and a SHA-256 manifest.
+frontend unit/coverage/browser checks, records the deterministic dashboard demo, and
+runs contract, corpus, Compose-model, dependency-audit, and diff checks. It retains
+logs in `tmp/release-checks`. The packager uses an explicit exclusion policy, fixed
+timestamps, sorted paths, post-build verification, and a SHA-256 manifest.
 
 ## Container gate
 

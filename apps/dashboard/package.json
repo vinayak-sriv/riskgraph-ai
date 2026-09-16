@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "demo:record": "playwright test --config=playwright.demo.config.ts && node ../../tools/demo/collect-recording.mjs",
     "lint": "eslint . --max-warnings 0",
     "format:check": "prettier --check ."
   },

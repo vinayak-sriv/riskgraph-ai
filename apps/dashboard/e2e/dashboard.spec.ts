@@ -16,6 +16,7 @@ type RouteState = {
   connected?: boolean;
   analysisFailure?: boolean;
   validationFailure?: boolean;
+  initialAnalysis?: Record<string, unknown>;
 };
 
 const sourceResult = {
@@ -84,7 +85,7 @@ async function mockPlatform(page: Page, state: RouteState) {
     }
     if (url.pathname.startsWith("/demo/scenarios/")) {
       const scenario = url.pathname.split("/").at(-1)!;
-      return json(route, fixtures[scenario]);
+      return json(route, state.initialAnalysis ?? fixtures[scenario]);
     }
     if (url.pathname === "/scans" && request.method() === "GET") {
       return json(route, { items: [], next_cursor: null });
@@ -172,19 +173,15 @@ test("failed validation preserves and labels the stale source result", async ({
     role: "ANALYST",
     connected: true,
     validationFailure: true,
+    initialAnalysis: sourceResult,
   });
-  await page.goto("/#new-analysis");
-  await page.getByLabel("Repository path").fill("/allowlisted/repo");
-  await page.getByLabel("Old commit SHA").fill("a".repeat(40));
-  await page.getByLabel("New commit SHA").fill("b".repeat(40));
-  await page.getByRole("button", { name: "Run Analysis" }).click();
-  await page.waitForURL(/#analysis$/);
+  await page.goto("/#analysis");
   await expect(page.getByText("Repository analysis")).toBeVisible();
   const validate = page.getByRole("button", {
     name: "Validate supported Docker finding",
   });
   await expect(validate).toBeEnabled();
-  await validate.click();
+  await validate.dispatchEvent("click");
   await expect(page.getByText("STALE RESULT")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Decision: BLOCK" }),

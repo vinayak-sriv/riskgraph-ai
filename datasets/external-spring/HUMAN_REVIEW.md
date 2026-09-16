@@ -47,7 +47,9 @@ Reviewer decision: _pending_
 - New commit: `389429a7345a718c27a77cabc495cf7ea68bbaee`
 - Expected label: `NEGATIVE`
 - Expected oracle: GET `/greeting`, no authorization annotation in either revision
-- Automated result: 0/2 expected rows, zero risk delta, REVIEW
-- Limitation to verify: duplicate application classes across guide modules cause `SPOON_MODEL_FAILED`
+- Automated result: 2/2 expected endpoint/authentication rows, zero risk delta, REVIEW
+- Limitation to verify: no deterministic downstream sensitive-resource path is
+  established, so extraction coverage remains incomplete and the result fails closed
+  with LOW confidence
 
 Reviewer decision: _pending_

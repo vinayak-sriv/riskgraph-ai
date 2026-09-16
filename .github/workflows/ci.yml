@@ -55,6 +55,16 @@ jobs:
         working-directory: apps/dashboard
       - run: npm run test:e2e
         working-directory: apps/dashboard
+      - run: npm run demo:record
+        working-directory: apps/dashboard
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: riskgraph-demo-recording
+          path: |
+            dist/riskgraph-demo.webm
+            dist/riskgraph-demo.manifest.json
+          if-no-files-found: error
+          retention-days: 14
       - run: npm audit --omit=dev
         working-directory: apps/dashboard
 
