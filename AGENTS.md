@@ -162,6 +162,7 @@ Always report **Risk Before, Risk After, and Risk Delta** — never just an abso
 **Explicitly NOT in MVP — do not build unless the roadmap in Section 8 says the
 checkpoint was reached:**
 - Multi-language support (a second language is a conditional post-Week-12 stretch goal only, see Section 8)
+- Outbound email, browser/mobile push, SMS, and messaging notifications (post-MVP; see Section 8)
 - `HttpSecurity`/`SecurityFilterChain`-style auth config parsing (annotation-based only for now)
 - IDOR analysis, privilege-escalation graphs, data-flow/taint tracking (Phase 2)
 - Kubernetes, GraphQL, dependency/library graph edges
@@ -229,6 +230,33 @@ tested, documented, and reproducible from a clean checkout. Every evidence-beari
 analysis result must include repository/commit identity, source locations, analyzer
 version, coverage/diagnostics, and deterministic inputs. Risk and confidence are
 separate values: risk estimates impact; confidence reports extraction reliability.
+
+### Post-MVP planned tracks
+
+These tracks start only after the Week 12 human-review gate and the Java/Spring Boot
+release are complete. They must not delay or weaken the primary MVP.
+
+1. **Python web analysis — FastAPI first.** Add framework detection and a separate
+   Python analyzer that uses Python AST evidence and emits the unchanged Stage 3 IR.
+   The first supported target is Python 3 FastAPI, not every Python repository.
+   Python without a supported framework must return `UNSUPPORTED_FRAMEWORK` with no
+   ALLOW/BLOCK verdict. Partial or ambiguous FastAPI extraction must lower confidence
+   and force REVIEW. Promotion from experimental to supported requires the four MVP
+   scenarios, source provenance, coverage/diagnostics, clean-checkout automation, and
+   evaluation on pinned public FastAPI repositories. Django and Flask require later,
+   separate adapters.
+2. **Notification manager.** Consume final platform decision events independently of
+   the source language. Notify only verified RiskGraph users whose repository access
+   is rechecked at delivery time. Start with in-app and email notifications for REVIEW
+   and BLOCK; browser/mobile push may follow, while SMS or third-party messaging needs
+   a separate consent, cost, and privacy review. Use durable outbox delivery,
+   preferences, severity thresholds, deduplication by finding fingerprint and PR head,
+   bounded retries, rate limits, delivery/audit records, and unsubscribe controls.
+   Messages must distinguish possible from Docker-confirmed findings, link to protected
+   evidence, and never include raw source, credentials, or sensitive response bodies.
+
+Detailed sequencing and acceptance criteria are maintained in
+`docs/pending-updates.md`.
 
 ---
 

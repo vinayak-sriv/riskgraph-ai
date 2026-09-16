@@ -31,6 +31,18 @@ tests, and demo procedure must all work from a clean checkout.
 | 15 | Planned | Release documentation, deployment packaging, security review, and presentation rehearsal | A new machine can reproduce the demo from the README |
 | 16 | Planned | Final tagged release, evidence bundle, presentation, and submission | Release artifacts, report, metrics, and demo are archived together |
 
+## Post-MVP Roadmap
+
+These items are planned extensions, not Week 15/16 release blockers. Their detailed
+scope and acceptance criteria are tracked in [Pending updates](pending-updates.md).
+
+| Track | Status | Outcome | Promotion gate |
+|---|---|---|---|
+| Python framework preflight | Planned after Gate D | Detect Spring Boot, FastAPI, mixed, and unsupported repositories before analysis | Unsupported frameworks produce an explicit notice and no ALLOW/BLOCK verdict; partial coverage forces REVIEW |
+| Python web analyzer | Planned after the Java release | Add Python 3 FastAPI analysis behind the existing analyzer boundary and unchanged IR | Four MVP scenarios, provenance, confidence/coverage, clean CI, and pinned public FastAPI evaluation pass |
+| Notification manager | Planned after the Java release | Notify authorized repository members through in-app and email channels for REVIEW/BLOCK decisions | Permission recheck, user preferences, certainty-aware templates, outbox/retry, deduplication, rate limits, audit records, and unsubscribe controls pass |
+| Additional channels/frameworks | Future | Add browser/mobile push and separately evaluated Django/Flask adapters | Each channel passes consent/privacy review; each framework has its own deterministic extraction and evaluation evidence |
+
 ## Phase Gates
 
 **Gate A — Contract foundation (passed):** schemas, fixtures, builds, and service
@@ -51,6 +63,11 @@ Week 13 work that does not depend on Gate D may proceed while Week 12 review is
 pending. See [Week 13 progress](week-13-progress.md) for the implemented subset and
 the exact remaining gate. See [Week 14 progress](week-14-progress.md) for the
 completed engineering deliverables and clean-install procedure.
+
+The post-MVP plan deliberately does not claim support for every Python repository.
+FastAPI is the first framework target; Django and Flask remain separate future
+adapters. Notifications are framework-independent and consume only final platform
+decision events.
 
 ## Required Evidence for Every Analysis
 
