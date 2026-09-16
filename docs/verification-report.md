@@ -141,7 +141,7 @@ verdict, then demonstrate the safe negative example and export JSON.
 - `apps/dashboard/src/{App.tsx,styles.css,types.ts}`: source workflow, states, graphs and responsive accessibility.
 - `contracts/`, `infrastructure/`, `.github/workflows/`, `datasets/risk-corpus/`, `tools/dev/`, `tools/reporting/`: schemas, Compose/Flyway, CI, corpus and reproducible tooling.
 
-The [exported bundle](evidence/mvp-2026-09-10/README.md) includes actual scan JSON,
+The [evidence bundle index](../README.md#evidence-bundles) describes the actual scan JSON,
 confirmed validation, source extraction metrics, corpus metrics, runtime checks,
 offline reports and quality-gate results. Local command logs and the full file list
 are in `tmp/release-checks/` (including `git-status.txt`).

@@ -89,7 +89,7 @@ Contracts, generated corpus, and documentation:
 - `datasets/risk-corpus/manifest.json`
 - `docs/ir-contract.md`
 - `docs/runtime-guide.md`
-- `tools/dev/README.md`
+- [Development and release tools](../README.md#development-and-release-tools)
 - `tools/dev/export_contracts.py`
 
 Release and reproducibility:
