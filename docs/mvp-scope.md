@@ -16,6 +16,7 @@
 ## Out of Scope
 
 - Multi-language support before the roadmap checkpoint.
+- Outbound email, browser/mobile push, SMS, or messaging notifications.
 - `HttpSecurity` or `SecurityFilterChain` parsing.
 - Full IDOR analysis.
 - Privilege-reduction/expansion analysis such as `ADMIN` → `USER`.
@@ -29,3 +30,8 @@
 
 Out-of-scope requests should be flagged. If a small placeholder is needed, mark it
 clearly as Phase 2 rather than building the full feature.
+
+Planned post-MVP work is documented in [Pending updates](pending-updates.md). Python
+support begins with FastAPI and must not be described as support for all Python
+repositories. The notification manager is language-independent and begins with
+in-app and email delivery to verified, authorized repository members.

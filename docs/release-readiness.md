@@ -3,16 +3,14 @@
 The roadmap is at Week 12. Weeks 8–11 have reproducible local and GitHub evidence;
 Week 12 remains open until an independent reviewer records attributable labels.
 
-Latest local candidate evidence (2026-09-16): all automated release checks pass;
-all four source-backed demo scenarios pass twice with their expected risk deltas and
+Latest merged engineering evidence (2026-09-16): all automated release checks pass;
+all four source-backed demo scenarios pass with their expected risk deltas and
 verdicts; and both pinned external Spring cases pass current-analyzer integrity and
-repeatability checks. The run used an uncommitted working tree based on
-`4ea99ce0c2a8c0021e760a62500cae5e6e7e7f8b`, so it is evidence for a candidate, not
-a final commit. Live isolated-Docker validation passes on this working tree, including
-a confirmed authorization-removal probe and zero fixed CRITICAL findings across the
-12 scanned runtime and sandbox images;
-independent external labels, final CI, regenerated packaging, and release approval
-remain open.
+repeatability checks. PR and post-merge CI passed on the exact merged Week 14 commit.
+Live isolated-Docker validation includes a confirmed authorization-removal probe and
+zero fixed CRITICAL findings across the 12 scanned runtime and sandbox images.
+Independent external labels, a clean-machine Week 15 rehearsal, the final
+post-review package/evidence bundle, and release approval remain open.
 
 - [x] Versioned canonical IR and deterministic graph/risk fixture tests
 - [x] Source allowlist, immutable commits, Spoon extraction and provenance
@@ -43,14 +41,28 @@ remain open.
 - [x] Real PR Check, SARIF, summary, source locations, diagnostics, and stable head identity
 - [x] Analyzer 0.4.1 isolates changed conventional source roots in multi-module repositories
 - [x] Platform user authentication and Developer/Analyst/Admin authorization on implemented APIs
-- [ ] Source-bound validation adapters for arbitrary reviewed target applications
+- [x] MVP validation is deliberately limited to registered authored Docker targets;
+      arbitrary reviewed-target adapters are deferred post-MVP
 - [ ] Human review of provisional labels and release approval
 
-Current green GitHub evidence for commit `eb714ca377ef1968fdf4815bd46e829d331253d7`:
+## Planned after the MVP release
 
-- PR analysis: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/34828984795>
-- PR CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/34828984691>
-- Push CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/34828980675>
+The following requested product extensions are recorded in
+[Pending updates](pending-updates.md) and are not blockers for the Java/Spring Boot
+academic release:
+
+- framework preflight with an explicit unsupported-framework dashboard/GitHub result;
+- Python 3 FastAPI analysis using the existing IR and downstream pipeline;
+- an in-app and email notification manager for authorized repository members;
+- source-bound validation adapters for separately reviewed target applications;
+- later, separately evaluated Django/Flask adapters and browser/mobile push channels.
+
+Current green GitHub evidence for merged Week 14 commit
+`f25bad9ff825670cac930908aff0d75de0708846`:
+
+- PR analysis: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/35103157845>
+- PR CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/35103157897>
+- Push CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/35103729132>
 
 No project commit, push, PR creation, Check or PR comment publication is performed
 by the local verification workflow. Generated sample repositories contain isolated
