@@ -1,21 +1,26 @@
 import { defineConfig, devices } from "@playwright/test";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   testDir: "./e2e",
-  // The suite shares one Vite development server. Serial browser execution keeps
-  // route transitions deterministic on resource-constrained demo/CI hosts.
+  testMatch: "demo-recording.demo.ts",
   fullyParallel: false,
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  retries: 0,
+  reporter: "list",
+  outputDir: fileURLToPath(
+    new URL("../../dist/demo-recording", import.meta.url),
+  ),
   use: {
     baseURL: "http://127.0.0.1:5173",
-    trace: "retain-on-failure",
+    viewport: { width: 1280, height: 720 },
+    trace: "off",
+    video: { mode: "on", size: { width: 1280, height: 720 } },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: "npm run dev -- --host 127.0.0.1",
     url: "http://127.0.0.1:5173",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
   },
 });

@@ -26,8 +26,8 @@ tests, and demo procedure must all work from a clean checkout.
 | 10 | Complete | Execute the proposed authorization test only inside a hardened Docker sandbox and combine evidence into the decision engine | Docker-only validation and deterministic final policy pass in the Linux container exercise |
 | 11 | Complete | Analyze pull requests through GitHub and publish Checks, SARIF, fingerprints, and concise evidence | PR #18 publishes a schema-valid evidence artifact, neutral Check, SARIF, summary, and exact head identity |
 | 12 | Current | Measure accuracy, false positives, performance, and extraction coverage; freeze the demo build | Synthetic metrics and two pinned OSS cases pass the post-0.4.1 rerun; independent human review remains pending |
-| 13 | Started (gate-limited) | Polish graph visualization and generate permanent regression tests from confirmed findings | The dashboard exposes immutable validation provenance and permanent regressions verify confirmation integrity; Python parsing remains blocked on the Week 12 gate |
-| 14 | Planned | Reliability buffer, report/paper, architecture diagrams, and recorded demo | Clean-install rehearsal and failure-recovery checklist pass |
+| 13 | Engineering complete (gate-limited) | Polish graph visualization and generate permanent regression tests from confirmed findings | The dashboard exposes immutable validation provenance and permanent regressions verify confirmation integrity; Python parsing remains blocked on the Week 12 gate |
+| 14 | Engineering complete (gate-limited) | Reliability buffer, report/paper, architecture diagrams, and recorded demo | The expanded clean-install gate, recovery procedure, report draft, architecture diagrams, and reproducible recording are implemented; independent review still blocks roadmap advancement |
 | 15 | Planned | Release documentation, deployment packaging, security review, and presentation rehearsal | A new machine can reproduce the demo from the README |
 | 16 | Planned | Final tagged release, evidence bundle, presentation, and submission | Release artifacts, report, metrics, and demo are archived together |
 
@@ -49,7 +49,8 @@ The conditional Python proof of concept may begin only after Gate D passes.
 
 Week 13 work that does not depend on Gate D may proceed while Week 12 review is
 pending. See [Week 13 progress](week-13-progress.md) for the implemented subset and
-the exact remaining gate.
+the exact remaining gate. See [Week 14 progress](week-14-progress.md) for the
+completed engineering deliverables and clean-install procedure.
 
 ## Required Evidence for Every Analysis
 
