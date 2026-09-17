@@ -61,12 +61,12 @@ academic release:
 - source-bound validation adapters for separately reviewed target applications;
 - later, separately evaluated Django/Flask adapters and browser/mobile push channels.
 
-Current green GitHub evidence for merged Week 14 commit
-`f25bad9ff825670cac930908aff0d75de0708846`:
+Current green GitHub evidence for the release-engineering changes and the stabilized
+merged commit `4c619eb31fe94e15c8b244a2901df4df6eafa7da`:
 
-- PR analysis: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/35103157845>
-- PR CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/35103157897>
-- Push CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/35103729132>
+- Release handoff PR: <https://github.com/vinayak-sriv/riskgraph-ai/pull/27>
+- Test-stabilization PR: <https://github.com/vinayak-sriv/riskgraph-ai/pull/28>
+- Final main CI: <https://github.com/vinayak-sriv/riskgraph-ai/actions/runs/35184173185>
 
 No project commit, push, PR creation, Check or PR comment publication is performed
 by the local verification workflow. Generated sample repositories contain isolated
