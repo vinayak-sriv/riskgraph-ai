@@ -43,12 +43,12 @@ services:
           *) echo "Unapproved validation probe image" >&2; exit 64 ;;
         esac
         if [ -f /workspace/preloaded/images.tar ]; then
-          test -f /workspace/preloaded/probe-image-id
-          expected_probe_id="$$(cat /workspace/preloaded/probe-image-id)"
-          echo "$${expected_probe_id}" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          test -f /workspace/preloaded/images.sha256
+          expected_archive_sha="$$(cat /workspace/preloaded/images.sha256)"
+          echo "$${expected_archive_sha}" | grep -Eq '^[0-9a-f]{64}$'
+          actual_archive_sha="$$(sha256sum /workspace/preloaded/images.tar | cut -d ' ' -f 1)"
+          test "$${actual_archive_sha}" = "$${expected_archive_sha}"
           docker load --input /workspace/preloaded/images.tar
-          actual_probe_id="$$(docker image inspect --format '{{.Id}}' riskgraph-validation-probe:local)"
-          test "$${actual_probe_id}" = "$${expected_probe_id}"
         else
           docker build --tag riskgraph-sandbox-protected:local samples/generated/build-protected
           docker build --tag riskgraph-sandbox-vulnerable:local samples/generated/build-vulnerable

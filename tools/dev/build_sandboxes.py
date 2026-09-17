@@ -3,13 +3,10 @@ Never invokes build scripts from an arbitrary analyzed repository.
 """
 
 import hashlib
-import json
 import os
-import re
 import shutil
 import subprocess
 import sys
-import tarfile
 from pathlib import Path
 
 from create_mvp_samples import CONTROLLER, FILES, ROOT, SOURCE, create, git
@@ -34,28 +31,12 @@ def approved_probe_image(configured: str | None = None) -> str:
     return image
 
 
-def archived_image_id(archive: Path, repository_tag: str) -> str:
-    """Read and verify the platform image ID Docker will restore from an archive."""
-
-    with tarfile.open(archive, "r") as bundle:
-        manifest_file = bundle.extractfile("manifest.json")
-        if manifest_file is None:
-            raise ValueError("Validation image archive has no Docker manifest")
-        manifest = json.load(manifest_file)
-        matches = [item for item in manifest if repository_tag in item.get("RepoTags", [])]
-        if len(matches) != 1:
-            raise ValueError("Validation image archive has an ambiguous probe image")
-        config_path = str(matches[0].get("Config", "")).replace("\\", "/")
-        match = re.fullmatch(r"(?:blobs/sha256/)?([0-9a-f]{64})(?:\.json)?", config_path)
-        if not match:
-            raise ValueError("Validation probe config path is not a SHA-256 blob")
-        config_file = bundle.extractfile(config_path)
-        if config_file is None:
-            raise ValueError("Validation probe config blob is missing")
-        config = config_file.read()
-        if hashlib.sha256(config).hexdigest() != match.group(1):
-            raise ValueError("Validation probe config blob failed its SHA-256 check")
-        return "sha256:" + match.group(1)
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def archive_validation_images(docker: list[str], probe_image: str) -> Path:
@@ -63,11 +44,11 @@ def archive_validation_images(docker: list[str], probe_image: str) -> Path:
 
     output = ROOT / "tmp/validation-images/images.tar"
     staging = output.with_suffix(".tar.part")
-    identity = output.with_name("probe-image-id")
-    identity_staging = identity.with_suffix(".part")
+    checksum = output.with_name("images.sha256")
+    checksum_staging = checksum.with_suffix(".part")
     output.parent.mkdir(parents=True, exist_ok=True)
     staging.unlink(missing_ok=True)
-    identity_staging.unlink(missing_ok=True)
+    checksum_staging.unlink(missing_ok=True)
     try:
         for image in [*SANDBOX_IMAGES, probe_image]:
             subprocess.run(
@@ -80,15 +61,12 @@ def archive_validation_images(docker: list[str], probe_image: str) -> Path:
             [*docker, "save", "--output", str(staging), *SANDBOX_IMAGES, LOCAL_PROBE_IMAGE],
             check=True,
         )
-        probe_image_id = archived_image_id(staging, LOCAL_PROBE_IMAGE)
-        if not re.fullmatch(r"sha256:[0-9a-f]{64}", probe_image_id):
-            raise ValueError("Probe image did not resolve to an immutable SHA-256 image ID")
-        identity_staging.write_text(probe_image_id + "\n", encoding="ascii", newline="\n")
+        checksum_staging.write_text(file_sha256(staging) + "\n", encoding="ascii", newline="\n")
         staging.replace(output)
-        identity_staging.replace(identity)
+        checksum_staging.replace(checksum)
     finally:
         staging.unlink(missing_ok=True)
-        identity_staging.unlink(missing_ok=True)
+        checksum_staging.unlink(missing_ok=True)
     return output
 
 
