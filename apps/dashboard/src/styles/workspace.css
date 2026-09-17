@@ -162,11 +162,11 @@
   width: max-content;
   padding: 4px 8px;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--muted);
   background: var(--raised);
-  font: 650 0.625rem var(--mono);
-  letter-spacing: 0.07em;
+  font: 650 var(--font-caption) var(--mono);
+  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 .certainty-confirmed {
@@ -227,7 +227,7 @@
   border: 1px solid var(--border);
   border-radius: 5px;
   color: var(--faint);
-  font-size: 0.6875rem;
+  font-size: var(--font-caption);
 }
 .certainty-scale span.active {
   color: var(--text);

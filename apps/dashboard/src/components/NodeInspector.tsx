@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ArrowUpRight, FileCode2, X } from "lucide-react";
+import { ArrowRight, FileCode2, X } from "lucide-react";
 import type { SourceEvidenceRow } from "../types";
 import { formatLabel, type SelectedNode } from "../view-model";
 
@@ -139,7 +139,7 @@ export function NodeInspector({
                   }}
                 >
                   <span>{item}</span>
-                  <ArrowUpRight size={14} />
+                  <ArrowRight size={14} />
                 </button>
               ))}
             </div>
@@ -175,7 +175,7 @@ export function NodeInspector({
             <p>Direct source mapping is unavailable for this node.</p>
           )}
           <a href="#analysis-evidence" onClick={onClose}>
-            Open evidence and technical details <ArrowUpRight size={14} />
+            Open evidence and technical details <ArrowRight size={14} />
           </a>
         </section>
       </aside>

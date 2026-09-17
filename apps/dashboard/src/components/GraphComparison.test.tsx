@@ -35,6 +35,26 @@ afterEach(() => {
 });
 const analysis = fixtures["authorization-removal"] as AnalysisResult;
 
+it("groups graph controls and exposes the attack path as an ordered sequence", () => {
+  render(
+    <GraphComparison analysis={analysis} theme="dark" onNotify={vi.fn()} />,
+  );
+
+  const filters = screen.getByRole("group", { name: "Graph filters" });
+  expect(filters).toContainElement(
+    within(filters).getByRole("combobox", { name: "Graph changes" }),
+  );
+  expect(
+    screen.getByRole("group", { name: "Graph view controls" }),
+  ).toContainElement(screen.getByRole("button", { name: "Compare" }));
+  const path = screen.getByRole("list", {
+    name: "Newly reachable attack path",
+  });
+  expect(within(path).getAllByRole("listitem")).toHaveLength(6);
+  expect(within(path).getByRole("button", { name: "Anonymous" })).toBeVisible();
+  expect(within(path).getByRole("button", { name: "Customer" })).toBeVisible();
+});
+
 it("inspects both revisions without marking the before graph as a new attack path", () => {
   render(
     <GraphComparison analysis={analysis} theme="dark" onNotify={vi.fn()} />,

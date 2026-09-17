@@ -61,6 +61,19 @@ These are design references, not claims that RiskGraph implements SIEM ingestion
 - `AnalysisSetup.tsx` and `AccountPanel.tsx`: existing authenticated workflows and local form state.
 - `ui.tsx`, `view-model.ts`, and `styles.css`: shared presentation primitives, types, formatting, theme tokens, and responsive rules.
 
+## Usability audit refinement
+
+The September 17 follow-up applied the review findings where they improved clarity without weakening security semantics:
+
+- Security-critical certainty and validation labels now use the shared readable caption size.
+- Typography and radius primitives have semantic tokens for captions, supporting text, controls, panels, and pills. Distinct graph, circular, and pill shapes remain intentional.
+- Internal navigation uses right-facing arrows or chevrons; the up-right arrow remains reserved for external authorization or risk-trend meaning.
+- Graph filters and view controls are visually and programmatically grouped. Mobile layouts stack those groups without document-level horizontal overflow.
+- Newly reachable paths are ordered lists with named, keyboard-accessible node buttons and directional chevrons. Selecting a node still opens its evidence inspector.
+- The sidebar label and signed-out account summary are shorter without widening the sidebar or reducing graph space.
+
+The review's raw counts were not treated as acceptance criteria. Flattening every radius or button into one style would erase interaction meaning, and weakening **Investigate path** would conflict with the evidence-first workflow after a REVIEW or BLOCK decision.
+
 ## Verification
 
 - Baseline: the existing four dashboard regression tests passed before refactoring.

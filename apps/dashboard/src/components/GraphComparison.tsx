@@ -228,95 +228,107 @@ export function GraphComparison({
           </div>
         </div>
         <div className="graph-toolbar" aria-label="Graph controls">
-          {analysis.graph_delta.new_paths.length > 1 && (
+          <div
+            className="graph-control-group graph-filter-controls"
+            role="group"
+            aria-label="Graph filters"
+          >
+            {analysis.graph_delta.new_paths.length > 1 && (
+              <label className="filter-control">
+                <span>Path</span>
+                <select
+                  aria-label="Attack path"
+                  value={pathIndex}
+                  onChange={(event) => {
+                    setPathIndex(Number(event.target.value));
+                    setSelectedNode(null);
+                  }}
+                >
+                  {analysis.graph_delta.new_paths.map((path, index) => (
+                    <option key={index} value={index}>
+                      {index + 1}.{" "}
+                      {analysis.graph_delta.after.nodes.find(
+                        (node) => node.id === path.target,
+                      )?.name ?? path.target}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="filter-control">
-              <span>Path</span>
+              <span>Show</span>
               <select
-                aria-label="Attack path"
-                value={pathIndex}
-                onChange={(event) => {
-                  setPathIndex(Number(event.target.value));
-                  setSelectedNode(null);
-                }}
+                aria-label="Graph changes"
+                value={diffFilter}
+                onChange={(event) =>
+                  setDiffFilter(event.target.value as DiffFilter)
+                }
               >
-                {analysis.graph_delta.new_paths.map((path, index) => (
-                  <option key={index} value={index}>
-                    {index + 1}.{" "}
-                    {analysis.graph_delta.after.nodes.find(
-                      (node) => node.id === path.target,
-                    )?.name ?? path.target}
+                <option value="all">All graph data</option>
+                <option value="changed">Changed only</option>
+                <option value="path" disabled={!newPath}>
+                  Selected path
+                </option>
+              </select>
+            </label>
+            <label className="filter-control">
+              <span>Highlight</span>
+              <select
+                aria-label="Highlight"
+                value={nodeTypeFilter}
+                onChange={(event) => setNodeTypeFilter(event.target.value)}
+              >
+                {nodeTypes.map((type) => (
+                  <option value={type} key={type}>
+                    {type === "ALL" ? "All node types" : formatLabel(type)}
                   </option>
                 ))}
               </select>
             </label>
-          )}
-          <label className="filter-control">
-            <span>Show</span>
-            <select
-              aria-label="Graph changes"
-              value={diffFilter}
-              onChange={(event) =>
-                setDiffFilter(event.target.value as DiffFilter)
+          </div>
+          <div
+            className="graph-control-group graph-view-controls"
+            role="group"
+            aria-label="Graph view controls"
+          >
+            <button
+              className={`icon-button ${syncViews ? "active" : ""}`}
+              type="button"
+              aria-pressed={syncViews}
+              aria-label="Synchronize graph views"
+              title="Synchronize graph views"
+              onClick={() => setSyncViews((value) => !value)}
+            >
+              <Link2 size={16} />
+            </button>
+            <button
+              ref={fullScreenButton}
+              className="icon-button"
+              type="button"
+              aria-label={
+                fullScreen ? "Exit full-screen graph" : "Open full-screen graph"
               }
+              title={
+                fullScreen ? "Exit full-screen graph" : "Open full-screen graph"
+              }
+              onClick={() => setFullScreen((value) => !value)}
             >
-              <option value="all">All graph data</option>
-              <option value="changed">Changed only</option>
-              <option value="path" disabled={!newPath}>
-                Selected path
-              </option>
-            </select>
-          </label>
-          <label className="filter-control">
-            <span>Highlight</span>
-            <select
-              aria-label="Highlight"
-              value={nodeTypeFilter}
-              onChange={(event) => setNodeTypeFilter(event.target.value)}
-            >
-              {nodeTypes.map((type) => (
-                <option value={type} key={type}>
-                  {type === "ALL" ? "All node types" : formatLabel(type)}
-                </option>
+              {fullScreen ? <Minimize2 size={16} /> : <Expand size={16} />}
+            </button>
+            <div className="segmented-control" aria-label="Graph display mode">
+              {(["compare", "before", "after"] as GraphMode[]).map((mode) => (
+                <button
+                  type="button"
+                  key={mode}
+                  className={graphMode === mode ? "active" : ""}
+                  aria-pressed={graphMode === mode}
+                  disabled={mode === "compare" && !presentation.allowCompare}
+                  onClick={() => setGraphMode(mode)}
+                >
+                  {formatLabel(mode)}
+                </button>
               ))}
-            </select>
-          </label>
-          <button
-            className={`icon-button ${syncViews ? "active" : ""}`}
-            type="button"
-            aria-pressed={syncViews}
-            aria-label="Synchronize graph views"
-            title="Synchronize graph views"
-            onClick={() => setSyncViews((value) => !value)}
-          >
-            <Link2 size={16} />
-          </button>
-          <button
-            ref={fullScreenButton}
-            className="icon-button"
-            type="button"
-            aria-label={
-              fullScreen ? "Exit full-screen graph" : "Open full-screen graph"
-            }
-            title={
-              fullScreen ? "Exit full-screen graph" : "Open full-screen graph"
-            }
-            onClick={() => setFullScreen((value) => !value)}
-          >
-            {fullScreen ? <Minimize2 size={16} /> : <Expand size={16} />}
-          </button>
-          <div className="segmented-control" aria-label="Graph display mode">
-            {(["compare", "before", "after"] as GraphMode[]).map((mode) => (
-              <button
-                type="button"
-                key={mode}
-                className={graphMode === mode ? "active" : ""}
-                aria-pressed={graphMode === mode}
-                disabled={mode === "compare" && !presentation.allowCompare}
-                onClick={() => setGraphMode(mode)}
-              >
-                {formatLabel(mode)}
-              </button>
-            ))}
+            </div>
           </div>
         </div>
       </div>
@@ -418,9 +430,9 @@ export function GraphComparison({
               {copied ? <Check size={16} /> : <Copy size={16} />}
             </button>
           </div>
-          <div className="path-nodes">
+          <ol className="path-nodes" aria-label="Newly reachable attack path">
             {newPath.nodes.map((node, index) => (
-              <span key={node}>
+              <li key={node}>
                 <button
                   type="button"
                   title={node}
@@ -433,9 +445,9 @@ export function GraphComparison({
                   )?.name ?? node}
                 </button>
                 {index < newPath.nodes.length - 1 && <ChevronRight size={15} />}
-              </span>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
       )}
 

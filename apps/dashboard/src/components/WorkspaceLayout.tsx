@@ -1,5 +1,4 @@
 import {
-  ArrowUpRight,
   ChevronRight,
   CircleDot,
   Database,
@@ -91,7 +90,7 @@ export function Sidebar({
         </div>
         <ChevronRight size={14} />
       </div>
-      <p className="nav-label">Analysis workspace</p>
+      <p className="nav-label">Workspace</p>
       <nav aria-label="Workspace navigation">
         {items.map((item, index) => (
           <a
@@ -122,7 +121,7 @@ export function Sidebar({
             Transparent risk scoring.
           </p>
           <a href="#analysis-evidence">
-            Explore the evidence <ArrowUpRight size={14} />
+            Explore the evidence <ChevronRight size={14} />
           </a>
         </div>
         <a
@@ -147,7 +146,7 @@ export function Sidebar({
                   : user.role === "ANALYST"
                     ? "Security Analyst"
                     : "Developer · view only"
-                : "Sign in for source scans"}
+                : "Sign in to analyze"}
             </small>
           </div>
           <ChevronRight size={14} />
