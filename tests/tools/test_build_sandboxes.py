@@ -29,8 +29,9 @@ def test_compose_loader_quotes_and_allowlists_environment_probe_image():
     script = loader["command"][2]
 
     assert 'case "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"' in script
+    assert 'case "$${RISKGRAPH_VALIDATION_PROBE_IMAGE_ID}"' in script
     assert 'docker pull "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"' in script
-    assert 'docker image inspect "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"' in script
+    assert 'docker image inspect "$${RISKGRAPH_VALIDATION_PROBE_IMAGE_ID}"' in script
     assert script.index('docker pull "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"') < script.index("fi\n")
 
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
@@ -42,10 +43,13 @@ def test_validation_archive_is_atomic_and_contains_every_runtime_image(tmp_path,
     monkeypatch.setattr(BUILDER, "ROOT", tmp_path)
     commands = []
 
-    def run(command, check):
+    def run(command, check, **kwargs):
         assert check is True
         commands.append(command)
+        if command[1:3] == ["image", "inspect"]:
+            assert kwargs == {"stdout": subprocess.DEVNULL}
         if command[1:3] == ["save", "--output"]:
+            assert kwargs == {}
             Path(command[3]).write_bytes(b"archive")
         return subprocess.CompletedProcess(command, 0)
 

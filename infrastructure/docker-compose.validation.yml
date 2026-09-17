@@ -30,6 +30,7 @@ services:
     environment:
       DOCKER_HOST: tcp://validation-docker:2375
       RISKGRAPH_VALIDATION_PROBE_IMAGE: ${RISKGRAPH_VALIDATION_PROBE_IMAGE:-python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a}
+      RISKGRAPH_VALIDATION_PROBE_IMAGE_ID: sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a
     working_dir: /workspace
     volumes:
       - ../samples:/workspace/samples:ro
@@ -42,6 +43,10 @@ services:
           python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a) ;;
           *) echo "Unapproved validation probe image" >&2; exit 64 ;;
         esac
+        case "$${RISKGRAPH_VALIDATION_PROBE_IMAGE_ID}" in
+          sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a) ;;
+          *) echo "Unapproved validation probe image ID" >&2; exit 64 ;;
+        esac
         if [ -f /workspace/preloaded/images.tar ]; then
           docker load --input /workspace/preloaded/images.tar
         else
@@ -53,7 +58,7 @@ services:
         docker image inspect riskgraph-sandbox-protected:local >/dev/null
         docker image inspect riskgraph-sandbox-vulnerable:local >/dev/null
         docker image inspect riskgraph-sandbox:local >/dev/null
-        docker image inspect "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}" >/dev/null
+        docker image inspect "$${RISKGRAPH_VALIDATION_PROBE_IMAGE_ID}" >/dev/null
     networks: [validation-engine]
     restart: "no"
 
@@ -69,7 +74,7 @@ services:
     environment:
       RISKGRAPH_VALIDATION_DOCKER_HOST: tcp://validation-docker:2375
       RISKGRAPH_REQUIRE_ISOLATED_DOCKER: "true"
-      RISKGRAPH_VALIDATION_PROBE_IMAGE: ${RISKGRAPH_VALIDATION_PROBE_IMAGE:-python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a}
+      RISKGRAPH_VALIDATION_PROBE_IMAGE: sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a
     networks:
       - default
       - validation-engine

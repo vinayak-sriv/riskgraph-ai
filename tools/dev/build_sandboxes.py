@@ -39,7 +39,11 @@ def archive_validation_images(docker: list[str], probe_image: str) -> Path:
     images = [*SANDBOX_IMAGES, probe_image]
     try:
         for image in images:
-            subprocess.run([*docker, "image", "inspect", image], check=True)
+            subprocess.run(
+                [*docker, "image", "inspect", image],
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
         subprocess.run([*docker, "save", "--output", str(staging), *images], check=True)
         staging.replace(output)
     finally:
