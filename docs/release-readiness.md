@@ -3,14 +3,16 @@
 The roadmap is at Week 12. Weeks 8–11 have reproducible local and GitHub evidence;
 Week 12 remains open until an independent reviewer records attributable labels.
 
-Latest merged engineering evidence (2026-09-16): all automated release checks pass;
-all four source-backed demo scenarios pass with their expected risk deltas and
-verdicts; and both pinned external Spring cases pass current-analyzer integrity and
-repeatability checks. PR and post-merge CI passed on the exact merged Week 14 commit.
-Live isolated-Docker validation includes a confirmed authorization-removal probe and
-zero fixed CRITICAL findings across the 12 scanned runtime and sandbox images.
-Independent external labels, a clean-machine Week 15 rehearsal, the final
-post-review package/evidence bundle, and release approval remain open.
+Latest release-candidate evidence (2026-09-17): the public setup and all 18 automated
+release checks passed from a fresh clone with a new Python environment. All four
+source-backed demo scenarios passed with their expected risk deltas and verdicts;
+the isolated Docker authorization probe was confirmed; and both pinned external
+Spring cases passed source/license integrity and repeatability checks. The nested
+validation daemon now loads trusted images from an ignored archive and does not need
+registry access. See the
+[fresh-clone rehearsal record](evidence/release-rehearsal-2026-09-17.md).
+Independent external labels, the final post-review package/evidence bundle, and
+release approval remain open.
 
 - [x] Versioned canonical IR and deterministic graph/risk fixture tests
 - [x] Source allowlist, immutable commits, Spoon extraction and provenance
@@ -36,6 +38,8 @@ post-review package/evidence bundle, and release approval remain open.
 - [x] Permanent regression integrity checks for image, response, commit and cleanup evidence
 - [x] Dashboard validation-provenance view with explicit regression-readiness state
 - [x] Final presentation structurally validated and visually reviewed
+- [x] Public README setup and complete release gate reproduced from a fresh clone
+- [x] Full isolated Compose runtime and four-scenario demo reproduced from that clone
 - [ ] Reviewed evaluation on 2–4 external Spring Boot repositories with licenses
 - [x] Two pinned, licensed external-source regressions with provisional AI source review
 - [x] Real PR Check, SARIF, summary, source locations, diagnostics, and stable head identity
