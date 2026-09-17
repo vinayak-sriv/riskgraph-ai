@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import ai.riskgraph.platform.security.ScanAccessService;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -16,7 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 class AsyncScanJobServiceTest {
     @Test
-    void completesAndReusesAnIdenticalCanonicalSubmission() {
+    void completesAndReusesAnIdenticalCanonicalSubmission() throws InterruptedException {
         SourceScanService scans = mock(SourceScanService.class);
         ScanAccessService access = mock(ScanAccessService.class);
         MemoryScanJobStore store = new MemoryScanJobStore(access);
@@ -27,7 +28,8 @@ class AsyncScanJobServiceTest {
             AsyncScanJobService.Submission first = service.submit("analyst", "/repo",
                     "1".repeat(40), "2".repeat(40));
             verify(access, timeout(2000)).claimFor("a".repeat(64), "analyst");
-            ScanJobStore.ScanJob completed = store.get(first.job().jobId());
+            ScanJobStore.ScanJob completed = awaitState(store, first.job().jobId(),
+                    ScanJobStore.State.COMPLETED);
             assertThat(completed.state()).isEqualTo(ScanJobStore.State.COMPLETED);
             assertThat(completed.scanId()).isEqualTo("a".repeat(64));
 
@@ -86,5 +88,16 @@ class AsyncScanJobServiceTest {
         } finally {
             service.shutdown();
         }
+    }
+
+    private ScanJobStore.ScanJob awaitState(MemoryScanJobStore store, UUID jobId,
+            ScanJobStore.State expected) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+        ScanJobStore.ScanJob current = store.get(jobId);
+        while (current.state() != expected && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+            current = store.get(jobId);
+        }
+        return current;
     }
 }
