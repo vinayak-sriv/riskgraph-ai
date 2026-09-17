@@ -43,17 +43,23 @@ services:
           *) echo "Unapproved validation probe image" >&2; exit 64 ;;
         esac
         if [ -f /workspace/preloaded/images.tar ]; then
+          test -f /workspace/preloaded/images.sha256
+          expected_archive_sha="$$(cat /workspace/preloaded/images.sha256)"
+          echo "$${expected_archive_sha}" | grep -Eq '^[0-9a-f]{64}$'
+          actual_archive_sha="$$(sha256sum /workspace/preloaded/images.tar | cut -d ' ' -f 1)"
+          test "$${actual_archive_sha}" = "$${expected_archive_sha}"
           docker load --input /workspace/preloaded/images.tar
         else
           docker build --tag riskgraph-sandbox-protected:local samples/generated/build-protected
           docker build --tag riskgraph-sandbox-vulnerable:local samples/generated/build-vulnerable
           docker build --tag riskgraph-sandbox:local samples/sandbox
+          docker pull "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"
+          docker image tag "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}" riskgraph-validation-probe:local
         fi
-        docker pull "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"
         docker image inspect riskgraph-sandbox-protected:local >/dev/null
         docker image inspect riskgraph-sandbox-vulnerable:local >/dev/null
         docker image inspect riskgraph-sandbox:local >/dev/null
-        docker image inspect "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}" >/dev/null
+        docker image inspect riskgraph-validation-probe:local >/dev/null
     networks: [validation-engine]
     restart: "no"
 
@@ -69,7 +75,7 @@ services:
     environment:
       RISKGRAPH_VALIDATION_DOCKER_HOST: tcp://validation-docker:2375
       RISKGRAPH_REQUIRE_ISOLATED_DOCKER: "true"
-      RISKGRAPH_VALIDATION_PROBE_IMAGE: ${RISKGRAPH_VALIDATION_PROBE_IMAGE:-python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a}
+      RISKGRAPH_VALIDATION_PROBE_IMAGE: riskgraph-validation-probe:local
     networks:
       - default
       - validation-engine

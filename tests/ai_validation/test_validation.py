@@ -5,6 +5,7 @@ import subprocess
 import pytest
 from ai_app.validation import (
     DEFAULT_PROBE_IMAGE,
+    PRELOADED_PROBE_IMAGE,
     DockerRunner,
     ValidationRequest,
     ValidationResult,
@@ -167,6 +168,7 @@ def test_operational_log_has_run_mode_exit_and_cleanup_without_response(caplog):
 
 def test_probe_image_must_match_the_digest_pinned_allowlist():
     assert approved_probe_image(DEFAULT_PROBE_IMAGE) == DEFAULT_PROBE_IMAGE
+    assert approved_probe_image(PRELOADED_PROBE_IMAGE) == PRELOADED_PROBE_IMAGE
     with pytest.raises(ValueError, match="not an approved digest-pinned image"):
         approved_probe_image("python:latest")
 

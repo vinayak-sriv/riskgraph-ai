@@ -57,7 +57,7 @@ jobs:
         working-directory: apps/dashboard
       - run: npm run demo:record
         working-directory: apps/dashboard
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: riskgraph-demo-recording
           path: |
@@ -88,13 +88,7 @@ jobs:
           python tools/dev/create_mvp_samples.py
           python tools/dev/init_auth.py
       - name: Prebuild trusted validation images for the isolated daemon
-        run: |
-          python tools/dev/build_sandboxes.py
-          mkdir -p tmp/validation-images
-          docker save --output tmp/validation-images/images.tar \
-            riskgraph-sandbox-protected:local \
-            riskgraph-sandbox-vulnerable:local \
-            riskgraph-sandbox:local
+        run: python tools/dev/build_sandboxes.py
       - name: Build and start the complete isolated stack
         run: docker compose -p riskgraph-ci -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app up -d --build --wait
       - name: Exercise source, graph, AI-degraded, validation, and decision stages
@@ -145,7 +139,7 @@ jobs:
         run: docker run --rm -v "$PWD:/workspace" -w /workspace aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 fs --offline-scan --ignorefile .trivyignore.yaml --exit-code 1 --severity HIGH,CRITICAL --scanners secret,misconfig .
       - name: Build and independently verify deterministic release archive
         run: python tools/release/package.py --output dist/riskgraph-source.zip --manifest dist/riskgraph-source.manifest.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: riskgraph-release-candidate
           path: dist/

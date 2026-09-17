@@ -206,7 +206,7 @@ Prepare the authored, commit-labeled sandbox contexts, then start the validation
 overlay:
 
 ```powershell
-python tools/dev/build_sandboxes.py --prepare-only
+python tools/dev/build_sandboxes.py
 docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app up -d --build
 ```
 

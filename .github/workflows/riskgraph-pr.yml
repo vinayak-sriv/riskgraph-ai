@@ -54,7 +54,7 @@ jobs:
           python tools/dev/wait_ready.py
           python tools/reporting/submit_event.py "$GITHUB_EVENT_PATH" ../target --output ../reports
           cat ../reports/summary.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: riskgraph-evidence
           path: reports/
@@ -71,7 +71,7 @@ jobs:
       checks: write
       pull-requests: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: riskgraph-evidence
           path: reports

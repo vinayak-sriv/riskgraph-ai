@@ -2,6 +2,7 @@
 Never invokes build scripts from an arbitrary analyzed repository.
 """
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -15,6 +16,12 @@ DEFAULT_PROBE_IMAGE = (
     "sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a"
 )
 APPROVED_PROBE_IMAGES = frozenset({DEFAULT_PROBE_IMAGE})
+SANDBOX_IMAGES = (
+    "riskgraph-sandbox-protected:local",
+    "riskgraph-sandbox-vulnerable:local",
+    "riskgraph-sandbox:local",
+)
+LOCAL_PROBE_IMAGE = "riskgraph-validation-probe:local"
 
 
 def approved_probe_image(configured: str | None = None) -> str:
@@ -22,6 +29,45 @@ def approved_probe_image(configured: str | None = None) -> str:
     if image not in APPROVED_PROBE_IMAGES:
         raise SystemExit("RISKGRAPH_VALIDATION_PROBE_IMAGE is not an approved digest-pinned image")
     return image
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def archive_validation_images(docker: list[str], probe_image: str) -> Path:
+    """Create an atomic, ignored archive for the network-isolated Docker daemon."""
+
+    output = ROOT / "tmp/validation-images/images.tar"
+    staging = output.with_suffix(".tar.part")
+    checksum = output.with_name("images.sha256")
+    checksum_staging = checksum.with_suffix(".part")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    staging.unlink(missing_ok=True)
+    checksum_staging.unlink(missing_ok=True)
+    try:
+        for image in [*SANDBOX_IMAGES, probe_image]:
+            subprocess.run(
+                [*docker, "image", "inspect", image],
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
+        subprocess.run([*docker, "image", "tag", probe_image, LOCAL_PROBE_IMAGE], check=True)
+        subprocess.run(
+            [*docker, "save", "--output", str(staging), *SANDBOX_IMAGES, LOCAL_PROBE_IMAGE],
+            check=True,
+        )
+        checksum_staging.write_text(file_sha256(staging) + "\n", encoding="ascii", newline="\n")
+        staging.replace(output)
+        checksum_staging.replace(checksum)
+    finally:
+        staging.unlink(missing_ok=True)
+        checksum_staging.unlink(missing_ok=True)
+    return output
 
 
 VALIDATION_SECURITY_HARNESS = """package demo;
@@ -96,6 +142,8 @@ def main():
             check=True,
         )
         subprocess.run([*docker, "pull", probe_image], check=True)
+        archive = archive_validation_images(docker, probe_image)
+        print(f"Validation image archive: {archive}")
 
 
 if __name__ == "__main__":

@@ -27,6 +27,10 @@ continues to block the conditional Python parser proof of concept.
 The 2026-09-16 rehearsal passed all 18 verifier stages in 182.88 seconds. The
 recorded result is preserved in
 [the Week 14 release-gate evidence](evidence/week-14-release-gate-2026-09-16.md).
+The stronger 2026-09-17 rehearsal repeated the public setup from a fresh clone,
+passed the full gate, started the complete isolated stack, confirmed the Docker-only
+authorization probe, and repeated both pinned external cases. Its record is in
+[the fresh-clone release evidence](evidence/release-rehearsal-2026-09-17.md).
 
 Run from a clean checkout:
 

@@ -110,7 +110,7 @@ $env:RISKGRAPH_AI_SERVICE_TOKEN = python -c "import secrets; print(secrets.token
 
 python tools/dev/create_mvp_samples.py
 python tools/dev/init_auth.py
-python tools/dev/build_sandboxes.py --prepare-only
+python tools/dev/build_sandboxes.py
 
 docker compose -p riskgraph-mvp `
   -f infrastructure/docker-compose.yml `
@@ -302,7 +302,9 @@ The runtime enforces these boundaries:
 Database changes are append-only Flyway migrations in
 [`infrastructure/db/migrations/`](infrastructure/db/migrations/). The authored
 sandbox application is under [`samples/sandbox/`](samples/sandbox/), and
-`tools/dev/build_sandboxes.py` prepares its approved image contexts.
+`tools/dev/build_sandboxes.py` verifies the approved source bindings, builds the
+trusted images, and creates an ignored archive for the network-isolated validation
+daemon.
 
 ## Samples and evaluation data
 
@@ -399,7 +401,7 @@ latest consolidated local verification record is
 |---|---|
 | `python tools/dev/create_mvp_samples.py` | Generate the four immutable authored commit pairs |
 | `python tools/dev/init_auth.py` | Create an ignored local bootstrap credential |
-| `python tools/dev/build_sandboxes.py --prepare-only` | Verify source bindings and prepare trusted sandbox contexts |
+| `python tools/dev/build_sandboxes.py` | Build and archive the trusted sandbox and pinned probe images for isolated validation |
 | `python tools/dev/verify_mvp.py --compose --validation` | Exercise the four scenarios and local validation |
 | `python tools/dev/verify_release.py` | Run the aggregate build, test, contract, corpus, and audit gate |
 | `python tools/dev/clean_repo.py --dry-run` | Preview removable generated artifacts |

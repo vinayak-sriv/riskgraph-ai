@@ -22,7 +22,8 @@ DEFAULT_PROBE_IMAGE = (
     "python:3.12.14-alpine3.24@"
     "sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a"
 )
-APPROVED_PROBE_IMAGES = frozenset({DEFAULT_PROBE_IMAGE})
+PRELOADED_PROBE_IMAGE = "riskgraph-validation-probe:local"
+APPROVED_PROBE_IMAGES = frozenset({DEFAULT_PROBE_IMAGE, PRELOADED_PROBE_IMAGE})
 LOGGER = logging.getLogger("riskgraph.validation")
 
 
