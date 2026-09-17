@@ -1,6 +1,10 @@
+import hashlib
 import importlib.util
+import io
+import json
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -13,6 +17,26 @@ SPEC = importlib.util.spec_from_file_location(
 )
 BUILDER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(BUILDER)
+
+
+def write_docker_archive(path: Path, config: bytes = b'{"architecture":"amd64"}') -> str:
+    digest = hashlib.sha256(config).hexdigest()
+    config_path = "blobs/sha256/" + digest
+    manifest = json.dumps(
+        [
+            {
+                "Config": config_path,
+                "RepoTags": [BUILDER.LOCAL_PROBE_IMAGE],
+                "Layers": [],
+            }
+        ]
+    ).encode()
+    with tarfile.open(path, "w") as bundle:
+        for name, content in (("manifest.json", manifest), (config_path, config)):
+            info = tarfile.TarInfo(name)
+            info.size = len(content)
+            bundle.addfile(info, io.BytesIO(content))
+    return "sha256:" + digest
 
 
 def test_native_builder_rejects_mutable_probe_image():
@@ -43,6 +67,7 @@ def test_compose_loader_quotes_and_allowlists_environment_probe_image():
 def test_validation_archive_is_atomic_and_contains_every_runtime_image(tmp_path, monkeypatch):
     monkeypatch.setattr(BUILDER, "ROOT", tmp_path)
     commands = []
+    expected_image_id = ""
 
     def run(command, check, **kwargs):
         assert check is True
@@ -51,25 +76,16 @@ def test_validation_archive_is_atomic_and_contains_every_runtime_image(tmp_path,
             assert kwargs == {"stdout": subprocess.DEVNULL}
         if command[1:3] == ["save", "--output"]:
             assert kwargs == {}
-            Path(command[3]).write_bytes(b"archive")
+            nonlocal expected_image_id
+            expected_image_id = write_docker_archive(Path(command[3]))
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(BUILDER.subprocess, "run", run)
-    monkeypatch.setattr(
-        BUILDER.subprocess,
-        "check_output",
-        lambda command, text: (
-            "sha256:" + "a" * 64 + "\n"
-            if command[-1] == BUILDER.LOCAL_PROBE_IMAGE
-            else pytest.fail("identity must be read from the archived probe reference")
-        ),
-    )
     output = BUILDER.archive_validation_images(["docker"], BUILDER.DEFAULT_PROBE_IMAGE)
 
-    assert output.read_bytes() == b"archive"
+    assert output.exists()
     assert (
-        output.with_name("probe-image-id").read_text(encoding="ascii")
-        == "sha256:" + "a" * 64 + "\n"
+        output.with_name("probe-image-id").read_text(encoding="ascii") == expected_image_id + "\n"
     )
     assert not output.with_suffix(".tar.part").exists()
     assert commands[-1] == [
@@ -84,16 +100,40 @@ def test_validation_archive_is_atomic_and_contains_every_runtime_image(tmp_path,
 
 def test_validation_archive_rejects_a_non_sha256_probe_identity(tmp_path, monkeypatch):
     monkeypatch.setattr(BUILDER, "ROOT", tmp_path)
-    monkeypatch.setattr(
-        BUILDER.subprocess,
-        "run",
-        lambda command, check, **kwargs: subprocess.CompletedProcess(command, 0),
-    )
-    monkeypatch.setattr(
-        BUILDER.subprocess,
-        "check_output",
-        lambda command, text: "sha256:" + "z" * 64 + "\n",
-    )
 
-    with pytest.raises(ValueError, match="immutable SHA-256"):
+    def run(command, check, **kwargs):
+        if command[1:3] == ["save", "--output"]:
+            path = Path(command[3])
+            manifest = json.dumps(
+                [
+                    {
+                        "Config": "blobs/sha256/" + "z" * 64,
+                        "RepoTags": [BUILDER.LOCAL_PROBE_IMAGE],
+                        "Layers": [],
+                    }
+                ]
+            ).encode()
+            with tarfile.open(path, "w") as bundle:
+                info = tarfile.TarInfo("manifest.json")
+                info.size = len(manifest)
+                bundle.addfile(info, io.BytesIO(manifest))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(BUILDER.subprocess, "run", run)
+
+    with pytest.raises(ValueError, match="config path"):
         BUILDER.archive_validation_images(["docker"], BUILDER.DEFAULT_PROBE_IMAGE)
+
+
+def test_archive_identity_rejects_a_modified_config_blob(tmp_path):
+    archive = tmp_path / "images.tar"
+    image_id = write_docker_archive(archive)
+    with tarfile.open(archive, "a") as bundle:
+        config_path = "blobs/sha256/" + image_id.removeprefix("sha256:")
+        modified = b'{"architecture":"arm64"}'
+        info = tarfile.TarInfo(config_path)
+        info.size = len(modified)
+        bundle.addfile(info, io.BytesIO(modified))
+
+    with pytest.raises(ValueError, match="failed its SHA-256 check"):
+        BUILDER.archived_image_id(archive, BUILDER.LOCAL_PROBE_IMAGE)
