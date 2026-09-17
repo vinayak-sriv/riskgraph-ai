@@ -28,7 +28,7 @@ tests, and demo procedure must all work from a clean checkout.
 | 12 | Current | Measure accuracy, false positives, performance, and extraction coverage; freeze the demo build | Synthetic metrics and two pinned OSS cases pass the post-0.4.1 rerun; independent human review remains pending |
 | 13 | Engineering complete (gate-limited) | Polish graph visualization and generate permanent regression tests from confirmed findings | The dashboard exposes immutable validation provenance and permanent regressions verify confirmation integrity; Python parsing remains blocked on the Week 12 gate |
 | 14 | Engineering complete (gate-limited) | Reliability buffer, report/paper, architecture diagrams, and recorded demo | The expanded clean-install gate, recovery procedure, report draft, architecture diagrams, and reproducible recording are implemented; independent review still blocks roadmap advancement |
-| 15 | Planned | Release documentation, deployment packaging, security review, and presentation rehearsal | A new machine can reproduce the demo from the README |
+| 15 | Engineering complete (gate-limited) | Release documentation, deployment packaging, security review, and presentation rehearsal | The public README was reproduced from a fresh clone; main CI passed verification, packaging, and the isolated Linux container smoke test |
 | 16 | Planned | Final tagged release, evidence bundle, presentation, and submission | Release artifacts, report, metrics, and demo are archived together |
 
 ## Post-MVP Roadmap

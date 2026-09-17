@@ -435,8 +435,9 @@ time. It should not be mistaken for a current release tag or independent approva
 | `docs/evidence/release-candidate-2026-09-13/` | Historical release-gate, external-parser, GitHub CI, and presentation evidence |
 | `docs/evidence/release-candidate-2026-09-15/` | Four-scenario Compose rerun, local React workflow, external source rerun, and deterministic packaging evidence |
 
-The current reproducible gate and Docker/image evidence are documented in
-[`docs/evidence/week-14-release-gate-2026-09-16.md`](docs/evidence/week-14-release-gate-2026-09-16.md).
+The latest fresh-clone rehearsal, main-branch CI, source-package identity, and
+Docker/image evidence are documented in
+[`docs/evidence/release-rehearsal-2026-09-17.md`](docs/evidence/release-rehearsal-2026-09-17.md).
 Timing, image IDs, and runtime validation are host-specific; deterministic source,
 graph, and risk assertions are tested separately. Synthetic and AI-reviewed labels
 remain clearly separated from independent human review.
