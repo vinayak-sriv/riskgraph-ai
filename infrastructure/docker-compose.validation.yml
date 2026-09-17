@@ -48,8 +48,8 @@ services:
           docker build --tag riskgraph-sandbox-protected:local samples/generated/build-protected
           docker build --tag riskgraph-sandbox-vulnerable:local samples/generated/build-vulnerable
           docker build --tag riskgraph-sandbox:local samples/sandbox
+          docker pull "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"
         fi
-        docker pull "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"
         docker image inspect riskgraph-sandbox-protected:local >/dev/null
         docker image inspect riskgraph-sandbox-vulnerable:local >/dev/null
         docker image inspect riskgraph-sandbox:local >/dev/null

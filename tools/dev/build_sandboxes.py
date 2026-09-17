@@ -15,6 +15,11 @@ DEFAULT_PROBE_IMAGE = (
     "sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a"
 )
 APPROVED_PROBE_IMAGES = frozenset({DEFAULT_PROBE_IMAGE})
+SANDBOX_IMAGES = (
+    "riskgraph-sandbox-protected:local",
+    "riskgraph-sandbox-vulnerable:local",
+    "riskgraph-sandbox:local",
+)
 
 
 def approved_probe_image(configured: str | None = None) -> str:
@@ -22,6 +27,24 @@ def approved_probe_image(configured: str | None = None) -> str:
     if image not in APPROVED_PROBE_IMAGES:
         raise SystemExit("RISKGRAPH_VALIDATION_PROBE_IMAGE is not an approved digest-pinned image")
     return image
+
+
+def archive_validation_images(docker: list[str], probe_image: str) -> Path:
+    """Create an atomic, ignored archive for the network-isolated Docker daemon."""
+
+    output = ROOT / "tmp/validation-images/images.tar"
+    staging = output.with_suffix(".tar.part")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    staging.unlink(missing_ok=True)
+    images = [*SANDBOX_IMAGES, probe_image]
+    try:
+        for image in images:
+            subprocess.run([*docker, "image", "inspect", image], check=True)
+        subprocess.run([*docker, "save", "--output", str(staging), *images], check=True)
+        staging.replace(output)
+    finally:
+        staging.unlink(missing_ok=True)
+    return output
 
 
 VALIDATION_SECURITY_HARNESS = """package demo;
@@ -96,6 +119,8 @@ def main():
             check=True,
         )
         subprocess.run([*docker, "pull", probe_image], check=True)
+        archive = archive_validation_images(docker, probe_image)
+        print(f"Validation image archive: {archive}")
 
 
 if __name__ == "__main__":

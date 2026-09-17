@@ -88,13 +88,7 @@ jobs:
           python tools/dev/create_mvp_samples.py
           python tools/dev/init_auth.py
       - name: Prebuild trusted validation images for the isolated daemon
-        run: |
-          python tools/dev/build_sandboxes.py
-          mkdir -p tmp/validation-images
-          docker save --output tmp/validation-images/images.tar \
-            riskgraph-sandbox-protected:local \
-            riskgraph-sandbox-vulnerable:local \
-            riskgraph-sandbox:local
+        run: python tools/dev/build_sandboxes.py
       - name: Build and start the complete isolated stack
         run: docker compose -p riskgraph-ci -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app up -d --build --wait
       - name: Exercise source, graph, AI-degraded, validation, and decision stages

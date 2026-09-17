@@ -5,7 +5,7 @@
 ```powershell
 python tools/dev/create_mvp_samples.py
 python tools/dev/init_auth.py
-python tools/dev/build_sandboxes.py --prepare-only
+python tools/dev/build_sandboxes.py
 docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app up -d --build
 python tools/dev/verify_mvp.py --compose --validation
 ```
