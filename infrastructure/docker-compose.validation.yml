@@ -30,7 +30,6 @@ services:
     environment:
       DOCKER_HOST: tcp://validation-docker:2375
       RISKGRAPH_VALIDATION_PROBE_IMAGE: ${RISKGRAPH_VALIDATION_PROBE_IMAGE:-python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a}
-      RISKGRAPH_VALIDATION_PROBE_IMAGE_ID: sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a
     working_dir: /workspace
     volumes:
       - ../samples:/workspace/samples:ro
@@ -43,22 +42,24 @@ services:
           python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a) ;;
           *) echo "Unapproved validation probe image" >&2; exit 64 ;;
         esac
-        case "$${RISKGRAPH_VALIDATION_PROBE_IMAGE_ID}" in
-          sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a) ;;
-          *) echo "Unapproved validation probe image ID" >&2; exit 64 ;;
-        esac
         if [ -f /workspace/preloaded/images.tar ]; then
+          test -f /workspace/preloaded/probe-image-id
+          expected_probe_id="$$(cat /workspace/preloaded/probe-image-id)"
+          echo "$${expected_probe_id}" | grep -Eq '^sha256:[0-9a-f]{64}$'
           docker load --input /workspace/preloaded/images.tar
+          actual_probe_id="$$(docker image inspect --format '{{.Id}}' riskgraph-validation-probe:local)"
+          test "$${actual_probe_id}" = "$${expected_probe_id}"
         else
           docker build --tag riskgraph-sandbox-protected:local samples/generated/build-protected
           docker build --tag riskgraph-sandbox-vulnerable:local samples/generated/build-vulnerable
           docker build --tag riskgraph-sandbox:local samples/sandbox
           docker pull "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"
+          docker image tag "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}" riskgraph-validation-probe:local
         fi
         docker image inspect riskgraph-sandbox-protected:local >/dev/null
         docker image inspect riskgraph-sandbox-vulnerable:local >/dev/null
         docker image inspect riskgraph-sandbox:local >/dev/null
-        docker image inspect "$${RISKGRAPH_VALIDATION_PROBE_IMAGE_ID}" >/dev/null
+        docker image inspect riskgraph-validation-probe:local >/dev/null
     networks: [validation-engine]
     restart: "no"
 
@@ -74,7 +75,7 @@ services:
     environment:
       RISKGRAPH_VALIDATION_DOCKER_HOST: tcp://validation-docker:2375
       RISKGRAPH_REQUIRE_ISOLATED_DOCKER: "true"
-      RISKGRAPH_VALIDATION_PROBE_IMAGE: sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a
+      RISKGRAPH_VALIDATION_PROBE_IMAGE: riskgraph-validation-probe:local
     networks:
       - default
       - validation-engine

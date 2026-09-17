@@ -24,9 +24,9 @@ The public README sequence completed successfully:
 The rehearsal found that a first-run registry lookup from the nested validation
 daemon was vulnerable to Docker Desktop DNS failures. The release candidate now
 builds an ignored, atomic archive containing the three trusted sandbox images and
-the digest-pinned probe image. The isolated daemon loads that archive without a
-registry connection and addresses the probe by its exact allowlisted `sha256:` image
-ID. No mutable image tag was introduced into validation.
+the digest-pinned probe image. The archive records the resolved platform image ID;
+the isolated loader rejects an ID mismatch before the validation service starts.
+The service resolves the private preload name and executes the immutable image ID.
 
 ## Automated release gate
 

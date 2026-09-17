@@ -3,6 +3,7 @@ Never invokes build scripts from an arbitrary analyzed repository.
 """
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,7 @@ SANDBOX_IMAGES = (
     "riskgraph-sandbox-vulnerable:local",
     "riskgraph-sandbox:local",
 )
+LOCAL_PROBE_IMAGE = "riskgraph-validation-probe:local"
 
 
 def approved_probe_image(configured: str | None = None) -> str:
@@ -34,20 +36,35 @@ def archive_validation_images(docker: list[str], probe_image: str) -> Path:
 
     output = ROOT / "tmp/validation-images/images.tar"
     staging = output.with_suffix(".tar.part")
+    identity = output.with_name("probe-image-id")
+    identity_staging = identity.with_suffix(".part")
     output.parent.mkdir(parents=True, exist_ok=True)
     staging.unlink(missing_ok=True)
-    images = [*SANDBOX_IMAGES, probe_image]
+    identity_staging.unlink(missing_ok=True)
     try:
-        for image in images:
+        for image in [*SANDBOX_IMAGES, probe_image]:
             subprocess.run(
                 [*docker, "image", "inspect", image],
                 check=True,
                 stdout=subprocess.DEVNULL,
             )
-        subprocess.run([*docker, "save", "--output", str(staging), *images], check=True)
+        probe_image_id = subprocess.check_output(
+            [*docker, "image", "inspect", "--format", "{{.Id}}", probe_image],
+            text=True,
+        ).strip()
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", probe_image_id):
+            raise ValueError("Probe image did not resolve to an immutable SHA-256 image ID")
+        subprocess.run([*docker, "image", "tag", probe_image, LOCAL_PROBE_IMAGE], check=True)
+        subprocess.run(
+            [*docker, "save", "--output", str(staging), *SANDBOX_IMAGES, LOCAL_PROBE_IMAGE],
+            check=True,
+        )
+        identity_staging.write_text(probe_image_id + "\n", encoding="ascii", newline="\n")
         staging.replace(output)
+        identity_staging.replace(identity)
     finally:
         staging.unlink(missing_ok=True)
+        identity_staging.unlink(missing_ok=True)
     return output
 
 
