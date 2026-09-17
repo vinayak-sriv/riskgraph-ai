@@ -58,7 +58,11 @@ def test_validation_archive_is_atomic_and_contains_every_runtime_image(tmp_path,
     monkeypatch.setattr(
         BUILDER.subprocess,
         "check_output",
-        lambda command, text: "sha256:" + "a" * 64 + "\n",
+        lambda command, text: (
+            "sha256:" + "a" * 64 + "\n"
+            if command[-1] == BUILDER.LOCAL_PROBE_IMAGE
+            else pytest.fail("identity must be read from the archived probe reference")
+        ),
     )
     output = BUILDER.archive_validation_images(["docker"], BUILDER.DEFAULT_PROBE_IMAGE)
 

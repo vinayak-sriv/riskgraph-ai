@@ -48,13 +48,13 @@ def archive_validation_images(docker: list[str], probe_image: str) -> Path:
                 check=True,
                 stdout=subprocess.DEVNULL,
             )
+        subprocess.run([*docker, "image", "tag", probe_image, LOCAL_PROBE_IMAGE], check=True)
         probe_image_id = subprocess.check_output(
-            [*docker, "image", "inspect", "--format", "{{.Id}}", probe_image],
+            [*docker, "image", "inspect", "--format", "{{.Id}}", LOCAL_PROBE_IMAGE],
             text=True,
         ).strip()
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", probe_image_id):
             raise ValueError("Probe image did not resolve to an immutable SHA-256 image ID")
-        subprocess.run([*docker, "image", "tag", probe_image, LOCAL_PROBE_IMAGE], check=True)
         subprocess.run(
             [*docker, "save", "--output", str(staging), *SANDBOX_IMAGES, LOCAL_PROBE_IMAGE],
             check=True,
