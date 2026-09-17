@@ -22,57 +22,44 @@ Generate a client secret after registration and keep it on the backend. This flo
 
 The callback belongs to the backend on port 8080. After handling it, the backend should redirect to the configured dashboard origin on port 5173. Spring's default callback template is `{baseUrl}/login/oauth2/code/{registrationId}`. See [Spring Security OAuth2 configuration](https://docs.spring.io/spring-security/reference/servlet/oauth2/login/core.html).
 
-## Changes required in this codebase
+## Implemented authentication flow
 
-The platform uses Spring Boot 4.1.0 and currently has form login, session cookies, CSRF, and a deny-by-default security configuration. Adding only credentials will not enable GitHub login.
+The Spring Boot platform already implements the authorization-code flow with PKCE, session cookies, CSRF protection, and deny-by-default access rules. A self-hosted installation enables the flow by supplying its own GitHub App client credentials and restarting the platform API.
 
-| Existing file/area                     | Required implementation                                                                                                 |
+| Implemented area                       | Responsibility                                                                                                          |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `services/platform-api`                | Owns the authorization-code exchange, PKCE, stable GitHub numeric-ID mapping, local role mapping, and HttpOnly session. |
 | `V004__github_external_identities.sql` | Stores the stable provider subject separately from the mutable GitHub login and supports OAuth-only accounts.           |
 | `/auth/session`                        | Returns the local account plus `github.status`; it never returns the client secret or GitHub token.                     |
-| Dashboard account view                 | Starts `/auth/github/connect` with full browser navigation and refreshes all gated views from the returned session.     |
+| Dashboard account view                 | Starts `/auth/github/connect` with full browser navigation and refreshes gated views from the returned session.         |
 
 For admission, I recommend an allowlist or invitation. If open registration is intentionally enabled, assign Developer by default; only a local administrator should grant Analyst/Admin privileges. GitHub authentication establishes identity, while RiskGraph roles govern access.
 
 ## Backend configuration
 
-### Private-key location
+### Browser sign-in credentials
 
-The GitHub App `.pem` key is used for app and installation authentication, not for the browser OAuth callback. Keep it outside the repository, for example at `C:\Users\<you>\.riskgraph\secrets\riskgraph-github-app.pem`, and put only its absolute path in the ignored root `.env`:
+The browser sign-in flow requires the GitHub App client ID and client secret. Put them in the ignored root `.env`; never commit real values:
 
 ```dotenv
-GITHUB_APP_ID=replace_with_github_app_id
-GITHUB_APP_PRIVATE_KEY_FILE=C:/Users/<you>/.riskgraph/secrets/riskgraph-github-app.pem
+GITHUB_CLIENT_ID=replace_with_github_client_id
+GITHUB_CLIENT_SECRET=replace_with_github_client_secret
+DASHBOARD_ORIGIN=http://localhost:5173
 ```
 
-For Docker Compose, bind-mount that host file read-only into `platform-api` and expose the container path, such as `/run/secrets/github-app-private-key.pem`, to the future GitHub App client. The current platform backend does not consume this key yet. User sign-in still requires `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`.
+The repository's local launcher loads this ignored file before starting the platform. Docker deployments should inject the same values into `platform-api` through their secret-management mechanism. OAuth remains optional, so self-hosters can retain local password login without GitHub credentials.
 
-This is a proposed fragment to merge into the backend configuration when implementing the changes above. Keep OAuth configuration optional so self-hosters can retain local password login without GitHub credentials.
+Start the local stack and open the account view:
 
-```yaml
-spring:
-  security:
-    oauth2:
-      client:
-        registration:
-          github:
-            client-id: ${GITHUB_CLIENT_ID}
-            client-secret: ${GITHUB_CLIENT_SECRET}
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-
-server:
-  servlet:
-    session:
-      cookie:
-        http-only: true
-        same-site: lax
-        secure: ${RISKGRAPH_SECURE_COOKIE:false}
+```powershell
+python tools/dev/start_local.py
 ```
 
-The existing cookie setting is `SameSite=Strict`. A cross-site return from GitHub can omit that cookie and lose the saved authorization request. `Lax` permits the normal top-level GET callback; keep CSRF protection and OAuth state verification enabled. Keep Secure cookies enabled when using HTTPS outside local HTTP development. See [MDN's cookie rules](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie#samesitesamesite-value).
+The account card should show **Not connected** and an enabled **Continue with GitHub** action. **Backend setup required** means one or both credentials were absent when the platform started; update the environment and restart it. The callback must remain exactly `http://localhost:8080/login/oauth2/code/github` for the local ports above.
 
-The browser authorization proves identity and unlocks the current local analysis services. Repository installation discovery, remote cloning, webhooks, and Checks are separate Week 11 GitHub App integration work and are not represented as synchronized until those backend APIs exist.
+RiskGraph uses a `SameSite=Lax` HttpOnly session cookie so the top-level callback can retain the saved authorization request. CSRF protection, OAuth state verification, and PKCE remain enabled. Use Secure cookies with HTTPS outside local development. See [MDN's cookie rules](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie#samesitesamesite-value).
+
+Browser authorization proves identity and links the GitHub account to a local RiskGraph role. Repository installation discovery, PR events, cloning, and Checks remain separate capabilities; the dashboard must not represent them as synchronized unless their backend checks succeed.
 
 ## Open-source credential model
 
@@ -80,9 +67,9 @@ Publish source and configuration placeholders. Each independently hosted install
 
 Never ship one shared secret in the repository or Docker image. Do not put the secret in a `VITE_*` variable, browser code, or browser storage. Keep GitHub tokens server-side and return a normal HttpOnly session cookie to React. If login is the only use, avoid retaining GitHub tokens beyond what is needed; if retained for API access, protect them and handle expiration/revocation. These choices follow [GitHub's credential guidance](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/best-practices-for-creating-an-oauth-app).
 
-## Future repository and PR integration
+## Repository and PR integration
 
-For RiskGraph's planned repository access, PR events, and checks, prefer a GitHub App with selected-repository access and granular permissions. A GitHub App can also support user sign-in, so that is worth choosing upfront if repository integration is the immediate next feature. See [GitHub Apps versus OAuth Apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/differences-between-github-apps-and-oauth-apps).
+RiskGraph uses the GitHub App model for selected-repository access and granular permissions. Sign-in is only the identity-linking step; installation access and repository permissions are checked independently. See [GitHub Apps versus OAuth Apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/differences-between-github-apps-and-oauth-apps).
 
 Webhooks differ from login callbacks: GitHub's servers must reach the webhook receiver. Local development therefore needs a reachable endpoint or a forwarding service such as Smee for webhooks. See [GitHub's local webhook guidance](https://docs.github.com/en/webhooks/testing-and-troubleshooting-webhooks/testing-webhooks).
 
