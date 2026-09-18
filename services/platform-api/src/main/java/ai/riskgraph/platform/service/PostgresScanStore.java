@@ -14,7 +14,10 @@ import tools.jackson.databind.node.ObjectNode;
 public class PostgresScanStore implements ScanStore {
     private final JdbcTemplate db;
     private final ObjectMapper mapper;
-    public PostgresScanStore(JdbcTemplate db, ObjectMapper mapper) { this.db=db; this.mapper=mapper; }
+    private final NotificationOutboxWriter outbox;
+    public PostgresScanStore(JdbcTemplate db, ObjectMapper mapper, NotificationOutboxWriter outbox) {
+        this.db=db; this.mapper=mapper; this.outbox=outbox;
+    }
 
     @Transactional
     public void save(JsonNode result) {
@@ -26,6 +29,7 @@ public class PostgresScanStore implements ScanStore {
             db.update("UPDATE scans SET result_json=?::jsonb, status=?, final_verdict=?, validation_status=?, updated_at=now() WHERE id=?",
                 result.toString(), result.path("final_verdict").asString(),result.path("final_verdict").asString(),result.path("validation_status").asString(),existing.getFirst());
             persistFindings(existing.getFirst(), result);
+            outbox.write(existing.getFirst(), result);
             return;
         }
         JsonNode provenance=result.path("provenance");
@@ -42,6 +46,7 @@ public class PostgresScanStore implements ScanStore {
             result.path("pre_validation_verdict").asString(),result.path("final_verdict").asString(),result.path("validation_status").asString());
         for (String revision : new String[]{"before","after"}) persistGraph(scan, revision, result.at("/graph_delta/"+revision));
         persistFindings(scan, result);
+        outbox.write(scan, result);
     }
 
     private void persistGraph(Long scan, String revision, JsonNode graph) {
@@ -139,6 +144,7 @@ public class PostgresScanStore implements ScanStore {
                 updated.toString(),updated.path("final_verdict").asString(),
                 updated.path("final_verdict").asString(),updated.path("validation_status").asString(),scan);
         persistFindings(scan, updated);
+        outbox.write(scan, updated);
         return updated.deepCopy();
     }
 }

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/notifications/notification-event.schema.json",
+  "title": "RiskGraph notification event",
+  "description": "The transactional-outbox envelope written in the same database transaction as a scan's final decision. A separate dispatcher polls the outbox and delivers at-least-once; consumers dedupe on event_id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "event_id", "event_type", "occurred_at", "dedup_key", "decision"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "event_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "event_type": { "type": "string", "const": "final-decision" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "dedup_key": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable across redeliveries of the same decision; a re-save with an unchanged verdict must reuse it so the outbox insert is a no-op."
+    },
+    "decision": { "$ref": "https://riskgraph.ai/contracts/notifications/final-decision.schema.json" }
+  }
+}

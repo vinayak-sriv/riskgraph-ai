@@ -70,6 +70,7 @@
                     <include>ai/**</include>
                     <include>ir/**</include>
                     <include>validation/**</include>
+                    <include>notifications/**</include>
                 </includes>
             </resource>
             <resource><directory>../../infrastructure/db/migrations</directory><targetPath>db/migration</targetPath></resource>
