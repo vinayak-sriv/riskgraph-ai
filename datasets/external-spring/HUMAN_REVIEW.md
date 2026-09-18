@@ -38,7 +38,15 @@ Only after both cases are reviewed should the manifest be changed to
 - Automated result: 2/2 expected endpoint/auth rows, zero risk delta, REVIEW
 - Limitation to verify: ambiguous helper call prevents deterministic resource resolution
 
-Reviewer decision: _pending_
+Reviewer decision: **NEGATIVE** — confirmed by Vinayak, 2026-09-18. Independently
+reviewed both pinned revisions and the linked upstream diff. The only change is
+`.strip()` whitespace normalization on a search parameter in
+`OwnerController.processFindForm`; no authorization annotation, route, or
+repository wiring is added, removed, or modified in either revision. Not a
+security-relevant change within the annotation-only MVP scope. The noted
+extraction limitation (ambiguous helper call blocking deterministic resource
+resolution) is accurate: the repository call is reached through a helper, not a
+direct field reference.
 
 ## Case 2 — Spring REST Service guide
 
@@ -52,4 +60,10 @@ Reviewer decision: _pending_
   established, so extraction coverage remains incomplete and the result fails closed
   with LOW confidence
 
-Reviewer decision: _pending_
+Reviewer decision: **NEGATIVE** — confirmed by Vinayak, 2026-09-18. Independently
+reviewed both pinned revisions and the linked upstream diff. The change is
+whitespace/indentation-only across the sample modules; `GreetingController`'s route
+and logic are unchanged. Not a security-relevant change. The noted limitation (no
+deterministic downstream sensitive-resource path, so extraction stays incomplete
+and fails closed with LOW confidence) is accurate: `/greeting` has no
+repository-backed resource in scope.
