@@ -29,20 +29,24 @@ def build_stub_envelope(repository_path: str, old_commit: str, new_commit: str) 
     analysis_id = hashlib.sha256(
         f"{repository_identity}:{old_commit}:{new_commit}:{CONFIG_HASH}".encode()
     ).hexdigest()
-    diagnostics = [{
-        "severity": "INFO",
-        "code": "PYTHON_EXTRACTION_NOT_IMPLEMENTED",
-        "message": "FastAPI route/endpoint extraction is not implemented yet; this scan reports zero endpoints.",
-        "path": None,
-    }]
+    diagnostics = [
+        {
+            "severity": "INFO",
+            "code": "PYTHON_EXTRACTION_NOT_IMPLEMENTED",
+            "message": "FastAPI route/endpoint extraction is not implemented yet; this scan reports zero endpoints.",
+            "path": None,
+        }
+    ]
     if changed_files is None:
         changed_files = []
-        diagnostics.append({
-            "severity": "WARNING",
-            "code": "GIT_DIFF_UNAVAILABLE",
-            "message": "Could not compute the changed Python file list for this commit pair.",
-            "path": None,
-        })
+        diagnostics.append(
+            {
+                "severity": "WARNING",
+                "code": "GIT_DIFF_UNAVAILABLE",
+                "message": "Could not compute the changed Python file list for this commit pair.",
+                "path": None,
+            }
+        )
     return {
         "schema_version": SCHEMA_VERSION,
         "analyzer_version": ANALYZER_VERSION,
@@ -75,11 +79,26 @@ def build_stub_envelope(repository_path: str, old_commit: str, new_commit: str) 
     }
 
 
-def _changed_python_files(repository_path: str, old_commit: str, new_commit: str) -> list[dict] | None:
+def _changed_python_files(
+    repository_path: str, old_commit: str, new_commit: str
+) -> list[dict] | None:
     try:
         result = subprocess.run(
-            ["git", "-C", repository_path, "diff", "--name-status", old_commit, new_commit, "--", "*.py"],
-            capture_output=True, text=True, timeout=30, check=True,
+            [
+                "git",
+                "-C",
+                repository_path,
+                "diff",
+                "--name-status",
+                old_commit,
+                new_commit,
+                "--",
+                "*.py",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
         )
     except (subprocess.SubprocessError, OSError):
         return None
@@ -91,11 +110,13 @@ def _changed_python_files(repository_path: str, old_commit: str, new_commit: str
         status = _STATUS_MAP.get(parts[0][0], "MODIFY")
         old_path = parts[1] if status != "ADD" and len(parts) > 1 else None
         new_path = parts[-1] if status != "DELETE" else None
-        changed.append({
-            "status": status,
-            "old_path": old_path,
-            "new_path": new_path,
-            "old_ranges": [],
-            "new_ranges": [],
-        })
+        changed.append(
+            {
+                "status": status,
+                "old_path": old_path,
+                "new_path": new_path,
+                "old_ranges": [],
+                "new_ranges": [],
+            }
+        )
     return changed
