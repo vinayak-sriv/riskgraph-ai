@@ -42,6 +42,36 @@ class SourceScanServiceTest {
             .hasMessage("Analyzer provenance does not match request");
     }
 
+    @Test void routesAPositivelyDetectedFastApiRepositoryToThePythonAnalyzer() throws Exception {
+        java.nio.file.Files.writeString(root.resolve("main.py"), "from fastapi import FastAPI");
+        var client = mock(AnalysisClient.class);
+        ObjectNode envelope = (ObjectNode) mapper.readTree(getClass().getResourceAsStream(
+            "/contracts/ir/examples/analysis-envelope.json"));
+        ((ObjectNode) envelope.path("provenance")).put("repository_path", root.toRealPath().toString());
+        String oldSha = envelope.at("/provenance/old_commit").asString();
+        String newSha = envelope.at("/provenance/new_commit").asString();
+        when(client.post(eq("python"), eq("/analyze"), any())).thenReturn(envelope);
+        when(client.post(eq("graph"), eq("/analysis"), any())).thenThrow(
+            new PipelineException("DEPENDENCY_UNAVAILABLE", 503, "reached the graph step"));
+        var service = new SourceScanService(client, new ContractValidator(), mapper,
+            "analyzer", "graph", "python", root.toString(), new MemoryScanStore(),
+            new FindingEnrichmentService(client, new ContractValidator(), mapper),
+            new SourceValidationService(client, new ContractValidator(), mapper));
+        assertThatThrownBy(() -> service.analyze(root.toString(), oldSha, newSha))
+            .hasMessage("reached the graph step");
+        verify(client, never()).post(eq("analyzer"), any(), any());
+    }
+
+    @Test void aPythonRepositoryFailsClearlyWhenNoPythonAnalyzerIsConfigured() throws Exception {
+        java.nio.file.Files.writeString(root.resolve("main.py"), "from fastapi import FastAPI");
+        var client = mock(AnalysisClient.class);
+        var service = new SourceScanService(client, new ContractValidator(), mapper,
+            "analyzer", "graph", root.toString(), new MemoryScanStore());
+        assertThatThrownBy(() -> service.analyze(root.toString(), "a".repeat(40), "b".repeat(40)))
+            .hasMessageContaining("Python analyzer is not configured");
+        verifyNoInteractions(client);
+    }
+
     @Test void rejectsMalformedEnvelopeAndDisallowedPaths() {
         var client = mock(AnalysisClient.class);
         when(client.post(any(), any(), any())).thenReturn(mapper.createObjectNode());
