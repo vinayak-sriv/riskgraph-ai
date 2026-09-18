@@ -3,6 +3,7 @@ package ai.riskgraph.platform.service;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -14,7 +15,7 @@ import tools.jackson.databind.node.ObjectNode;
  * database transaction as the scan result that decided it. REVIEW and BLOCK
  * only, per AGENTS.md Section 8 item 2; ALLOW is not notification-worthy.
  */
-@Component
+@Component @Profile("!local")
 public class NotificationOutboxWriter {
     private static final Set<String> NOTIFIABLE = Set.of("REVIEW", "BLOCK");
 
