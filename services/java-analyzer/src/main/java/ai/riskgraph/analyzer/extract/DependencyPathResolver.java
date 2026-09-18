@@ -143,9 +143,21 @@ final class DependencyPathResolver {
                 .toList();
     }
 
+    // ponytail: replaceFirst(suffix$, "") strips a type name down to "" when the type is
+    // named exactly the bare suffix (e.g. a repository literally called "Repository").
+    // classify() rejects blank resources, so fall back to the next non-blank identifier
+    // instead of crashing the analysis.
     private DependencyPath path(String service, String repository, String resource) {
-        return new DependencyPath(service, repository, resource,
-                sensitivityPolicy.classify(resource, repository != null).sensitivity());
+        String safeResource = firstNonBlank(resource, repository, service, "unknown");
+        return new DependencyPath(service, repository, safeResource,
+                sensitivityPolicy.classify(safeResource, repository != null).sensitivity());
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) return value;
+        }
+        return null;
     }
 
     private String invocationType(CtInvocation<?> invocation) {
