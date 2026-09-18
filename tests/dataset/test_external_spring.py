@@ -52,7 +52,11 @@ def test_external_manifest_rejects_unpinned_or_unregistered_sources(
 
 
 def test_manifest_cannot_claim_human_review_without_case_attribution(tmp_path, monkeypatch):
+    # ponytail: strip any case-level review the live manifest may already carry,
+    # so this negative path is exercised regardless of the manifest's real state.
     manifest = copy.deepcopy(external.read_manifest())
+    for case in manifest["cases"]:
+        case.pop("review", None)
     manifest.update(label_status="REVIEWED", review_type="HUMAN_SOURCE_REVIEW", human_reviewed=True)
     (tmp_path / "manifest.json").write_text(json.dumps(manifest))
     monkeypatch.setattr(external, "DATA", tmp_path)
@@ -63,7 +67,9 @@ def test_manifest_cannot_claim_human_review_without_case_attribution(tmp_path, m
 
 def test_manifest_cannot_claim_reviewed_labels_when_not_human_reviewed(tmp_path, monkeypatch):
     manifest = copy.deepcopy(external.read_manifest())
-    manifest.update(label_status="REVIEWED", review_type="HUMAN_SOURCE_REVIEW")
+    manifest.update(
+        label_status="REVIEWED", review_type="HUMAN_SOURCE_REVIEW", human_reviewed=False
+    )
     (tmp_path / "manifest.json").write_text(json.dumps(manifest))
     monkeypatch.setattr(external, "DATA", tmp_path)
 
