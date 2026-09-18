@@ -1,13 +1,13 @@
 """Builds the analysis envelope for a Python/FastAPI repository.
 
 Track A batch 3 (docs/pending-updates.md): route/handler/auth-dependency
-extraction via `extractor.py` is implemented. Call/resource resolution
-(handler -> service -> repository/resource, batch 4) is not, so every
-extracted endpoint reports resource="unresolved" with LOW call_resolution
-confidence -- see extractor.py's module docstring for the exact gaps. This
-keeps the analyzer boundary honest end to end: platform-api routing a
-FastAPI repository here instead of java-analyzer, and the rest of the
-pipeline (graph/risk, decision, dashboard) running unchanged on the result.
+extraction via `extractor.py`. Batch 4 adds handler -> service/repository ->
+resource resolution and sensitivity classification (extractor.py wires in
+resolver.py and sensitivity_policy.py; see their docstrings for the exact
+heuristic scope). This keeps the analyzer boundary honest end to end:
+platform-api routing a FastAPI repository here instead of java-analyzer, and
+the rest of the pipeline (graph/risk, decision, dashboard) running unchanged
+on the result.
 """
 
 import hashlib
@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from .extractor import extract_endpoints
 
 SCHEMA_VERSION = "1.1.0"
-ANALYZER_VERSION = "0.2.0-batch3"
+ANALYZER_VERSION = "0.2.0-batch4"
 CONFIG_HASH = hashlib.sha256(ANALYZER_VERSION.encode()).hexdigest()
 
 _STATUS_MAP = {"A": "ADD", "M": "MODIFY", "D": "DELETE"}
@@ -35,11 +35,12 @@ def build_envelope(repository_path: str, old_commit: str, new_commit: str) -> di
     diagnostics = [
         {
             "severity": "INFO",
-            "code": "PYTHON_RESOURCE_RESOLUTION_NOT_IMPLEMENTED",
+            "code": "PYTHON_RESOLUTION_IS_HEURISTIC",
             "message": (
-                "Route and authentication-dependency evidence is extracted, but handler -> "
-                "service -> repository/resource resolution is not; every finding reports "
-                'resource="unresolved" with LOW call_resolution confidence.'
+                "Handler -> service/repository -> resource resolution matches a handler's own "
+                "direct calls by naming convention (*_repository/*_service objects, SQLAlchemy "
+                "query/get/add/select calls on session-like objects); it does not follow calls "
+                "into other services or files."
             ),
             "path": None,
         }
@@ -85,16 +86,30 @@ def build_envelope(repository_path: str, old_commit: str, new_commit: str) -> di
             "java_files_considered": len(changed_files),
             "controllers_discovered": len({e["qualified_controller"] for e in before + after}),
             "endpoints_emitted": len(before) + len(after),
-            # ponytail: batch 4 (call/resource resolution) is what makes these non-zero.
-            # coverage_ratio is deliberately "endpoints with resolved deps / endpoints
-            # found" (bounded 0..1), not "endpoints found / files" -- the latter can
-            # exceed 1 whenever a single file defines more than one route.
-            "endpoints_with_service": 0,
-            "endpoints_with_repository": 0,
-            "coverage_ratio": 0.0,
+            "endpoints_with_service": _count_resolved(before + after, "service"),
+            "endpoints_with_repository": _count_resolved(before + after, "repository"),
+            "coverage_ratio": _coverage_ratio(before + after),
         },
         "diagnostics": diagnostics,
     }
+
+
+def _count_resolved(evidence: list[dict], field: str) -> int:
+    return sum(1 for entry in evidence if entry["endpoint"][field] is not None)
+
+
+def _coverage_ratio(evidence: list[dict]) -> float:
+    # "endpoints with any resolved dependency / endpoints found" (bounded
+    # 0..1), not "endpoints found / files" -- the latter can exceed 1
+    # whenever a single file defines more than one route.
+    if not evidence:
+        return 0.0
+    resolved = sum(
+        1
+        for entry in evidence
+        if entry["endpoint"]["service"] is not None or entry["endpoint"]["repository"] is not None
+    )
+    return resolved / len(evidence)
 
 
 def _extract_side(

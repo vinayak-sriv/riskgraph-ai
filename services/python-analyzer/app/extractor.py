@@ -1,42 +1,40 @@
 """FastAPI route/handler/auth-dependency extraction from Python AST.
 
-Track A batch 3 (docs/pending-updates.md): extracts route decorators (HTTP
-method + path), the handler function, and whether the handler takes a
-FastAPI `Depends(...)` parameter (authentication evidence), all via the
-standard `ast` module -- no execution of target source.
+Track A batch 3 extracts route decorators (HTTP method + path), the handler
+function, and whether the handler takes a FastAPI `Depends(...)` parameter
+(authentication evidence). Batch 4 adds handler -> service/repository ->
+resource resolution via resolver.py (see its module docstring for the exact
+heuristic scope) and sensitivity classification via sensitivity_policy.py.
 
-# ponytail: two things batch 3's own spec asks for are NOT done here, both
-# flagged via extraction_confidence rather than silently guessed:
-#   - Router-prefix stitching: `app.include_router(router, prefix="/api")`
-#     across files is not resolved, so a route mounted under a prefix is
-#     reported with its bare in-file path only. Upgrade path: build a
-#     cross-file include_router graph once batch 4's resolver exists.
-#   - Call/resource resolution (service/repository/resource paths) is
-#     explicitly batch 4. Every finding below reports resource="unresolved"
-#     and call_resolution confidence LOW so downstream risk scoring can
-#     never mistake this for a confirmed-safe path.
+# ponytail: router-prefix stitching (`app.include_router(router,
+# prefix="/api")` across files) is still not resolved, so a route mounted
+# under a prefix is reported with its bare in-file path only. Upgrade path:
+# build a cross-file include_router graph if batch 5/6 evaluation shows
+# prefixed routes are common in the pinned repos.
 """
 
 import ast
+from functools import lru_cache
+
+from .resolver import Resolution, confidence_minimum, resolve_dependencies
+from .sensitivity_policy import SensitivityPolicy
 
 _HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
 
 
-def extract_endpoints(source: str, file_path: str) -> list[dict]:
-    """Parse FastAPI route handlers out of one Python file's source.
+@lru_cache(maxsize=1)
+def _get_policy() -> SensitivityPolicy:
+    return SensitivityPolicy()
 
-    Returns a list of dicts matching the analysis-envelope "evidence" shape
-    (contracts/ir/analysis-envelope.schema.json) apart from dependency_paths
-    and sensitivity_evidence, which stay empty/placeholder pending batch 4.
-    Returns [] on a syntax error rather than raising -- a diagnostic at the
-    call site is the right place to surface that, not a crashed scan.
-    """
+
+def extract_endpoints(source: str, file_path: str) -> list[dict]:
     try:
         tree = ast.parse(source, filename=file_path)
     except SyntaxError:
         return []
 
     router_names = _router_variable_names(tree)
+    policy = _get_policy()
     findings = []
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -47,11 +45,38 @@ def extract_endpoints(source: str, file_path: str) -> list[dict]:
                 continue
             method, path = route
             authenticated = _has_depends_param(node)
-            findings.append(_evidence(node, file_path, method, path, authenticated))
+            resolution = resolve_dependencies(node)
+            findings.append(
+                _evidence(node, file_path, method, path, authenticated, resolution, policy)
+            )
     return findings
 
 
-def _evidence(node, file_path: str, method: str, path: str, authenticated: bool) -> dict:
+def _evidence(
+    node,
+    file_path: str,
+    method: str,
+    path: str,
+    authenticated: bool,
+    resolution: Resolution,
+    policy: SensitivityPolicy,
+) -> dict:
+    primary = resolution.primary
+    classification = policy.classify(primary.resource, primary.repository is not None)
+    dependency_paths = [
+        {
+            "service": dependency.service,
+            "repository": dependency.repository,
+            "resource": dependency.resource,
+            "sensitivity": policy.classify(
+                dependency.resource, dependency.repository is not None
+            ).sensitivity,
+        }
+        for dependency in resolution.paths
+    ]
+    route_confidence = "HIGH"
+    authorization_confidence = "MEDIUM" if authenticated else "HIGH"
+    overall = confidence_minimum(route_confidence, authorization_confidence, resolution.confidence)
     return {
         "endpoint": {
             "endpoint": path,
@@ -59,10 +84,10 @@ def _evidence(node, file_path: str, method: str, path: str, authenticated: bool)
             "controller": node.name,
             "authentication": authenticated,
             "required_role": None,
-            "service": None,
-            "repository": None,
-            "resource": "unresolved",
-            "sensitivity": "LOW",
+            "service": primary.service,
+            "repository": primary.repository,
+            "resource": primary.resource,
+            "sensitivity": classification.sensitivity,
         },
         "source_location": {
             "path": file_path,
@@ -71,17 +96,17 @@ def _evidence(node, file_path: str, method: str, path: str, authenticated: bool)
         },
         "qualified_controller": f"{file_path}:{node.name}",
         "method_signature": _signature(node),
-        "dependency_paths": [],
+        "dependency_paths": dependency_paths,
         "sensitivity_evidence": {
-            "classification": "LOW",
-            "source": "default",
-            "matched_rule": "unresolved-pending-batch-4",
+            "classification": classification.sensitivity,
+            "source": classification.source,
+            "matched_rule": classification.matched_rule,
         },
         "extraction_confidence": {
-            "route": "HIGH",
-            "authorization": "MEDIUM" if authenticated else "HIGH",
-            "call_resolution": "LOW",
-            "overall": "LOW",
+            "route": route_confidence,
+            "authorization": authorization_confidence,
+            "call_resolution": resolution.confidence,
+            "overall": overall,
         },
     }
 

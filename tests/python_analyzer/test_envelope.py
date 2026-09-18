@@ -94,7 +94,9 @@ def test_real_repo_extracts_routes_and_new_auth_dependency(tmp_path):
 
     after_by_controller = {e["endpoint"]["controller"]: e for e in envelope["after"]}
     assert after_by_controller["create_account"]["endpoint"]["authentication"] is True
-    assert after_by_controller["create_account"]["endpoint"]["resource"] == "unresolved"
+    # No repository/service calls in the handler body, so resolution falls
+    # back to the handler's own name (see resolver.py's fallback_resource).
+    assert after_by_controller["create_account"]["endpoint"]["resource"] == "create_account"
 
     codes = {diagnostic["code"] for diagnostic in envelope["diagnostics"]}
-    assert "PYTHON_RESOURCE_RESOLUTION_NOT_IMPLEMENTED" in codes
+    assert "PYTHON_RESOLUTION_IS_HEURISTIC" in codes

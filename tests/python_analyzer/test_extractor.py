@@ -44,11 +44,40 @@ def test_depends_parameter_marks_authentication_true():
     assert by_controller["list_public"]["endpoint"]["authentication"] is False
 
 
-def test_unresolved_call_resolution_is_flagged_low_confidence():
+def test_handler_with_no_recognized_calls_falls_back_to_its_own_name():
     endpoints = extract_endpoints(SOURCE, "app/routes.py")
     for evidence in endpoints:
-        assert evidence["endpoint"]["resource"] == "unresolved"
+        assert evidence["endpoint"]["resource"] == evidence["endpoint"]["controller"]
         assert evidence["extraction_confidence"]["call_resolution"] == "LOW"
+        assert evidence["dependency_paths"] == []
+
+
+def test_repository_call_resolves_resource_and_high_call_confidence():
+    source = """
+from fastapi import FastAPI
+
+app = FastAPI()
+
+
+@app.get("/users/{user_id}")
+def get_user(user_id: str):
+    return user_repository.find_by_id(user_id)
+"""
+    endpoints = extract_endpoints(source, "app/users.py")
+    endpoint = endpoints[0]["endpoint"]
+
+    assert endpoint["resource"] == "user"
+    assert endpoint["repository"] == "user_repository"
+    assert endpoint["sensitivity"] == "HIGH"
+    assert endpoints[0]["extraction_confidence"]["call_resolution"] == "HIGH"
+    assert endpoints[0]["dependency_paths"] == [
+        {
+            "service": None,
+            "repository": "user_repository",
+            "resource": "user",
+            "sensitivity": "HIGH",
+        }
+    ]
 
 
 def test_custom_router_variable_name_is_detected():
