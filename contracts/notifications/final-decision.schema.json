@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskgraph.ai/contracts/notifications/final-decision.schema.json",
+  "title": "RiskGraph final decision",
+  "description": "A completed scan's final decision, as recorded in the same transaction as the scan result. Consumed by the notification outbox dispatcher independently of the source language that produced the scan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scan_id",
+    "repository",
+    "old_commit",
+    "new_commit",
+    "final_verdict",
+    "risk_before",
+    "risk_after",
+    "validation_status",
+    "decided_at"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "scan_id": { "type": "string", "minLength": 1 },
+    "repository": { "type": "string", "minLength": 1 },
+    "old_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "new_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "final_verdict": { "type": "string", "enum": ["ALLOW", "REVIEW", "BLOCK"] },
+    "risk_before": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "risk_after": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "validation_status": {
+      "type": "string",
+      "enum": ["NOT_RUN", "REJECTED", "CONFIRMED", "ERROR", "INCONCLUSIVE"]
+    },
+    "decided_at": { "type": "string", "format": "date-time" }
+  }
+}

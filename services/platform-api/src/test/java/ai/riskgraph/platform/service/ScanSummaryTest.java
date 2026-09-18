@@ -29,7 +29,7 @@ class ScanSummaryTest {
             handler.processRow(row);
             return null;
         }).when(db).query(anyString(), any(RowCallbackHandler.class), any(Object[].class));
-        var store = new PostgresScanStore(db, JsonMapper.builder().build());
+        var store = new PostgresScanStore(db, JsonMapper.builder().build(), mock(NotificationOutboxWriter.class));
         assertThat(store.summaries(List.of("one", "two", "one")))
                 .containsOnlyKeys("one").containsEntry("one", new ScanStore.Summary(69, "BLOCK"));
         org.mockito.Mockito.verify(db).query(anyString(), any(RowCallbackHandler.class), any(Object[].class));
@@ -38,7 +38,8 @@ class ScanSummaryTest {
     @Test
     void emptyPageDoesNotQueryDatabase() {
         JdbcTemplate db = mock(JdbcTemplate.class);
-        assertThat(new PostgresScanStore(db, JsonMapper.builder().build()).summaries(List.of())).isEmpty();
+        var store = new PostgresScanStore(db, JsonMapper.builder().build(), mock(NotificationOutboxWriter.class));
+        assertThat(store.summaries(List.of())).isEmpty();
         verifyNoInteractions(db);
     }
 

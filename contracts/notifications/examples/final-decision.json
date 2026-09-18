@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "scan_id": "9f3f6a1e6f6a4c8a8f6a9f3f6a1e6f6a4c8a8f6a9f3f6a1e6f6a4c8a8f6a9f3f",
+  "repository": "demo/riskgraph-sample",
+  "old_commit": "0f6e8614047bd74cf6223b4d8a858d2ed2824f8a",
+  "new_commit": "bb37aad8c332264723817d855e8b3b96b7c392bc",
+  "final_verdict": "BLOCK",
+  "risk_before": 22,
+  "risk_after": 91,
+  "validation_status": "CONFIRMED",
+  "decided_at": "2026-09-18T12:00:00Z"
+}
