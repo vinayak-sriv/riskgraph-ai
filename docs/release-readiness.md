@@ -11,8 +11,11 @@ Spring cases passed source/license integrity and repeatability checks. The neste
 validation daemon now loads trusted images from an ignored archive and does not need
 registry access. See the
 [fresh-clone rehearsal record](evidence/release-rehearsal-2026-09-17.md).
-Independent external labels, the final post-review package/evidence bundle, and
-release approval remain open.
+Independent external labels are now recorded: both pinned external Spring cases
+(spring-petclinic, gs-rest-service) carry a human-attributed NEGATIVE label,
+reviewer Vinayak, dated 2026-09-18 (see
+[HUMAN_REVIEW.md](../datasets/external-spring/HUMAN_REVIEW.md)), released as
+`v0.x.0`. The final post-review package/evidence bundle remains open.
 
 - [x] Versioned canonical IR and deterministic graph/risk fixture tests
 - [x] Source allowlist, immutable commits, Spoon extraction and provenance
@@ -40,14 +43,14 @@ release approval remain open.
 - [x] Final presentation structurally validated and visually reviewed
 - [x] Public README setup and complete release gate reproduced from a fresh clone
 - [x] Full isolated Compose runtime and four-scenario demo reproduced from that clone
-- [ ] Reviewed evaluation on 2–4 external Spring Boot repositories with licenses
-- [x] Two pinned, licensed external-source regressions with provisional AI source review
+- [x] Reviewed evaluation on 2–4 external Spring Boot repositories with licenses
+- [x] Two pinned, licensed external-source regressions with human source review
 - [x] Real PR Check, SARIF, summary, source locations, diagnostics, and stable head identity
 - [x] Analyzer 0.4.1 isolates changed conventional source roots in multi-module repositories
 - [x] Platform user authentication and Developer/Analyst/Admin authorization on implemented APIs
 - [x] MVP validation is deliberately limited to registered authored Docker targets;
       arbitrary reviewed-target adapters are deferred post-MVP
-- [ ] Human review of provisional labels and release approval
+- [x] Human review of provisional labels and release approval (`v0.x.0`, 2026-09-18)
 
 ## Planned after the MVP release
 
