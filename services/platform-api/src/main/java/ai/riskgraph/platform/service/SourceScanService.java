@@ -27,7 +27,9 @@ public class SourceScanService {
     private final ObjectMapper mapper;
     private final String analyzerUrl;
     private final String graphUrl;
+    private final String pythonAnalyzerUrl;
     private final String allowedRoots;
+    private final RepositoryFrameworkDetector frameworks = new RepositoryFrameworkDetector();
     @Value("${AI_VALIDATION_BASE_URL:http://localhost:8083}")
     private String aiUrl = "http://localhost:8083";
     @Value("${RISKGRAPH_SANDBOX_MANIFEST:./samples/generated/mvp-v2/manifest.json}")
@@ -46,7 +48,7 @@ public class SourceScanService {
         @Value("${JAVA_ANALYZER_BASE_URL:http://localhost:8081}") String analyzerUrl,
         @Value("${GRAPH_RISK_BASE_URL:http://localhost:8082}") String graphUrl,
         @Value("${RISKGRAPH_ALLOWED_REPOSITORY_ROOTS:./samples/generated}") String allowedRoots, ScanStore store) {
-        this(client, contracts, mapper, analyzerUrl, graphUrl, allowedRoots, store,
+        this(client, contracts, mapper, analyzerUrl, graphUrl, "", allowedRoots, store,
                 new FindingEnrichmentService(client, contracts, mapper),
                 new SourceValidationService(client, contracts, mapper),
                 new CanonicalGraphInputBuilder(mapper));
@@ -56,11 +58,13 @@ public class SourceScanService {
     public SourceScanService(AnalysisClient client, ContractValidator contracts, ObjectMapper mapper,
         @Value("${JAVA_ANALYZER_BASE_URL:http://localhost:8081}") String analyzerUrl,
         @Value("${GRAPH_RISK_BASE_URL:http://localhost:8082}") String graphUrl,
+        @Value("${PYTHON_ANALYZER_BASE_URL:}") String pythonAnalyzerUrl,
         @Value("${RISKGRAPH_ALLOWED_REPOSITORY_ROOTS:./samples/generated}") String allowedRoots,
         ScanStore store, FindingEnrichmentService findings, SourceValidationService validations,
         CanonicalGraphInputBuilder graphInputs) {
         this.client = client; this.contracts = contracts; this.mapper = mapper;
-        this.analyzerUrl = analyzerUrl; this.graphUrl = graphUrl; this.allowedRoots = allowedRoots;
+        this.analyzerUrl = analyzerUrl; this.graphUrl = graphUrl;
+        this.pythonAnalyzerUrl = pythonAnalyzerUrl; this.allowedRoots = allowedRoots;
         this.store = store; this.findings = findings; this.validations = validations;
         this.graphInputs = graphInputs;
     }
@@ -68,8 +72,15 @@ public class SourceScanService {
     SourceScanService(AnalysisClient client, ContractValidator contracts, ObjectMapper mapper,
         String analyzerUrl, String graphUrl, String allowedRoots, ScanStore store,
         FindingEnrichmentService findings, SourceValidationService validations) {
-        this(client, contracts, mapper, analyzerUrl, graphUrl, allowedRoots, store, findings,
+        this(client, contracts, mapper, analyzerUrl, graphUrl, "", allowedRoots, store, findings,
                 validations, new CanonicalGraphInputBuilder(mapper));
+    }
+
+    SourceScanService(AnalysisClient client, ContractValidator contracts, ObjectMapper mapper,
+        String analyzerUrl, String graphUrl, String pythonAnalyzerUrl, String allowedRoots, ScanStore store,
+        FindingEnrichmentService findings, SourceValidationService validations) {
+        this(client, contracts, mapper, analyzerUrl, graphUrl, pythonAnalyzerUrl, allowedRoots, store,
+                findings, validations, new CanonicalGraphInputBuilder(mapper));
     }
 
     public JsonNode analyze(String repositoryPath, String oldCommit, String newCommit) {
@@ -91,7 +102,17 @@ public class SourceScanService {
     private JsonNode analyzeResolved(Path path, String oldCommit, String newCommit) {
         ObjectNode request = mapper.createObjectNode().put("repository_path", path.toString())
             .put("old_commit", oldCommit).put("new_commit", newCommit);
-        JsonNode envelope = client.post(analyzerUrl, "/analyze", request);
+        // Additive only: Java is the unconditional default (today's only behavior), and a
+        // positively detected FastAPI repository is the sole case that redirects elsewhere.
+        String targetAnalyzerUrl = analyzerUrl;
+        if (frameworks.detect(path) == RepositoryFrameworkDetector.Framework.PYTHON_FASTAPI) {
+            if (pythonAnalyzerUrl.isBlank()) {
+                throw new PipelineException("PYTHON_ANALYZER_NOT_CONFIGURED", 503,
+                    "This repository looks like a Python/FastAPI project, but the Python analyzer is not configured");
+            }
+            targetAnalyzerUrl = pythonAnalyzerUrl;
+        }
+        JsonNode envelope = client.post(targetAnalyzerUrl, "/analyze", request);
         contracts.validate("ir/analysis-envelope.schema.json", envelope);
         if (!envelope.at("/provenance/old_commit").asString().equals(oldCommit.toLowerCase())
             || !envelope.at("/provenance/new_commit").asString().equals(newCommit.toLowerCase())
