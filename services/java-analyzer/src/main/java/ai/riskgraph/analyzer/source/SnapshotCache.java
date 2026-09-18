@@ -2,9 +2,13 @@ package ai.riskgraph.analyzer.source;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
@@ -16,7 +20,6 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,8 +35,7 @@ public class SnapshotCache {
     private final long maxBytes;
     private final Duration maxAge;
     private final Clock clock;
-    private final ConcurrentHashMap<String, Object> locks = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Path, AtomicLong> activeLeases = new ConcurrentHashMap<>();
+    private final java.util.Map<Path, ProcessLease> activeLeases = new java.util.HashMap<>();
     private final AtomicLong hits = new AtomicLong();
     private final AtomicLong misses = new AtomicLong();
     private final AtomicLong evictions = new AtomicLong();
@@ -60,23 +62,24 @@ public class SnapshotCache {
     Lease acquire(String repositoryIdentity, String commitSha, String limitsFingerprint,
             SnapshotWriter writer) throws IOException {
         String key = digest(repositoryIdentity + "\n" + commitSha + "\n" + limitsFingerprint);
-        Object lock = locks.computeIfAbsent(key, ignored -> new Object());
-        try {
-            synchronized (lock) {
-                Files.createDirectories(root);
-                Path realRoot = root.toRealPath(LinkOption.NOFOLLOW_LINKS);
-                if (Files.isSymbolicLink(root)) throw new IOException("Snapshot cache root is a symbolic link");
-                Path entry = safeChild(realRoot, key);
+        Path realRoot = prepareRoot();
+        Path lockRoot = realRoot.resolve(".locks");
+        Path populateLock = safeChild(lockRoot, key + ".populate.lock");
+        try (FileChannel channel = FileChannel.open(populateLock,
+                StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                FileLock ignored = channel.lock()) {
+            Path entry = safeChild(realRoot, key);
+            Lease lease = lease(entry, lockRoot);
+            boolean success = false;
+            try {
                 Path marker = entry.resolve(".complete");
                 if (Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS)
                         && Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)) {
                     hits.incrementAndGet();
                     Files.setLastModifiedTime(entry, java.nio.file.attribute.FileTime.from(clock.instant()));
                     LOG.info("snapshot_cache_hit key={} commit={}", key, commitSha);
-                    return lease(entry);
-                }
-                if (activeLeases.containsKey(entry)) {
-                    throw new IOException("Active snapshot cache entry is incomplete");
+                    success = true;
+                    return lease;
                 }
                 deleteTree(entry);
                 misses.incrementAndGet();
@@ -95,11 +98,12 @@ public class SnapshotCache {
                     throw error;
                 }
                 LOG.info("snapshot_cache_miss key={} commit={}", key, commitSha);
-                sweep(entry);
-                return lease(entry);
+                sweep(entry, lockRoot);
+                success = true;
+                return lease;
+            } finally {
+                if (!success) release(entry);
             }
-        } finally {
-            locks.remove(key, lock);
         }
     }
 
@@ -107,17 +111,54 @@ public class SnapshotCache {
         return new CacheStats(hits.get(), misses.get(), evictions.get());
     }
 
-    private Lease lease(Path entry) {
-        activeLeases.computeIfAbsent(entry, ignored -> new AtomicLong()).incrementAndGet();
+    private synchronized Lease lease(Path entry, Path lockRoot) throws IOException {
+        ProcessLease processLease = activeLeases.get(entry);
+        if (processLease == null) {
+            Path lockPath = safeChild(lockRoot, entry.getFileName() + ".lease.lock");
+            FileChannel channel = FileChannel.open(lockPath,
+                    StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+            try {
+                processLease = new ProcessLease(channel, channel.lock(0, Long.MAX_VALUE, true), 0);
+                activeLeases.put(entry, processLease);
+            } catch (IOException | RuntimeException error) {
+                channel.close();
+                throw error;
+            }
+        }
+        processLease.references++;
         return new Lease(entry, true);
     }
 
-    void release(Path entry) {
-        AtomicLong count = activeLeases.get(entry);
-        if (count != null && count.decrementAndGet() <= 0) activeLeases.remove(entry, count);
+    synchronized void release(Path entry) {
+        ProcessLease processLease = activeLeases.get(entry);
+        if (processLease == null || --processLease.references > 0) return;
+        activeLeases.remove(entry);
+        try {
+            processLease.lock.close();
+            processLease.channel.close();
+        } catch (IOException error) {
+            LOG.warn("snapshot_cache_lease_release_failed key={} error_type={}",
+                    entry.getFileName(), error.getClass().getSimpleName());
+        }
     }
 
-    private void sweep(Path protectedEntry) {
+    private void sweep(Path protectedEntry, Path lockRoot) {
+        Path sweepPath;
+        try {
+            sweepPath = safeChild(lockRoot, "sweep.lock");
+        } catch (IOException error) {
+            return;
+        }
+        try (FileChannel sweepChannel = FileChannel.open(sweepPath,
+                StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                FileLock ignored = sweepChannel.lock()) {
+            sweepEntries(protectedEntry, lockRoot);
+        } catch (IOException | OverlappingFileLockException error) {
+            LOG.warn("snapshot_cache_sweep_failed error_type={}", error.getClass().getSimpleName());
+        }
+    }
+
+    private void sweepEntries(Path protectedEntry, Path lockRoot) {
         try (var children = Files.list(root)) {
             List<Path> entries = children
                     .filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
@@ -129,19 +170,46 @@ public class SnapshotCache {
             Instant cutoff = clock.instant().minus(maxAge);
             for (Path entry : entries) {
                 if (entry.equals(protectedEntry)) continue;
-                if (activeLeases.containsKey(entry)) continue;
                 boolean expired = lastModified(entry).isBefore(cutoff);
                 if (!expired && remaining <= maxEntries && totalBytes <= maxBytes) continue;
-                long entryBytes = size(entry);
-                deleteTree(entry);
-                remaining--;
-                totalBytes -= entryBytes;
-                evictions.incrementAndGet();
-                LOG.info("snapshot_cache_evicted key={} bytes={}", entry.getFileName(), entryBytes);
+                try (ExclusiveLease exclusive = tryExclusiveLease(entry, lockRoot)) {
+                    if (exclusive == null) continue;
+                    long entryBytes = size(entry);
+                    deleteTree(entry);
+                    remaining--;
+                    totalBytes -= entryBytes;
+                    evictions.incrementAndGet();
+                    LOG.info("snapshot_cache_evicted key={} bytes={}", entry.getFileName(), entryBytes);
+                }
             }
         } catch (IOException error) {
             LOG.warn("snapshot_cache_sweep_failed error_type={}", error.getClass().getSimpleName());
         }
+    }
+
+    private ExclusiveLease tryExclusiveLease(Path entry, Path lockRoot) throws IOException {
+        Path lockPath = safeChild(lockRoot, entry.getFileName() + ".lease.lock");
+        FileChannel channel = FileChannel.open(lockPath,
+                StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+        try {
+            FileLock lock = channel.tryLock();
+            if (lock == null) {
+                channel.close();
+                return null;
+            }
+            return new ExclusiveLease(channel, lock);
+        } catch (OverlappingFileLockException error) {
+            channel.close();
+            return null;
+        }
+    }
+
+    private Path prepareRoot() throws IOException {
+        Files.createDirectories(root);
+        if (Files.isSymbolicLink(root)) throw new IOException("Snapshot cache root is a symbolic link");
+        Path realRoot = root.toRealPath(LinkOption.NOFOLLOW_LINKS);
+        Files.createDirectories(realRoot.resolve(".locks"));
+        return realRoot;
     }
 
     private Path safeChild(Path realRoot, String name) throws IOException {
@@ -196,4 +264,24 @@ public class SnapshotCache {
 
     record Lease(Path path, boolean cached) { }
     record CacheStats(long hits, long misses, long evictions) { }
+
+    private static final class ProcessLease {
+        private final FileChannel channel;
+        private final FileLock lock;
+        private int references;
+
+        private ProcessLease(FileChannel channel, FileLock lock, int references) {
+            this.channel = channel;
+            this.lock = lock;
+            this.references = references;
+        }
+    }
+
+    private record ExclusiveLease(FileChannel channel, FileLock lock) implements AutoCloseable {
+        @Override
+        public void close() throws IOException {
+            lock.close();
+            channel.close();
+        }
+    }
 }

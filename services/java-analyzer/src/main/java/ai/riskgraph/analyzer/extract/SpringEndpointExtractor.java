@@ -171,36 +171,43 @@ public class SpringEndpointExtractor {
                 if (authorization == null) {
                     authorization = classAuthorization;
                 }
-                String annotationRole = authorizationExtractor.requiredRole(authorization);
+                DependencyPathResolver.ServiceAuthorization serviceAuthorization =
+                        resolution.serviceAuthorization();
                 boolean annotationAuthenticated = authorization != null;
+                boolean serviceAuthenticated = !annotationAuthenticated && serviceAuthorization != null;
+                boolean authenticatedByAnnotation = annotationAuthenticated || serviceAuthenticated;
+                String annotationRole = annotationAuthenticated
+                        ? authorizationExtractor.requiredRole(authorization)
+                        : serviceAuthenticated ? serviceAuthorization.role() : null;
                 DependencyPath primaryPath = dependencyResolver.primaryPath(resolution.paths(), type);
                 SensitivityPolicy.Classification classification = sensitivityPolicy.classify(
                         primaryPath.resource(), primaryPath.repository() != null);
                 SourceLocation location = sourceLocation(snapshot, method);
                 String callConfidence = confidenceEvaluator.callConfidence(resolution);
 
-                addDiagnostics(diagnostics, location, annotationAuthenticated, annotationRole, resolution);
+                addDiagnostics(diagnostics, location, authenticatedByAnnotation, annotationRole, resolution);
                 if (classification.defaulted() && primaryPath.repository() != null) {
                     diagnostics.add(new Diagnostic("INFO", "SENSITIVITY_POLICY_DEFAULTED",
                             "Unmatched repository-backed resource was conservatively classified as "
                                     + classification.sensitivity(),
                             location.path()));
                 }
-                if (annotationAuthenticated && annotationRole != null
-                        && !authorizationExtractor.isSimple(authorization)) {
+                boolean simpleAuthorization = annotationAuthenticated
+                        ? authorizationExtractor.isSimple(authorization)
+                        : serviceAuthorization == null || serviceAuthorization.simple();
+                if (authenticatedByAnnotation && annotationRole != null && !simpleAuthorization) {
                     diagnostics.add(new Diagnostic("WARNING", "COMPLEX_AUTHORIZATION",
                         "Authorization cannot be fully represented by a single canonical role", location.path()));
                 }
                 for (String classPath : classMapping.paths()) {
                     for (String methodPath : methodMapping.paths()) {
                         String route = normalizePath(classPath, methodPath);
-                        boolean authenticated = annotationAuthenticated;
-                        String requiredRole = annotationAuthenticated ? annotationRole : null;
-                        boolean unresolvedFilter = !annotationAuthenticated
+                        boolean authenticated = authenticatedByAnnotation;
+                        String requiredRole = authenticatedByAnnotation ? annotationRole : null;
+                        boolean unresolvedFilter = !authenticatedByAnnotation
                                 && filterSecurityPresent;
-                        String authorizationConfidence = (annotationAuthenticated
-                                && !authorizationExtractor.isSimple(authorization))
-                                || unresolvedFilter ? "LOW" : "HIGH";
+                        String authorizationConfidence = !simpleAuthorization || unresolvedFilter
+                                || resolution.serviceAuthorizationAmbiguous() ? "LOW" : "HIGH";
                         if (unresolvedFilter) {
                             diagnostics.add(new Diagnostic("WARNING", "UNRESOLVED_ROUTE_AUTHORIZATION",
                                     "SecurityFilterChain does not prove authorization for " + route, location.path()));
@@ -308,6 +315,11 @@ public class SpringEndpointExtractor {
         if (resolution.ambiguous()) {
             diagnostics.add(new Diagnostic("WARNING", "AMBIGUOUS_CALL_RESOLUTION",
                     "One or more call targets could not be resolved uniquely", location.path()));
+        }
+        if (resolution.serviceAuthorizationAmbiguous()) {
+            diagnostics.add(new Diagnostic("WARNING", "AMBIGUOUS_SERVICE_AUTHORIZATION",
+                    "Resolved dependency paths do not share one provable service authorization requirement",
+                    location.path()));
         }
         if (resolution.paths().size() > 1) {
             diagnostics.add(new Diagnostic("INFO", "MULTIPLE_DEPENDENCY_PATHS",

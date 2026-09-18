@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.context.annotation.Profile;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,21 +22,25 @@ public class PostgresScanJobStore implements ScanJobStore {
     @Transactional
     public ScanJob createOrReuse(String requestKey, String owner, String repository,
             String oldCommit, String newCommit) {
-        ScanJob reusable = reusable(requestKey, owner);
-        if (reusable != null) return reusable;
-        UUID jobId = UUID.randomUUID();
-        try {
-            db.update("""
+        for (int attempt = 0; attempt < 3; attempt++) {
+            ScanJob reusable = reusable(requestKey, owner);
+            if (reusable != null) return reusable;
+            UUID jobId = UUID.randomUUID();
+            int inserted = db.update("""
                     INSERT INTO scan_jobs(job_id,request_key,owner_username,repository,
                         old_commit,new_commit,state,stage,progress)
                     VALUES (?,?,?,?,?,?,'QUEUED','QUEUED',0)
+                    ON CONFLICT (owner_username,request_key)
+                        WHERE state IN ('QUEUED','RUNNING','COMPLETED') DO NOTHING
                     """, jobId, requestKey, owner, repository, oldCommit, newCommit);
-        } catch (DuplicateKeyException race) {
-            ScanJob raced = reusable(requestKey, owner);
-            if (raced != null) return raced;
-            throw race;
+            if (inserted == 1) return get(jobId);
+            // Re-read under READ COMMITTED after a competing INSERT commits. If
+            // that job already became terminal, the next INSERT can create a job.
         }
-        return get(jobId);
+        ScanJob reusable = reusable(requestKey, owner);
+        if (reusable != null) return reusable;
+        throw new PipelineException("SCAN_JOB_CONTENTION", 409,
+                "Scan submissions changed concurrently; retry the request");
     }
 
     private ScanJob reusable(String requestKey, String owner) {

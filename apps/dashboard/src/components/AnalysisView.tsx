@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import {
   AlertTriangle,
-  ArrowUpRight,
+  ArrowRight,
   FileSearch,
   Fingerprint,
   GitBranch,
@@ -77,8 +77,7 @@ export function AnalysisView({
           </p>
         </div>
         <a className="primary-button" href="#new-analysis">
-          <SlidersHorizontal size={16} /> New analysis{" "}
-          <ArrowUpRight size={16} />
+          <SlidersHorizontal size={16} /> New analysis <ArrowRight size={16} />
         </a>
       </div>
       <div className="analysis-context surface">

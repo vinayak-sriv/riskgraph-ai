@@ -159,6 +159,147 @@ class SpringEndpointExtractorTest {
     }
 
     @Test
+    void usesServiceMethodAuthorizationForTheResolvedDependencyPath() throws Exception {
+        String controller = "src/ServiceSecuredController.java";
+        write(controller, """
+                @RestController class ServiceSecuredController {
+                    CustomerService service;
+                    @GetMapping("/customers") Object customers() { return service.load(); }
+                }
+                """);
+        write("src/CustomerService.java", """
+                @Service class CustomerService {
+                    CustomerRepository repository;
+                    @PreAuthorize("hasRole('ADMIN')")
+                    Object load() { return repository.findAll(); }
+                }
+                """);
+        write("src/CustomerRepository.java", "interface CustomerRepository { Object findAll(); }");
+
+        var result = extractor().extract(tempDir, Map.of(
+                controller, List.of(new ChangedRange(1, 20))));
+
+        assertThat(result.endpoints()).singleElement().satisfies(row -> {
+            assertThat(row.endpoint().authentication()).isTrue();
+            assertThat(row.endpoint().required_role()).isEqualTo("ADMIN");
+            assertThat(row.extraction_confidence().authorization()).isEqualTo("HIGH");
+        });
+    }
+
+    @Test
+    void mixedServiceAuthorizationForTheSameResourceFailsClosed() throws Exception {
+        String controller = "src/MixedServiceAuthorizationController.java";
+        write(controller, """
+                @RestController class MixedServiceAuthorizationController {
+                    CustomerService service;
+                    @GetMapping("/customers") Object customers() {
+                        service.securedLoad();
+                        return service.openLoad();
+                    }
+                }
+                """);
+        write("src/CustomerService.java", """
+                @Service class CustomerService {
+                    CustomerRepository repository;
+                    @PreAuthorize("hasRole('ADMIN')")
+                    Object securedLoad() { return repository.findAll(); }
+                    Object openLoad() { return repository.findAll(); }
+                }
+                """);
+        write("src/CustomerRepository.java", "interface CustomerRepository { Object findAll(); }");
+
+        var result = extractor().extract(tempDir, Map.of(
+                controller, List.of(new ChangedRange(1, 30))));
+
+        assertThat(result.endpoints()).singleElement().satisfies(row -> {
+            assertThat(row.endpoint().authentication()).isFalse();
+            assertThat(row.endpoint().required_role()).isNull();
+            assertThat(row.extraction_confidence().authorization()).isEqualTo("LOW");
+        });
+        assertThat(result.diagnostics()).extracting(row -> row.code())
+                .contains("AMBIGUOUS_SERVICE_AUTHORIZATION");
+    }
+
+    @Test
+    void serviceSelfInvocationDoesNotProveProxyAuthorization() throws Exception {
+        String controller = "src/SelfInvocationController.java";
+        write(controller, """
+                @RestController class SelfInvocationController {
+                    CustomerService service;
+                    @GetMapping("/customers") Object customers() { return service.load(); }
+                }
+                """);
+        write("src/CustomerService.java", """
+                @Service class CustomerService {
+                    CustomerRepository repository;
+                    Object load() { return securedLoad(); }
+                    @PreAuthorize("hasRole('ADMIN')")
+                    Object securedLoad() { return repository.findAll(); }
+                }
+                """);
+        write("src/CustomerRepository.java", "interface CustomerRepository { Object findAll(); }");
+
+        var result = extractor().extract(tempDir, Map.of(
+                controller, List.of(new ChangedRange(1, 20))));
+
+        assertThat(result.endpoints()).singleElement().satisfies(row -> {
+            assertThat(row.endpoint().authentication()).isFalse();
+            assertThat(row.endpoint().required_role()).isNull();
+        });
+    }
+
+    @Test
+    void traversesResolvedControllerHelperToSensitiveRepository() throws Exception {
+        String controller = "src/HelperController.java";
+        write(controller, """
+                @RestController class HelperController {
+                    CustomerRepository repository;
+                    @GetMapping("/customers") Object customers() { return loadCustomers(); }
+                    Object loadCustomers() { return repository.findAll(); }
+                }
+                """);
+        write("src/CustomerRepository.java", "interface CustomerRepository { Object findAll(); }");
+
+        var result = extractor().extract(tempDir, Map.of(
+                controller, List.of(new ChangedRange(1, 20))));
+
+        assertThat(result.endpoints()).singleElement().satisfies(row -> {
+            assertThat(row.endpoint().repository()).isEqualTo("CustomerRepository");
+            assertThat(row.endpoint().resource()).isEqualTo("Customer");
+            assertThat(row.extraction_confidence().call_resolution()).isEqualTo("HIGH");
+        });
+    }
+
+    @Test
+    void unresolvedLocalHelperLowersCallAndOverallConfidence() throws Exception {
+        String controller = "src/HelperOverloadController.java";
+        write(controller, """
+                @RestController class HelperOverloadController {
+                    SafeRepository safe; CustomerRepository customers;
+                    @GetMapping("/customers") Object endpoint() {
+                        safe.find();
+                        return helper(null);
+                    }
+                    Object helper(String id) { return customers.findAll(); }
+                    Object helper(Integer id) { return customers.findAll(); }
+                }
+                """);
+        write("src/SafeRepository.java", "interface SafeRepository { Object find(); }");
+        write("src/CustomerRepository.java", "interface CustomerRepository { Object findAll(); }");
+
+        var result = extractor().extract(tempDir, Map.of(
+                controller, List.of(new ChangedRange(1, 30))));
+
+        assertThat(result.endpoints()).singleElement().satisfies(row -> {
+            assertThat(row.endpoint().repository()).isEqualTo("SafeRepository");
+            assertThat(row.extraction_confidence().call_resolution()).isEqualTo("LOW");
+            assertThat(row.extraction_confidence().overall()).isEqualTo("LOW");
+        });
+        assertThat(result.diagnostics()).extracting(row -> row.code())
+                .contains("AMBIGUOUS_CALL_RESOLUTION");
+    }
+
+    @Test
     void reportsMalformedJavaWithoutReturningPartialEvidence() throws Exception {
         String relative = "src/Broken.java";
         write(relative, "class {");

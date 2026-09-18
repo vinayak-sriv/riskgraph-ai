@@ -43,7 +43,7 @@ These are design references, not claims that RiskGraph implements SIEM ingestion
 | Provenance               | Repository identity, analyzer version, immutable revisions, and saved scan ID are separated into labeled fields. Endpoint source locations and extraction confidence use revision-specific tables.                                                                                                                                                                                                    |
 | Diagnostics and AI       | Provenance and unresolved diagnostics live in Technical details. AI findings, hypotheses, proposed HTTP tests, and AI confidence remain physically separated behind a dashed boundary and permanently labeled non-authoritative and unconfirmed.                                                                                                                                                      |
 | Forms                    | New analysis uses inline repository/SHA validation and a live pre-submit scope summary on one screen. Account and saved-scan controls use the same field system. All role restrictions remain; failures preserve the prior result and appear near setup as well as in the page alert.                                                                                                                 |
-| Backend-dependent states | Saved scans honestly expose known-ID retrieval and a current-session result while marking searchable history as pending the listing API. Account shows an explicit GitHub `NOT_CONFIGURED` state until platform OAuth exists.                                                                                                                                                                         |
+| Backend-dependent states | Saved scans honestly expose known-ID retrieval and a current-session result while marking searchable history as pending the listing API. Account distinguishes an installation with missing GitHub OAuth credentials from a configured but disconnected account.                                                                                                                                      |
 | Request feedback         | Loading names the operation and keeps the current result visible. New requests abort older requests; late responses cannot overwrite a newer request or restore a protected result after sign-out.                                                                                                                                                                                                    |
 | Refresh                  | Source refresh uses the displayed result's repository and immutable revisions, so partially edited form values cannot silently change the analysis being refreshed.                                                                                                                                                                                                                                   |
 | Motion and accessibility | Brief state transitions and a short drawer entrance replace continuous edge animation. Reduced-motion, reduced-transparency, and forced-color fallbacks are included. Highlighting preserves readable node text. Mobile controls use at least 44px targets where practical.                                                                                                                           |
@@ -60,6 +60,19 @@ These are design references, not claims that RiskGraph implements SIEM ingestion
 - `EvidencePanel.tsx`: evidence certainty, graph links, weighted comparison, policy reasons, technical provenance/diagnostics, and isolated AI interpretation.
 - `AnalysisSetup.tsx` and `AccountPanel.tsx`: existing authenticated workflows and local form state.
 - `ui.tsx`, `view-model.ts`, and `styles.css`: shared presentation primitives, types, formatting, theme tokens, and responsive rules.
+
+## Usability audit refinement
+
+The September 17 follow-up applied the review findings where they improved clarity without weakening security semantics:
+
+- Security-critical certainty and validation labels now use the shared readable caption size.
+- Typography and radius primitives have semantic tokens for captions, supporting text, controls, panels, and pills. Distinct graph, circular, and pill shapes remain intentional.
+- Internal navigation uses right-facing arrows or chevrons; the up-right arrow remains reserved for external authorization or risk-trend meaning.
+- Graph filters and view controls are visually and programmatically grouped. Mobile layouts stack those groups without document-level horizontal overflow.
+- Newly reachable paths are ordered lists with named, keyboard-accessible node buttons and directional chevrons. Selecting a node still opens its evidence inspector.
+- The sidebar label and signed-out account summary are shorter without widening the sidebar or reducing graph space.
+
+The review's raw counts were not treated as acceptance criteria. Flattening every radius or button into one style would erase interaction meaning, and weakening **Investigate path** would conflict with the evidence-first workflow after a REVIEW or BLOCK decision.
 
 ## Verification
 

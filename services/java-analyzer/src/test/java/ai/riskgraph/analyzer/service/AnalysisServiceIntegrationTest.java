@@ -106,6 +106,52 @@ class AnalysisServiceIntegrationTest {
         assertThat(service.extractionCacheStats().misses()).isEqualTo(1);
     }
 
+    @Test
+    void reportsUnsupportedFrameworkForARepositoryWithNoJavaSourceAtAll() throws Exception {
+        CommitPair pair = createNonJavaRepository();
+        AnalysisService service = new AnalysisService(
+                new GitSourceAcquirer(tempDir.toString()),
+                new SpringEndpointExtractor(new SensitivityPolicy("")));
+
+        var result = service.analyze(pair.repository(), pair.oldCommit(), pair.newCommit());
+
+        assertThat(result.changed_files()).isEmpty();
+        assertThat(result.before()).isEmpty();
+        assertThat(result.after()).isEmpty();
+        assertThat(result.diagnostics()).singleElement().satisfies(diagnostic -> {
+            assertThat(diagnostic.severity()).isEqualTo("ERROR");
+            assertThat(diagnostic.code()).isEqualTo("UNSUPPORTED_FRAMEWORK");
+        });
+    }
+
+    @Test
+    void reportsPlainNoJavaChangesForADocsOnlyChangeInARealJavaRepository() throws Exception {
+        CommitPair pair = createDocsOnlyChangeRepository();
+        AnalysisService service = new AnalysisService(
+                new GitSourceAcquirer(tempDir.toString()),
+                new SpringEndpointExtractor(new SensitivityPolicy("")));
+
+        var result = service.analyze(pair.repository(), pair.oldCommit(), pair.newCommit());
+
+        assertThat(result.changed_files()).isEmpty();
+        assertThat(result.diagnostics()).singleElement().satisfies(diagnostic -> {
+            assertThat(diagnostic.severity()).isEqualTo("INFO");
+            assertThat(diagnostic.code()).isEqualTo("NO_JAVA_CHANGES");
+        });
+    }
+
+    @Test
+    void handlesARepositoryNamedExactlyRepositoryWithoutCrashing() throws Exception {
+        CommitPair pair = createBareRepositoryNameRepository();
+        AnalysisService service = new AnalysisService(
+                new GitSourceAcquirer(tempDir.toString()),
+                new SpringEndpointExtractor(new SensitivityPolicy("")));
+
+        var result = service.analyze(pair.repository(), pair.oldCommit(), pair.newCommit());
+
+        assertThat(result.diagnostics()).noneMatch(diagnostic -> "ERROR".equals(diagnostic.severity()));
+    }
+
     private CommitPair createAuthorizationRemovalRepository() throws Exception {
         Path repository = Files.createDirectory(tempDir.resolve("repo-" + System.nanoTime()));
         write(repository, "src/main/java/demo/CustomerRepository.java", """
@@ -143,6 +189,91 @@ class AnalysisServiceIntegrationTest {
             write(repository, "src/main/java/demo/AdminController.java", publicController);
             git.add().addFilepattern(".").call();
             newCommit = git.commit().setMessage("remove authorization")
+                    .setAuthor("RiskGraph", "test@riskgraph.ai").call().getName();
+        }
+        return new CommitPair(repository, oldCommit, newCommit);
+    }
+
+    private CommitPair createNonJavaRepository() throws Exception {
+        Path repository = Files.createDirectory(tempDir.resolve("repo-" + System.nanoTime()));
+        String oldCommit;
+        String newCommit;
+        try (Git git = Git.init().setDirectory(repository.toFile()).call()) {
+            write(repository, "README.md", "# Sample project\n\nA Python service, not Java.\n");
+            write(repository, "app.py", "print('hello')\n");
+            git.add().addFilepattern(".").call();
+            oldCommit = git.commit().setMessage("initial import")
+                    .setAuthor("RiskGraph", "test@riskgraph.ai").call().getName();
+            write(repository, "README.md", "# Sample project\n\nA Python service, not Java. Updated.\n");
+            git.add().addFilepattern(".").call();
+            newCommit = git.commit().setMessage("update readme")
+                    .setAuthor("RiskGraph", "test@riskgraph.ai").call().getName();
+        }
+        return new CommitPair(repository, oldCommit, newCommit);
+    }
+
+    private CommitPair createDocsOnlyChangeRepository() throws Exception {
+        Path repository = Files.createDirectory(tempDir.resolve("repo-" + System.nanoTime()));
+        String controller = """
+                package demo;
+                @RestController
+                @RequestMapping("/admin")
+                class AdminController {
+                    @GetMapping("/export")
+                    @PreAuthorize("hasRole('ADMIN')")
+                    Object export() { return null; }
+                }
+                """;
+        String oldCommit;
+        String newCommit;
+        try (Git git = Git.init().setDirectory(repository.toFile()).call()) {
+            write(repository, "src/main/java/demo/AdminController.java", controller);
+            write(repository, "README.md", "# Sample project\n");
+            git.add().addFilepattern(".").call();
+            oldCommit = git.commit().setMessage("initial import")
+                    .setAuthor("RiskGraph", "test@riskgraph.ai").call().getName();
+            write(repository, "README.md", "# Sample project\n\nUpdated docs only.\n");
+            git.add().addFilepattern(".").call();
+            newCommit = git.commit().setMessage("update readme")
+                    .setAuthor("RiskGraph", "test@riskgraph.ai").call().getName();
+        }
+        return new CommitPair(repository, oldCommit, newCommit);
+    }
+
+    private CommitPair createBareRepositoryNameRepository() throws Exception {
+        Path repository = Files.createDirectory(tempDir.resolve("repo-" + System.nanoTime()));
+        write(repository, "src/main/java/demo/Repository.java", """
+                package demo;
+                interface Repository { Object findAll(); }
+                """);
+        write(repository, "src/main/java/demo/CustomerService.java", """
+                package demo;
+                class CustomerService {
+                    private Repository repository;
+                    Object exportCustomers() { return repository.findAll(); }
+                }
+                """);
+        String controller = """
+                package demo;
+                @RestController
+                @RequestMapping("/admin")
+                class AdminController {
+                    private CustomerService customerService;
+                    @GetMapping("/export")
+                    @PreAuthorize("hasRole('ADMIN')")
+                    Object export() { return customerService.exportCustomers(); }
+                }
+                """;
+        String oldCommit;
+        String newCommit;
+        try (Git git = Git.init().setDirectory(repository.toFile()).call()) {
+            write(repository, "src/main/java/demo/AdminController.java", controller);
+            git.add().addFilepattern(".").call();
+            oldCommit = git.commit().setMessage("initial import")
+                    .setAuthor("RiskGraph", "test@riskgraph.ai").call().getName();
+            write(repository, "README.md", "# Sample project\n");
+            git.add().addFilepattern(".").call();
+            newCommit = git.commit().setMessage("add readme")
                     .setAuthor("RiskGraph", "test@riskgraph.ai").call().getName();
         }
         return new CommitPair(repository, oldCommit, newCommit);

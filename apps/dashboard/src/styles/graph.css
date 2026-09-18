@@ -1,5 +1,6 @@
 /* Graph investigation */
 .graph-toolbar,
+.graph-control-group,
 .segmented-control,
 .filter-control {
   display: flex;
@@ -9,9 +10,17 @@
 .graph-toolbar {
   flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 12px;
+}
+.graph-control-group {
+  flex-wrap: wrap;
+}
+.graph-view-controls {
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
 }
 .filter-control {
-  font-size: 0.8125rem;
+  font-size: var(--font-supporting);
   color: var(--muted);
 }
 .filter-control select {
@@ -23,7 +32,7 @@
   gap: 2px;
   border: 1px solid var(--border);
   background: var(--input);
-  border-radius: 9px;
+  border-radius: var(--radius-control);
 }
 .segmented-control button {
   border: 1px solid transparent;
@@ -466,8 +475,11 @@
   align-items: center;
   gap: 6px;
   margin-top: 5px;
+  margin-bottom: 0;
+  padding: 0;
+  list-style: none;
 }
-.path-nodes > span {
+.path-nodes > li {
   display: flex;
   align-items: center;
   gap: 6px;

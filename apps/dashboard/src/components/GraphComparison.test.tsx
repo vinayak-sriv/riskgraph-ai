@@ -35,6 +35,26 @@ afterEach(() => {
 });
 const analysis = fixtures["authorization-removal"] as AnalysisResult;
 
+it("groups graph controls and exposes the attack path as an ordered sequence", () => {
+  render(
+    <GraphComparison analysis={analysis} theme="dark" onNotify={vi.fn()} />,
+  );
+
+  const filters = screen.getByRole("group", { name: "Graph filters" });
+  expect(filters).toContainElement(
+    within(filters).getByRole("combobox", { name: "Graph changes" }),
+  );
+  expect(
+    screen.getByRole("group", { name: "Graph view controls" }),
+  ).toContainElement(screen.getByRole("button", { name: "Compare" }));
+  const path = screen.getByRole("list", {
+    name: "Newly reachable attack path",
+  });
+  expect(within(path).getAllByRole("listitem")).toHaveLength(6);
+  expect(within(path).getByRole("button", { name: "Anonymous" })).toBeVisible();
+  expect(within(path).getByRole("button", { name: "Customer" })).toBeVisible();
+});
+
 it("inspects both revisions without marking the before graph as a new attack path", () => {
   render(
     <GraphComparison analysis={analysis} theme="dark" onNotify={vi.fn()} />,
@@ -64,6 +84,33 @@ it("inspects both revisions without marking the before graph as a new attack pat
   expect(screen.getByRole("dialog")).toHaveTextContent(
     "FromAnonymousCan Access",
   );
+});
+
+it("closes only the node inspector on the first Escape in full-screen mode", () => {
+  render(
+    <GraphComparison analysis={analysis} theme="dark" onNotify={vi.fn()} />,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Open full-screen graph" }),
+  );
+  fireEvent.click(
+    within(screen.getByRole("region", { name: /After change/ })).getByRole(
+      "button",
+      { name: "GET /admin/export" },
+    ),
+  );
+
+  const inspector = screen.getByRole("dialog", {
+    name: "GET /admin/export",
+  });
+  fireEvent.keyDown(inspector, { key: "Escape" });
+
+  expect(
+    screen.queryByRole("dialog", { name: "GET /admin/export" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Exit full-screen graph" }),
+  ).toBeInTheDocument();
 });
 
 it("preserves graph modes and highlights and resets stale inspection on scenario change", () => {

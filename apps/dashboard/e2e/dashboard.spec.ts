@@ -165,6 +165,35 @@ test("degraded analysis keeps keyboard-accessible graph evidence", async ({
   ).toBeVisible();
 });
 
+test("mobile graph controls remain grouped without page overflow", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockPlatform(page, {
+    authenticated: true,
+    role: "ANALYST",
+    connected: true,
+  });
+  await page.goto("/#analysis-graph");
+
+  await expect(
+    page.getByRole("group", { name: "Graph filters" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("group", { name: "Graph view controls" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("list", { name: "Newly reachable attack path" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+});
+
 test("failed validation preserves and labels the stale source result", async ({
   page,
 }) => {

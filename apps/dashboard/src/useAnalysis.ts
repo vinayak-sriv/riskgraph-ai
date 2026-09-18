@@ -74,6 +74,9 @@ export function useAnalysis() {
   const activeRequest = useRef<AbortController | null>(null);
   const activeJob = useRef<string | null>(null);
   const currentUser = useRef<Account | null>(null);
+  const sessionGeneration = useRef(0);
+  const sessionRequest = useRef<AbortController | null>(null);
+  const historyRequest = useRef<AbortController | null>(null);
   const githubConnected = github.status === "CONNECTED";
   const sourceAccessEnabled = !githubConnectionRequired || githubConnected;
   const canRead = !!user && sourceAccessEnabled;
@@ -81,18 +84,28 @@ export function useAnalysis() {
     sourceAccessEnabled && (user?.role === "ANALYST" || user?.role === "ADMIN");
 
   const updateUser = useCallback((account: Account | null) => {
-    const signedOut = currentUser.current !== null && account === null;
+    const identityChanged = currentUser.current?.username !== account?.username;
+    const hadAccount = currentUser.current !== null;
     currentUser.current = account;
     setUser(account);
-    if (signedOut) {
-      // Never restore a protected result from a late request after sign-out.
+    if (identityChanged) {
+      ++sessionGeneration.current;
+      sessionRequest.current?.abort();
+      historyRequest.current?.abort();
+      setHistory([]);
+      setHistoryCursor(null);
+      setHistoryLoading(false);
+      setHistoryError(null);
+    }
+    if (identityChanged && hadAccount) {
+      // Account switches and sign-out invalidate every protected result.
       ++requestId.current;
       activeRequest.current?.abort();
+      activeJob.current = null;
       setLoading(false);
       setError(null);
       setStaleResult(null);
-      setHistory([]);
-      setHistoryCursor(null);
+      setToast(null);
       setAnalysis((current) =>
         current.provenance
           ? (fixtures["authorization-removal"] as AnalysisResult)
@@ -102,15 +115,26 @@ export function useAnalysis() {
   }, []);
 
   const refreshSession = useCallback(async () => {
+    sessionRequest.current?.abort();
+    const controller = new AbortController();
+    sessionRequest.current = controller;
+    const generation = sessionGeneration.current;
     try {
-      const response = await api("/auth/session");
+      const response = await api("/auth/session", {
+        signal: controller.signal,
+      });
       const result = (await response.json()) as SessionResponse;
+      if (controller.signal.aborted || generation !== sessionGeneration.current)
+        return;
+      if (!response.ok) throw new Error("Session unavailable");
       updateUser(result.authenticated && result.user ? result.user : null);
       setGithub(result.github ?? { status: "NOT_CONFIGURED" });
       // Older or malformed responses fail closed until the backend explicitly
       // confirms that GitHub linkage is optional.
       setGithubConnectionRequired(result.github_connection_required !== false);
     } catch {
+      if (controller.signal.aborted || generation !== sessionGeneration.current)
+        return;
       updateUser(null);
       setGithub({ status: "NOT_CONFIGURED" });
       setGithubConnectionRequired(true);
@@ -165,6 +189,8 @@ export function useAnalysis() {
   useEffect(() => {
     void loadDemo("authorization-removal");
     return () => {
+      sessionRequest.current?.abort();
+      historyRequest.current?.abort();
       ++requestId.current;
       activeRequest.current?.abort();
     };
@@ -181,7 +207,10 @@ export function useAnalysis() {
   }, [refreshSession]);
 
   const handleUserChange = useCallback(
-    (account: Account | null) => updateUser(account),
+    (account: Account | null) => {
+      sessionRequest.current?.abort();
+      updateUser(account);
+    },
     [updateUser],
   );
   const handleGithubChange = useCallback(
@@ -335,17 +364,26 @@ export function useAnalysis() {
   const loadHistory = useCallback(
     async (cursor?: string) => {
       if (!canRead) return;
+      historyRequest.current?.abort();
+      const controller = new AbortController();
+      historyRequest.current = controller;
+      const generation = sessionGeneration.current;
+      const isCurrent = () =>
+        !controller.signal.aborted && generation === sessionGeneration.current;
       setHistoryLoading(true);
       setHistoryError(null);
       try {
         const query = new URLSearchParams({ limit: "20" });
         if (cursor) query.set("cursor", cursor);
-        const response = await api(`/scans?${query}`);
+        const response = await api(`/scans?${query}`, {
+          signal: controller.signal,
+        });
         const result = (await response.json()) as {
           items?: SavedScanHistoryItem[];
           next_cursor?: string | null;
           code?: string;
         };
+        if (!isCurrent()) return;
         if (!response.ok)
           throw new Error(result.code ?? `HTTP ${response.status}`);
         setHistory((current) =>
@@ -353,11 +391,12 @@ export function useAnalysis() {
         );
         setHistoryCursor(result.next_cursor ?? null);
       } catch (reason) {
+        if (!isCurrent()) return;
         setHistoryError(
           reason instanceof Error ? reason.message : "Saved scans unavailable",
         );
       } finally {
-        setHistoryLoading(false);
+        if (isCurrent()) setHistoryLoading(false);
       }
     },
     [canRead],

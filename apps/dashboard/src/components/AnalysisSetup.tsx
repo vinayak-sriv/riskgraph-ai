@@ -414,6 +414,21 @@ export function SavedScansPanel({
                     Load more
                   </button>
                 )}
+                {historyError && (
+                  <div className="pagination-error" role="alert">
+                    <span>Could not load more scans: {historyError}</span>
+                    {nextCursor && (
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        disabled={historyLoading}
+                        onClick={() => void onLoadHistory(nextCursor)}
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="empty-surface">

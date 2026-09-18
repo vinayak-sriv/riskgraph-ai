@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import {
-  ArrowUpRight,
   Bot,
   ChevronRight,
   Fingerprint,
@@ -182,7 +181,7 @@ export function EvidencePanel({
                             onClick={() => onFocusNode?.(node.id)}
                           >
                             {node.name}
-                            <ArrowUpRight size={13} />
+                            <ChevronRight size={13} />
                           </button>
                         ))}
                       </div>

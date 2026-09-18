@@ -114,6 +114,19 @@ public class PostgresScanStore implements ScanStore {
         return values.isEmpty()?null:mapper.readTree(values.getFirst());
     }
 
+    public java.util.Map<String, Summary> summaries(java.util.Collection<String> ids) {
+        if (ids.isEmpty()) return java.util.Map.of();
+        var uniqueIds = new java.util.LinkedHashSet<>(ids);
+        String placeholders = String.join(",", java.util.Collections.nCopies(uniqueIds.size(), "?"));
+        var summaries = new HashMap<String, Summary>();
+        db.query("SELECT external_id, risk_after-risk_before AS risk_delta, final_verdict "
+                + "FROM scans WHERE external_id IN (" + placeholders + ")", row -> {
+                    summaries.put(row.getString("external_id"), new Summary(
+                            row.getObject("risk_delta", Integer.class), row.getString("final_verdict")));
+                }, uniqueIds.toArray());
+        return java.util.Map.copyOf(summaries);
+    }
+
     @Transactional
     public JsonNode update(String id, UnaryOperator<ObjectNode> mutation) {
         db.queryForList("SELECT pg_advisory_xact_lock(hashtext(?))", id);

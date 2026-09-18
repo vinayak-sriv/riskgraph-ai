@@ -162,11 +162,11 @@
   width: max-content;
   padding: 4px 8px;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--muted);
   background: var(--raised);
-  font: 650 0.625rem var(--mono);
-  letter-spacing: 0.07em;
+  font: 650 var(--font-caption) var(--mono);
+  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 .certainty-confirmed {
@@ -227,7 +227,7 @@
   border: 1px solid var(--border);
   border-radius: 5px;
   color: var(--faint);
-  font-size: 0.6875rem;
+  font-size: var(--font-caption);
 }
 .certainty-scale span.active {
   color: var(--text);
@@ -712,6 +712,19 @@
 .saved-scans-table .secondary-button {
   min-height: 34px;
   padding-block: 6px;
+}
+.pagination-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 16px 16px;
+  padding: 12px;
+  border: 1px solid var(--danger-border);
+  border-radius: 8px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.8125rem;
 }
 .account-view-grid {
   display: grid;

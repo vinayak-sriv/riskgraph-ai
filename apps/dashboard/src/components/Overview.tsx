@@ -212,7 +212,7 @@ export function Overview({
               {risk.policy?.version ?? risk.policy_version ?? "1.0.0"}.
             </span>
             <a href="#analysis-evidence">
-              View scoring <ArrowUpRight size={14} />
+              View scoring <ArrowRight size={14} />
             </a>
           </div>
         </div>

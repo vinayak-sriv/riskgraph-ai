@@ -1,7 +1,11 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { useState } from "react";
-import { AccountPanel, type Account } from "./AccountPanel";
+import {
+  AccountPanel,
+  GitHubConnectionCard,
+  type Account,
+} from "./AccountPanel";
 
 afterEach(() => {
   cleanup();
@@ -116,4 +120,21 @@ it("retains Admin account creation and updates the account list", async () => {
     role: "ANALYST",
     password: "test-password-only",
   });
+});
+
+it("describes missing installation credentials without claiming OAuth is unimplemented", () => {
+  render(
+    <GitHubConnectionCard
+      connection={{ status: "NOT_CONFIGURED" }}
+      connectUrl="/auth/github/connect"
+    />,
+  );
+
+  expect(
+    screen.getByText(/installation has not configured GitHub sign-in/i),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByText(/sign-in is not enabled in the platform API yet/i),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Connect GitHub" })).toBeDisabled();
 });

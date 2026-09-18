@@ -344,15 +344,15 @@ export function GitHubConnectionCard({
       {connection.status === "NOT_CONFIGURED" && (
         <>
           <p>
-            GitHub sign-in is not enabled in the platform API yet. Configure the
-            GitHub App client ID, client secret, callback, and Spring Security
-            OAuth client before exposing this action.
+            This RiskGraph installation has not configured GitHub sign-in. Add
+            the GitHub App client ID and client secret to the platform
+            environment, then restart the local services.
           </p>
           <button
             className="secondary-button"
             type="button"
             disabled
-            title="Backend OAuth support is required first"
+            title="Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET on the platform API"
           >
             <GitBranch size={16} /> Connect GitHub
           </button>

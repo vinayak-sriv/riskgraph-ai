@@ -17,6 +17,30 @@ import tools.jackson.databind.json.JsonMapper;
 
 class AsyncScanJobServiceTest {
     @Test
+    void historyCursorPreservesNanosecondsAndUuidTieBreaker() {
+        ScanJobStore store = mock(ScanJobStore.class);
+        var instant = java.time.Instant.parse("2026-09-17T10:00:00.123456789Z");
+        UUID id = UUID.randomUUID();
+        var job = new ScanJobStore.ScanJob(id, "key", "analyst", "/repo",
+                "1".repeat(40), "2".repeat(40), ScanJobStore.State.COMPLETED,
+                "COMPLETED", 100, null, "scan", instant, instant);
+        when(store.listVisible("analyst", false, null, null, 2))
+                .thenReturn(java.util.List.of(job, job));
+        when(store.listVisible("analyst", false, instant, id, 2))
+                .thenReturn(java.util.List.of(job));
+        AsyncScanJobService service = new AsyncScanJobService(mock(SourceScanService.class),
+                store, mock(ScanAccessService.class), 1, 1);
+        try {
+            String cursor = service.list("analyst", false, null, 1).nextCursor();
+            assertThat(cursor).isNotNull();
+            service.list("analyst", false, cursor, 1);
+            verify(store).listVisible("analyst", false, instant, id, 2);
+        } finally {
+            service.shutdown();
+        }
+    }
+
+    @Test
     void completesAndReusesAnIdenticalCanonicalSubmission() throws InterruptedException {
         SourceScanService scans = mock(SourceScanService.class);
         ScanAccessService access = mock(ScanAccessService.class);

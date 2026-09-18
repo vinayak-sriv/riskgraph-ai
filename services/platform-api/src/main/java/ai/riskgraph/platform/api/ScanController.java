@@ -77,7 +77,12 @@ public class ScanController {
         AsyncScanJobService.JobPage page = jobs.list(authentication.getName(),
                 isAdmin(authentication), cursor, limit);
         List<HistoryItem> items = new ArrayList<>();
-        for (ScanJobStore.ScanJob job : page.jobs()) items.add(historyItem(job));
+        // Only fetch summaries for the page already filtered by job ownership/membership.
+        var summaries = scans.summaries(page.jobs().stream().map(ScanJobStore.ScanJob::scanId)
+                .filter(java.util.Objects::nonNull).distinct().toList());
+        for (ScanJobStore.ScanJob job : page.jobs()) {
+            items.add(historyItem(job, job.scanId() == null ? null : summaries.get(job.scanId())));
+        }
         return new ScanHistory(List.copyOf(items), page.nextCursor());
     }
 
@@ -97,14 +102,10 @@ public class ScanController {
                 result.at("/risk_result/risk_delta").asInt(), List.copyOf(findings));
     }
 
-    private HistoryItem historyItem(ScanJobStore.ScanJob job) {
-        Integer riskDelta = null;
-        String verdict = null;
-        if (job.scanId() != null) {
-            var result = scans.get(job.scanId());
-            riskDelta = result.at("/risk_result/risk_delta").asInt();
-            verdict = result.path("final_verdict").asString();
-        }
+    private HistoryItem historyItem(ScanJobStore.ScanJob job,
+            ai.riskgraph.platform.service.ScanStore.Summary summary) {
+        Integer riskDelta = summary == null ? null : summary.riskDelta();
+        String verdict = summary == null ? null : summary.verdict();
         return new HistoryItem(job.jobId(), job.scanId(), job.repository(), job.oldCommit(),
                 job.newCommit(), job.state().name(), riskDelta, verdict, job.updatedAt());
     }

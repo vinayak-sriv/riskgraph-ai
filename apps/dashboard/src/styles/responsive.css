@@ -488,6 +488,16 @@
     width: 100%;
     gap: 12px;
   }
+  .graph-control-group {
+    width: 100%;
+  }
+  .graph-view-controls {
+    justify-content: flex-start;
+    padding-top: 12px;
+    padding-left: 0;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
   .filter-control {
     flex: 1;
   }
