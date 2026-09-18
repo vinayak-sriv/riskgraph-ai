@@ -2,7 +2,7 @@ import asyncio
 import os
 
 import httpx
-from app.main import app
+from python_analyzer_app.main import app
 
 TEST_SERVICE_TOKEN = os.environ.setdefault(
     "RISKGRAPH_ANALYZER_SERVICE_TOKEN", "test-analyzer-token"

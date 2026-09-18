@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from app.envelope import build_stub_envelope
 from jsonschema import Draft202012Validator
+from python_analyzer_app.envelope import build_stub_envelope
 from referencing import Registry, Resource
 
 ROOT = Path(__file__).resolve().parents[2]
