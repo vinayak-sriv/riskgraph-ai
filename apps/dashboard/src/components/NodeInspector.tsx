@@ -49,7 +49,11 @@ export function NodeInspector({
         aria-modal="true"
         aria-labelledby="node-inspector-title"
         onKeyDown={(event) => {
-          if (event.key === "Escape") onClose();
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+          }
           if (event.key === "Tab") {
             const controls = Array.from(
               event.currentTarget.querySelectorAll<HTMLElement>(

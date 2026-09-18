@@ -713,6 +713,19 @@
   min-height: 34px;
   padding-block: 6px;
 }
+.pagination-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 16px 16px;
+  padding: 12px;
+  border: 1px solid var(--danger-border);
+  border-radius: 8px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.8125rem;
+}
 .account-view-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(310px, 0.8fr);

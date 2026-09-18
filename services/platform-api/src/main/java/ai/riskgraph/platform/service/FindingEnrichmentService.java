@@ -40,6 +40,12 @@ public class FindingEnrichmentService {
         ArrayNode findings = result.putArray("findings");
         String scanId = result.path("scan_id").asString();
         var ambiguousRoutes = new HashSet<String>();
+        var risks = new HashMap<FindingKey, JsonNode>();
+        for (JsonNode risk : result.at("/risk_result/finding_results")) {
+            risks.putIfAbsent(new FindingKey(risk.path("route_id").asString(),
+                    risk.path("resource_id").asString()), risk);
+        }
+        var handlersByFinding = indexHandlerReferences(result);
         for (JsonNode path : result.at("/graph_delta/new_paths")) {
             if (path.path("nodes").size() < 2) continue;
             String routeId = path.at("/nodes/1").asString();
@@ -51,7 +57,8 @@ public class FindingEnrichmentService {
                     scanId + "\n" + routeId + "\n" + resource + "\n" + path));
             finding.put("route_id", routeId).put("method", route[1]).put("path", route[2]);
             finding.put("resource", resource);
-            JsonNode findingRisk = findingRisk(result, routeId, path.path("target").asString());
+            FindingKey key = new FindingKey(routeId, path.path("target").asString());
+            JsonNode findingRisk = risks.getOrDefault(key, mapper.createObjectNode());
             finding.put("severity", findingRisk.path("category_after").asString("MEDIUM"));
             finding.set("risk_result", findingRisk.deepCopy());
             boolean validationSupported = route[1].equals("GET")
@@ -66,7 +73,9 @@ public class FindingEnrichmentService {
                         + resource + " via " + route[1] + " " + route[2]);
             }
             ArrayNode handlers = finding.putArray("handler_refs");
-            addHandlerReferences(result, handlers, route[1], route[2], resource);
+            for (JsonNode handler : handlersByFinding.getOrDefault(key, List.of())) {
+                handlers.add(handler.deepCopy());
+            }
             if (handlers.size() > 1) ambiguousRoutes.add(routeId);
             finding.set("validation", notRunValidation(validationSupported));
         }
@@ -84,21 +93,17 @@ public class FindingEnrichmentService {
         }
     }
 
-    private JsonNode findingRisk(JsonNode result, String routeId, String resourceId) {
-        for (JsonNode risk : result.at("/risk_result/finding_results")) {
-            if (risk.path("route_id").asString().equals(routeId)
-                    && risk.path("resource_id").asString().equals(resourceId)) return risk;
-        }
-        return mapper.createObjectNode();
-    }
-
-    private void addHandlerReferences(JsonNode result, ArrayNode handlers,
-            String method, String path, String resource) {
+    private java.util.Map<FindingKey, List<JsonNode>> indexHandlerReferences(JsonNode result) {
+        var index = new HashMap<FindingKey, List<JsonNode>>();
         for (JsonNode source : result.at("/source_evidence/after")) {
-            if (!source.at("/endpoint/method").asString().equals(method)
-                    || !source.at("/endpoint/endpoint").asString().equals(path)
-                    || !usesResource(source, resource)) continue;
-            ObjectNode handler = handlers.addObject();
+            String route = "endpoint:" + source.at("/endpoint/method").asString()
+                    + ":" + source.at("/endpoint/endpoint").asString();
+            var resources = new HashSet<String>();
+            resources.add(source.at("/endpoint/resource").asString());
+            for (JsonNode dependency : source.path("dependency_paths")) {
+                resources.add(dependency.path("resource").asString());
+            }
+            ObjectNode handler = mapper.createObjectNode();
             String controller = source.path("qualified_controller").asString();
             String signature = source.path("method_signature").asString();
             String location = source.at("/source_location/path").asString();
@@ -108,16 +113,15 @@ public class FindingEnrichmentService {
             handler.put("qualified_controller", controller);
             handler.put("method_signature", signature);
             handler.set("source_location", source.path("source_location").deepCopy());
+            for (String resource : resources) {
+                index.computeIfAbsent(new FindingKey(route, "resource:" + resource),
+                        ignored -> new ArrayList<>()).add(handler);
+            }
         }
+        return index;
     }
 
-    private boolean usesResource(JsonNode source, String resource) {
-        if (source.at("/endpoint/resource").asString().equals(resource)) return true;
-        for (JsonNode dependency : source.path("dependency_paths")) {
-            if (dependency.path("resource").asString().equals(resource)) return true;
-        }
-        return false;
-    }
+    private record FindingKey(String routeId, String resourceId) { }
 
     public void enrich(ObjectNode result, String aiUrl, int maxAiFindings) {
         List<ObjectNode> findings = new ArrayList<>();

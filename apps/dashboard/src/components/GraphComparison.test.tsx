@@ -86,6 +86,33 @@ it("inspects both revisions without marking the before graph as a new attack pat
   );
 });
 
+it("closes only the node inspector on the first Escape in full-screen mode", () => {
+  render(
+    <GraphComparison analysis={analysis} theme="dark" onNotify={vi.fn()} />,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Open full-screen graph" }),
+  );
+  fireEvent.click(
+    within(screen.getByRole("region", { name: /After change/ })).getByRole(
+      "button",
+      { name: "GET /admin/export" },
+    ),
+  );
+
+  const inspector = screen.getByRole("dialog", {
+    name: "GET /admin/export",
+  });
+  fireEvent.keyDown(inspector, { key: "Escape" });
+
+  expect(
+    screen.queryByRole("dialog", { name: "GET /admin/export" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Exit full-screen graph" }),
+  ).toBeInTheDocument();
+});
+
 it("preserves graph modes and highlights and resets stale inspection on scenario change", () => {
   const view = render(
     <GraphComparison analysis={analysis} theme="dark" onNotify={vi.fn()} />,

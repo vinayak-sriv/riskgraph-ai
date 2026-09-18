@@ -55,6 +55,7 @@ public class AnalysisService {
     private final String executableJar;
     private final ObjectMapper mapper;
     private final DeterministicExtractionCache extractionCache;
+    private final FrameworkPreflightChecker frameworkPreflight = new FrameworkPreflightChecker();
 
     @Autowired
     public AnalysisService(
@@ -244,8 +245,18 @@ public class AnalysisService {
             List<Diagnostic> diagnostics = new ArrayList<>(before.diagnostics());
             diagnostics.addAll(after.diagnostics());
             if (acquired.changedFiles().isEmpty()) {
-                diagnostics.add(new Diagnostic("INFO", "NO_JAVA_CHANGES",
-                        "No changed Java files were found between the commits", null));
+                boolean noJavaAnywhere = !frameworkPreflight.hasJavaSource(acquired.oldSnapshot())
+                        && !frameworkPreflight.hasJavaSource(acquired.newSnapshot());
+                if (noJavaAnywhere) {
+                    diagnostics.add(new Diagnostic("ERROR", "UNSUPPORTED_FRAMEWORK",
+                            "No Java source was found in either revision and no Java files changed "
+                                    + "between the commits; RiskGraph AI only analyzes Java 21 / Spring Boot "
+                                    + "repositories with annotation-based authorization",
+                            null));
+                } else {
+                    diagnostics.add(new Diagnostic("INFO", "NO_JAVA_CHANGES",
+                            "No changed Java files were found between the commits", null));
+                }
             }
             CachedExtraction extraction = new CachedExtraction(
                     before.endpoints(), after.endpoints(), combine(before.coverage(), after.coverage()), diagnostics)

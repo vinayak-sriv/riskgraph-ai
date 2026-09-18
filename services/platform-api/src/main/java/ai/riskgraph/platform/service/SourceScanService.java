@@ -228,6 +228,10 @@ public class SourceScanService {
         return result.deepCopy();
     }
 
+    public java.util.Map<String, ScanStore.Summary> summaries(java.util.Collection<String> ids) {
+        return store.summaries(ids);
+    }
+
     public static String digest(String value) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
             .digest(value.getBytes(StandardCharsets.UTF_8))); }

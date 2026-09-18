@@ -5,8 +5,10 @@ import static ai.riskgraph.analyzer.model.AnalysisModels.DependencyPath;
 
 import java.nio.file.Path;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +25,8 @@ import spoon.reflect.visitor.filter.TypeFilter;
 final class DependencyPathResolver {
     private final SensitivityPolicy sensitivityPolicy;
     private final ChangedSurfaceAnalyzer changedSurface;
+    private final AnnotationAuthorizationExtractor authorizationExtractor =
+            new AnnotationAuthorizationExtractor();
 
     DependencyPathResolver(SensitivityPolicy sensitivityPolicy, ChangedSurfaceAnalyzer changedSurface) {
         this.sensitivityPolicy = sensitivityPolicy;
@@ -32,10 +36,11 @@ final class DependencyPathResolver {
     Result resolve(Path snapshot, CtMethod<?> endpointMethod, ExecutableResolver executableResolver,
             Map<String, List<ChangedRange>> changedRanges) {
         Set<DependencyPath> paths = new LinkedHashSet<>();
-        Set<String> discoveredServices = new LinkedHashSet<>();
+        Map<String, List<ServiceAuthorization>> discoveredServices = new LinkedHashMap<>();
+        Map<DependencyPath, List<ServiceAuthorization>> pathAuthorizations = new LinkedHashMap<>();
         Queue<TraversalState> queue = new ArrayDeque<>();
         Set<String> visited = new HashSet<>();
-        queue.add(new TraversalState(null, endpointMethod));
+        queue.add(new TraversalState(null, endpointMethod, null));
         boolean changedDependency = false;
         boolean ambiguous = false;
 
@@ -59,7 +64,10 @@ final class DependencyPathResolver {
                 if (targetName == null) continue;
                 if (isRepository(targetName, target)) {
                     String resource = targetName.replaceFirst("Repository$", "");
-                    paths.add(path(state.rootService(), targetName, resource));
+                    DependencyPath dependencyPath = path(state.rootService(), targetName, resource);
+                    paths.add(dependencyPath);
+                    pathAuthorizations.computeIfAbsent(dependencyPath, ignored -> new ArrayList<>())
+                            .add(state.authorization());
                     ExecutableResolver.MethodResult methodResult = target == null
                             ? new ExecutableResolver.MethodResult(null, false)
                             : executableResolver.resolveMethod(invocation, target);
@@ -79,14 +87,34 @@ final class DependencyPathResolver {
                         ambiguous = true;
                         continue;
                     }
-                    discoveredServices.add(rootService);
-                    queue.add(new TraversalState(rootService, methodResult.method()));
+                    if (changedSurface.classSecurityChanged(snapshot, target, changedRanges)) {
+                        changedDependency = true;
+                    }
+                    ServiceAuthorization authorization = state.authorization();
+                    if (!sameType(method.getDeclaringType(), target)) {
+                        authorization = firstAuthorization(authorization, methodResult.method(), target);
+                    }
+                    discoveredServices.computeIfAbsent(rootService, ignored -> new ArrayList<>())
+                            .add(authorization);
+                    queue.add(new TraversalState(rootService, methodResult.method(), authorization));
+                } else if (target != null) {
+                    ExecutableResolver.MethodResult methodResult = executableResolver.resolveMethod(invocation, target);
+                    if (methodResult.ambiguous() || methodResult.method() == null) {
+                        ambiguous = true;
+                        continue;
+                    }
+                    queue.add(new TraversalState(
+                            state.rootService(), methodResult.method(), state.authorization()));
                 }
             }
         }
-        for (String service : discoveredServices) {
+        for (Map.Entry<String, List<ServiceAuthorization>> discovered : discoveredServices.entrySet()) {
+            String service = discovered.getKey();
             if (paths.stream().noneMatch(path -> service.equals(path.service()))) {
-                paths.add(path(service, null, service.replaceFirst("Service$", "")));
+                DependencyPath dependencyPath = path(service, null, service.replaceFirst("Service$", ""));
+                paths.add(dependencyPath);
+                pathAuthorizations.computeIfAbsent(dependencyPath, ignored -> new ArrayList<>())
+                        .addAll(discovered.getValue());
             }
         }
         List<DependencyPath> ordered = paths.stream()
@@ -94,7 +122,13 @@ final class DependencyPathResolver {
                         .thenComparing(path -> path.repository() == null ? "" : path.repository())
                         .thenComparing(DependencyPath::resource))
                 .toList();
-        return new Result(ordered, changedDependency, ambiguous);
+        List<ServiceAuthorization> authorizations = new ArrayList<>();
+        ordered.forEach(path -> authorizations.addAll(
+                pathAuthorizations.getOrDefault(path, List.of())));
+        ServiceAuthorization authorization = commonAuthorization(authorizations);
+        boolean authorizationAmbiguous = authorization == null
+                && authorizations.stream().anyMatch(value -> value != null);
+        return new Result(ordered, changedDependency, ambiguous, authorization, authorizationAmbiguous);
     }
 
     DependencyPath primaryPath(List<DependencyPath> paths, CtType<?> controller) {
@@ -130,12 +164,40 @@ final class DependencyPathResolver {
                 .anyMatch(value -> value.getSimpleName().endsWith("Repository"));
     }
 
+    private ServiceAuthorization firstAuthorization(
+            ServiceAuthorization existing, CtMethod<?> method, CtType<?> target) {
+        if (existing != null) return existing;
+        CtAnnotation<?> annotation = authorizationExtractor.find(method);
+        if (annotation == null) annotation = authorizationExtractor.find(target);
+        if (annotation == null) return null;
+        return new ServiceAuthorization(
+                authorizationExtractor.requiredRole(annotation), authorizationExtractor.isSimple(annotation));
+    }
+
+    private ServiceAuthorization commonAuthorization(List<ServiceAuthorization> authorizations) {
+        if (authorizations.isEmpty() || authorizations.stream().anyMatch(value -> value == null)) return null;
+        ServiceAuthorization first = authorizations.getFirst();
+        return authorizations.stream().allMatch(first::equals) ? first : null;
+    }
+
+    private boolean sameType(CtType<?> left, CtType<?> right) {
+        return left != null && right != null && left.getQualifiedName().equals(right.getQualifiedName());
+    }
+
     private CtAnnotation<?> annotation(CtType<?> type, String simpleName) {
         return type.getAnnotations().stream()
                 .filter(value -> simpleName.equals(value.getAnnotationType().getSimpleName()))
                 .findFirst().orElse(null);
     }
 
-    record Result(List<DependencyPath> paths, boolean changedDependency, boolean ambiguous) { }
-    private record TraversalState(String rootService, CtMethod<?> method) { }
+    record Result(
+            List<DependencyPath> paths,
+            boolean changedDependency,
+            boolean ambiguous,
+            ServiceAuthorization serviceAuthorization,
+            boolean serviceAuthorizationAmbiguous
+    ) { }
+    record ServiceAuthorization(String role, boolean simple) { }
+    private record TraversalState(
+            String rootService, CtMethod<?> method, ServiceAuthorization authorization) { }
 }

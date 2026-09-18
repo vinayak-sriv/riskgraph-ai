@@ -12,6 +12,39 @@ class FindingEnrichmentServiceTest {
     private final JsonMapper mapper = JsonMapper.builder().build();
 
     @Test
+    void indexesSecondaryResourcesWithoutDuplicatingAHandler() {
+        ObjectNode result = mapper.createObjectNode().put("scan_id", "a".repeat(64));
+        result.putObject("provenance").put("repository_identity", "local:test");
+        result.putObject("quality").put("confidence", "HIGH");
+        result.putArray("diagnostics");
+        ArrayNode paths = result.putObject("graph_delta").putArray("new_paths");
+        ArrayNode risks = result.putObject("risk_result").putArray("finding_results");
+        for (String resource : java.util.List.of("Customer", "Payment")) {
+            paths.addObject().put("target", "resource:" + resource).putArray("nodes")
+                    .add("user:anonymous").add("endpoint:GET:/customers");
+            risks.addObject().put("route_id", "endpoint:GET:/customers")
+                    .put("resource_id", "resource:" + resource)
+                    .put("category_after", resource.equals("Payment") ? "CRITICAL" : "HIGH");
+        }
+        ObjectNode source = handler("demo.Controller", "customers()", "Controller.java");
+        ArrayNode dependencies = (ArrayNode) source.path("dependency_paths");
+        dependencies.addObject().put("resource", "Customer");
+        dependencies.addObject().put("resource", "Payment");
+        dependencies.addObject().put("resource", "Payment");
+        result.putObject("source_evidence").putArray("after").add(source);
+        new FindingEnrichmentService(mock(ai.riskgraph.platform.client.AnalysisClient.class),
+                mock(ContractValidator.class), mapper).buildFindings(result);
+        assertThat(result.at("/findings/0/handler_refs")).hasSize(1);
+        assertThat(result.at("/findings/1/handler_refs")).hasSize(1);
+        assertThat(result.at("/findings/0/severity").asString()).isEqualTo("HIGH");
+        assertThat(result.at("/findings/1/severity").asString()).isEqualTo("CRITICAL");
+        ((ObjectNode) result.at("/findings/0/handler_refs/0")).put("qualified_controller", "changed");
+        assertThat(result.at("/findings/1/handler_refs/0/qualified_controller").asString())
+                .isEqualTo("demo.Controller");
+        assertThat(result.path("diagnostics")).isEmpty();
+    }
+
+    @Test
     void findingUsesItsOwnRiskAndPreservesAmbiguousHandlerIdentities() {
         ObjectNode result = mapper.createObjectNode().put("scan_id", "a".repeat(64))
                 .put("status", "COMPLETE");

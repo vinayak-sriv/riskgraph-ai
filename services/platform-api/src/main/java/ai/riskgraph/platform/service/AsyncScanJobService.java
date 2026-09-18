@@ -149,7 +149,7 @@ public class AsyncScanJobService {
     }
 
     private String encodeCursor(ScanJobStore.ScanJob job) {
-        String plain = job.updatedAt().toEpochMilli() + ":" + job.jobId();
+        String plain = job.updatedAt() + "|" + job.jobId();
         return Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(plain.getBytes(StandardCharsets.UTF_8));
     }
@@ -158,6 +158,11 @@ public class AsyncScanJobService {
         if (cursor == null || cursor.isBlank()) return null;
         try {
             String plain = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
+            if (plain.contains("|")) {
+                String[] parts = plain.split("\\|", 2);
+                return new Cursor(Instant.parse(parts[0]), UUID.fromString(parts[1]));
+            }
+            // Accept previously issued cursors during an upgrade.
             String[] parts = plain.split(":", 2);
             return new Cursor(Instant.ofEpochMilli(Long.parseLong(parts[0])), UUID.fromString(parts[1]));
         } catch (RuntimeException error) {

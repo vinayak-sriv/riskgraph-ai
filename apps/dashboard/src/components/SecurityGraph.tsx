@@ -39,6 +39,18 @@ type SecurityFlowNode = Node<GraphNodeData, "securityNode">;
 
 const nodeTypes = { securityNode: SecurityNode };
 
+export function reconcileNodePositions<
+  T extends { id: string; position: { x: number; y: number } },
+>(current: T[], next: T[], applyLayout: boolean): T[] {
+  const currentById = new Map(current.map((node) => [node.id, node]));
+  return next.map((node) => ({
+    ...node,
+    position: applyLayout
+      ? node.position
+      : (currentById.get(node.id)?.position ?? node.position),
+  }));
+}
+
 function SecurityNode({ data }: NodeProps<SecurityFlowNode>) {
   const Icon =
     data.nodeType === "USER"
@@ -196,19 +208,20 @@ export function SecurityGraph({
     elements.nodes,
   );
   const previousGraph = useRef(graph);
+  const previousPositions = useRef(positions);
   useEffect(() => {
     const changedRevision = previousGraph.current !== graph;
+    const layoutChanged = previousPositions.current !== positions;
     setNodes((current) =>
-      elements.nodes.map((node) => ({
-        ...node,
-        position: changedRevision
-          ? node.position
-          : (current.find((item) => item.id === node.id)?.position ??
-            node.position),
-      })),
+      reconcileNodePositions(
+        current,
+        elements.nodes,
+        changedRevision || layoutChanged,
+      ),
     );
     previousGraph.current = graph;
-  }, [elements.nodes, graph, setNodes]);
+    previousPositions.current = positions;
+  }, [elements.nodes, graph, positions, setNodes]);
   const interactiveNodes = useMemo(
     () =>
       nodes.map((node) => ({

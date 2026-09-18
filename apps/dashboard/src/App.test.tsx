@@ -312,6 +312,75 @@ it("loads membership-filtered scan history and opens a completed result", async 
   );
 });
 
+it("shows a retry when loading another scan-history page fails", async () => {
+  let nextPageAttempts = 0;
+  const firstItem = {
+    job_id: "11111111-1111-1111-1111-111111111111",
+    scan_id: sourceResult.scan_id,
+    repository: "local:first-page",
+    old_commit: "a".repeat(40),
+    new_commit: "b".repeat(40),
+    status: "COMPLETED",
+    risk_delta: 69,
+    verdict: "BLOCK",
+    updated_at: "2026-09-16T00:00:00Z",
+  };
+  const secondItem = {
+    ...firstItem,
+    job_id: "22222222-2222-2222-2222-222222222222",
+    repository: "local:second-page",
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      const auth = authResult(url);
+      if (auth) return { ok: true, status: 200, json: async () => auth };
+      if (url.includes("cursor=next-page")) {
+        nextPageAttempts += 1;
+        return nextPageAttempts === 1
+          ? {
+              ok: false,
+              status: 503,
+              json: async () => ({ code: "HISTORY_UNAVAILABLE" }),
+            }
+          : {
+              ok: true,
+              status: 200,
+              json: async () => ({ items: [secondItem], next_cursor: null }),
+            };
+      }
+      if (url.includes("/scans?")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            items: [firstItem],
+            next_cursor: "next-page",
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => fixtures["authorization-removal"],
+      };
+    }),
+  );
+
+  render(<App />);
+  await openView("Open scan by ID");
+  await screen.findByText("local:first-page");
+  fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "HISTORY_UNAVAILABLE",
+  );
+  expect(screen.getByText("local:first-page")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await screen.findByText("local:second-page");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
 it("submits an asynchronous scan job and polls until the canonical result is ready", async () => {
   const jobId = "22222222-2222-2222-2222-222222222222";
   let polls = 0;
