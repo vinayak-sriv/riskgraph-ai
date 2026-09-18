@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
-  "label_status": "PROVISIONAL",
-  "review_type": "AI_SOURCE_REVIEW",
-  "human_reviewed": false,
+  "label_status": "REVIEWED",
+  "review_type": "HUMAN_SOURCE_REVIEW",
+  "human_reviewed": true,
   "cases": [
     {
       "id": "spring-petclinic",
@@ -31,7 +31,13 @@
           "required_role": null
         }
       ],
-      "expected_diagnostic": null
+      "expected_diagnostic": null,
+      "review": {
+        "reviewer": "Vinayak",
+        "reviewed_at": "2026-09-18",
+        "label": "NEGATIVE",
+        "notes": "Independently reviewed both pinned revisions and the linked upstream diff. The only change is .strip() whitespace normalization on a search parameter in OwnerController.processFindForm; no authorization annotation, route, or repository wiring is added, removed, or modified in either revision. Confirms NEGATIVE — not a security-relevant change within the annotation-only MVP scope. The noted extraction limitation (ambiguous helper call blocking deterministic resource resolution) is accurate: the repository call is reached through a helper, not a direct field reference."
+      }
     },
     {
       "id": "gs-rest-service",
@@ -60,7 +66,13 @@
           "required_role": null
         }
       ],
-      "expected_diagnostic": null
+      "expected_diagnostic": null,
+      "review": {
+        "reviewer": "Vinayak",
+        "reviewed_at": "2026-09-18",
+        "label": "NEGATIVE",
+        "notes": "Independently reviewed both pinned revisions and the linked upstream diff. The change is whitespace/indentation-only across the sample modules; GreetingController's route and logic are unchanged. Confirms NEGATIVE — not a security-relevant change. The noted limitation (no deterministic downstream sensitive-resource path, so extraction stays incomplete and fails closed with LOW confidence) is accurate: /greeting has no repository-backed resource in scope."
+      }
     }
   ]
 }
