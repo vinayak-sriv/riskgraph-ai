@@ -49,3 +49,10 @@ riskgraph:
   github:
     client-id: ${GITHUB_CLIENT_ID:riskgraph-oauth-disabled}
     client-secret: ${GITHUB_CLIENT_SECRET:riskgraph-oauth-disabled}
+  notifications:
+    poll-interval-ms: ${RISKGRAPH_NOTIFICATION_POLL_INTERVAL_MS:5000}
+    email:
+      # EMAIL deliveries fail with a clear reason (not silently dropped) until
+      # spring.mail.host is set (standard Spring Boot SMTP config, e.g. via
+      # SPRING_MAIL_HOST/SPRING_MAIL_USERNAME/SPRING_MAIL_PASSWORD env vars).
+      from: ${RISKGRAPH_NOTIFICATION_EMAIL_FROM:notifications@riskgraph.local}
