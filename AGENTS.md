@@ -349,14 +349,18 @@ import os, httpx
 OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
 
+
 async def ask_ollama(prompt: str, schema: dict) -> dict:
     async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(f"{OLLAMA_URL}/api/generate", json={
-            "model": OLLAMA_MODEL,
-            "prompt": prompt,
-            "format": schema,   # JSON Schema — constrained decoding, not free text
-            "stream": False,
-        })
+        resp = await client.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "format": schema,  # JSON Schema — constrained decoding, not free text
+                "stream": False,
+            },
+        )
         resp.raise_for_status()
         return resp.json()
 ```

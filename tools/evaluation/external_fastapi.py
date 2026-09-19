@@ -140,7 +140,9 @@ def assess(case, scan):
         expected += len(gold)
     assert not scan["graph_delta"]["new_paths"], "Unexpected new path on reviewed source change"
     assert scan["risk_result"]["risk_delta"] == 0
-    assert scan["final_verdict"] != "BLOCK", "A reviewed cosmetic change must never fail closed to BLOCK"
+    assert scan["final_verdict"] != "BLOCK", (
+        "A reviewed cosmetic change must never fail closed to BLOCK"
+    )
     assert scan["quality"]["confidence"] == case["expected_confidence"]
     assert scan["quality"]["coverage_ratio"] == case["expected_coverage_ratio"]
     if case["expected_diagnostic"]:
