@@ -1,0 +1,96 @@
+{
+  "version": "1.0.0",
+  "label_status": "PROVISIONAL",
+  "review_type": "AI_SOURCE_REVIEW",
+  "human_reviewed": false,
+  "cases": [
+    {
+      "id": "full-stack-fastapi-template-items-users",
+      "repository": "https://github.com/fastapi/full-stack-fastapi-template.git",
+      "old_commit": "afc55bdf910ad53f80a00c105e3e7370b9be6323",
+      "new_commit": "e13d120fd1e09fe7383223fbec90076ed2ae4e87",
+      "license": {
+        "spdx": "MIT",
+        "path": "LICENSE",
+        "old_sha256": "0bd4e76cdd06ab24cce2de5e74f490920897f90a22ad35e8403ed006d4560f48",
+        "new_sha256": "0bd4e76cdd06ab24cce2de5e74f490920897f90a22ad35e8403ed006d4560f48"
+      },
+      "sources": [
+        {
+          "path": "backend/app/api/routes/items.py",
+          "old_sha256": "aed58127aee90d84b46954a25acd70f40aaf92df5c716443bec9d83b9fdd952b",
+          "new_sha256": "063c2da4c6cf0d1782c3f39e755d10deb29217b2f356a585a518ed58b60a19ab"
+        },
+        {
+          "path": "backend/app/api/routes/users.py",
+          "old_sha256": "37bdca40a61e0e5d7a3aa770b983989b372d5b4dba3830b26dcc32db9eb1e1e5",
+          "new_sha256": "42a7cbc0e1bdeb4d610ca48a9fb972ed4700b17f183f3a7c9f9d5ba48ea6111d"
+        }
+      ],
+      "source_review": "Automated review: the pinned diff (upstream PR #711) renames a local variable (`statment` -> `count_statement`) in items.py and users.py. No route decorator, HTTP method, path, dependency, or ORM/repository call is added, removed, or changed in either file.",
+      "expected_changed_endpoints": [
+        { "method": "GET", "endpoint": "/", "authentication": false, "required_role": null },
+        { "method": "GET", "endpoint": "/{id}", "authentication": false, "required_role": null },
+        { "method": "POST", "endpoint": "/", "authentication": false, "required_role": null },
+        { "method": "PUT", "endpoint": "/{id}", "authentication": false, "required_role": null },
+        { "method": "DELETE", "endpoint": "/{id}", "authentication": false, "required_role": null },
+        { "method": "PATCH", "endpoint": "/me", "authentication": false, "required_role": null },
+        { "method": "PATCH", "endpoint": "/me/password", "authentication": false, "required_role": null },
+        { "method": "GET", "endpoint": "/me", "authentication": false, "required_role": null },
+        { "method": "POST", "endpoint": "/open", "authentication": false, "required_role": null },
+        { "method": "GET", "endpoint": "/{user_id}", "authentication": false, "required_role": null },
+        { "method": "PATCH", "endpoint": "/{user_id}", "authentication": false, "required_role": null },
+        { "method": "DELETE", "endpoint": "/{user_id}", "authentication": false, "required_role": null }
+      ],
+      "expected_diagnostic": "PYTHON_RESOLUTION_IS_HEURISTIC",
+      "expected_confidence": "LOW",
+      "expected_coverage_ratio": 0.5714285714285714,
+      "known_limitation": "Every route in this repository is decorated with FastAPI's Annotated[Type, Depends(...)] dependency-injection idiom (parameter type aliases such as CurrentUser/SessionDep) or a decorator-level `dependencies=[Depends(...)]` kwarg. The current authentication heuristic (extractor.py:_has_depends_param) only recognizes a function-parameter *default* value of `Depends(...)`, so every route here is reported as unauthenticated regardless of its real protection. This is a known, accurate extraction-scope gap, not a resolution failure -- see extractor.py's module docstring."
+    },
+    {
+      "id": "full-stack-fastapi-template-login",
+      "repository": "https://github.com/fastapi/full-stack-fastapi-template.git",
+      "old_commit": "1e08434ca9f5ef0e8e68cd2340e35aba737e1b8c",
+      "new_commit": "11fe2a00ed1300c7545c4935e4b791a71be02e03",
+      "license": {
+        "spdx": "MIT",
+        "path": "LICENSE",
+        "old_sha256": "0bd4e76cdd06ab24cce2de5e74f490920897f90a22ad35e8403ed006d4560f48",
+        "new_sha256": "0bd4e76cdd06ab24cce2de5e74f490920897f90a22ad35e8403ed006d4560f48"
+      },
+      "sources": [
+        {
+          "path": "backend/app/api/routes/login.py",
+          "old_sha256": "cdd4e5300092d453c1c7da256d4c14ae4398c942e56f10b3e7df360964498bd4",
+          "new_sha256": "1c7b875123c5f810bb611fa98d791bbe97164bd792d3e4cae4be13f607d00782"
+        },
+        {
+          "path": "backend/app/api/routes/users.py",
+          "old_sha256": "ff3da0a79dad270444203a5d106db7ee890c55b7c150163b0bd42605723e363c",
+          "new_sha256": "7df582fcb351bff0e212fb688c6473ec3cbe1210f1d3b4828e35f79aabc40f8d"
+        }
+      ],
+      "source_review": "Automated review: the pinned diff (upstream PR #417) rewrites HTTPException detail strings in login.py and users.py (\"username\" -> \"email\"/\"id\" wording), plus a matching test-string update in a test file outside this evaluation's source scope. No route decorator, HTTP method, path, dependency, or ORM/repository call is added, removed, or changed.",
+      "expected_changed_endpoints": [
+        { "method": "POST", "endpoint": "/login/access-token", "authentication": false, "required_role": null },
+        { "method": "POST", "endpoint": "/login/test-token", "authentication": false, "required_role": null },
+        { "method": "POST", "endpoint": "/password-recovery/{email}", "authentication": false, "required_role": null },
+        { "method": "POST", "endpoint": "/reset-password/", "authentication": false, "required_role": null },
+        { "method": "POST", "endpoint": "/password-recovery-html-content/{email}", "authentication": false, "required_role": null },
+        { "method": "GET", "endpoint": "/", "authentication": false, "required_role": null },
+        { "method": "POST", "endpoint": "/", "authentication": false, "required_role": null },
+        { "method": "PATCH", "endpoint": "/me", "authentication": false, "required_role": null },
+        { "method": "PATCH", "endpoint": "/me/password", "authentication": false, "required_role": null },
+        { "method": "GET", "endpoint": "/me", "authentication": false, "required_role": null },
+        { "method": "POST", "endpoint": "/open", "authentication": false, "required_role": null },
+        { "method": "GET", "endpoint": "/{user_id}", "authentication": false, "required_role": null },
+        { "method": "PATCH", "endpoint": "/{user_id}", "authentication": false, "required_role": null },
+        { "method": "DELETE", "endpoint": "/{user_id}", "authentication": false, "required_role": null }
+      ],
+      "expected_diagnostic": "PYTHON_RESOLUTION_IS_HEURISTIC",
+      "expected_confidence": "LOW",
+      "expected_coverage_ratio": 0.21428571428571427,
+      "known_limitation": "Same Annotated[Type, Depends(...)]/decorator-dependency scope gap as the items/users case: every route in this repository is reported as unauthenticated. users.py is included here because the pinned commit (PR #417) also touches it -- the analyzer's git-diff scoping is per commit, not per hand-picked file, so its routes are re-emitted with the same evidence as the sibling case."
+    }
+  ]
+}
