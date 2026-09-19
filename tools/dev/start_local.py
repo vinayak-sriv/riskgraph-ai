@@ -74,6 +74,7 @@ def main():
         JAVA_ANALYZER_BASE_URL="http://127.0.0.1:8081",
         GRAPH_RISK_BASE_URL="http://127.0.0.1:8082",
         AI_VALIDATION_BASE_URL="http://127.0.0.1:8083",
+        PYTHON_ANALYZER_BASE_URL="http://127.0.0.1:8084",
         RISKGRAPH_ANALYZER_PROCESS_ISOLATION="true",
         RISKGRAPH_ANALYZER_EXECUTABLE_JAR=str(RUNTIME / "java-analyzer.jar"),
         # This launcher binds only to localhost over plain HTTP. A Secure cookie
@@ -122,6 +123,21 @@ def main():
             ],
             ROOT / "services/ai-validation-service",
             8083,
+        ),
+        (
+            "python-analyzer",
+            [
+                sys.executable,
+                "-m",
+                "uvicorn",
+                "app.main:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "8084",
+            ],
+            ROOT / "services/python-analyzer",
+            8084,
         ),
         (
             "platform",
