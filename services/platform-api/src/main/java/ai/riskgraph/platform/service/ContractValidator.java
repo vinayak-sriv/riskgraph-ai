@@ -1,6 +1,6 @@
 package ai.riskgraph.platform.service;
 
-import com.networknt.schema.JsonSchema;
+import com.networknt.schema.Schema;
 import com.networknt.schema.SchemaRegistry;
 import com.networknt.schema.SchemaLocation;
 import com.networknt.schema.SpecificationVersion;
@@ -16,7 +16,7 @@ public class ContractValidator {
             resolvers.mapPrefix("https://riskgraph.ai/contracts/", "classpath:contracts/")));
     // The schemas are immutable classpath resources and the largest is ~17KB;
     // compile each once rather than on every call (8+ per scan).
-    private final Map<String, JsonSchema> compiled = new ConcurrentHashMap<>();
+    private final Map<String, Schema> compiled = new ConcurrentHashMap<>();
 
     public void validate(String contract, JsonNode value) {
         var schema = compiled.computeIfAbsent(contract, name ->

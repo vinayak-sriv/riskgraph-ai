@@ -68,14 +68,19 @@ public class SpringEndpointExtractor {
         Set<String> analyzedChangedPaths = changedRanges.keySet().stream()
                 .filter(path -> belongsToInputRoot(snapshot, inputRoots, path))
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        // One Launcher over every source root. Building a model per root made a
-        // multi-module repository pay N full Spoon parses and hold N live models.
-        CtModel combined = buildModel(inputRoots, diagnostics);
-        if (combined == null) {
-            return new ExtractionResult(List.of(), new ExtractionCoverage(
-                    analyzedChangedPaths.size(), 0, 0, 0, 0, 0.0), diagnostics);
+        // A separate Launcher per source root. A single combined Launcher merges
+        // distinct modules' identically-qualified types (e.g. two src/main/java
+        // roots each declaring com.example.Application) into one type registry,
+        // silently dropping one module's types from the model.
+        List<CtModel> models = new ArrayList<>();
+        for (Path inputRoot : inputRoots) {
+            CtModel model = buildModel(List.of(inputRoot), diagnostics);
+            if (model == null) {
+                return new ExtractionResult(List.of(), new ExtractionCoverage(
+                        analyzedChangedPaths.size(), 0, 0, 0, 0, 0.0), diagnostics);
+            }
+            models.add(model);
         }
-        List<CtModel> models = List.of(combined);
 
         Set<String> modeledPaths = new HashSet<>();
         models.stream().flatMap(model -> model.getAllTypes().stream())
