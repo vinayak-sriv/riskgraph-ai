@@ -75,6 +75,32 @@ def test_validation_archive_is_atomic_and_contains_every_runtime_image(tmp_path,
     ]
 
 
+def test_python_sandbox_pair_is_registered_alongside_the_java_sandboxes():
+    assert "riskgraph-sandbox-protected-py:local" in BUILDER.SANDBOX_IMAGES
+    assert "riskgraph-sandbox-vulnerable-py:local" in BUILDER.SANDBOX_IMAGES
+
+    compose = yaml.safe_load(
+        (ROOT / "infrastructure/docker-compose.validation.yml").read_text(encoding="utf-8")
+    )
+    script = compose["services"]["validation-image-loader"]["command"][2]
+    assert "riskgraph-sandbox-protected-py:local" in script
+    assert "riskgraph-sandbox-vulnerable-py:local" in script
+
+
+def test_python_sandbox_source_matches_the_trusted_fixture(tmp_path, monkeypatch):
+    import create_mvp_samples_python as py_fixture
+
+    monkeypatch.setattr(py_fixture, "OUTPUT", tmp_path / "mvp-v2-python")
+    pair = py_fixture.create()["scenarios"]["authorization-removal"]
+
+    for commit, expected_handler in [
+        (pair["old_commit"], py_fixture.HANDLER_PROTECTED),
+        (pair["new_commit"], py_fixture.HANDLER_VULNERABLE),
+    ]:
+        actual = BUILDER.git(Path(pair["repository_path"]), "show", f"{commit}:app/main.py") + "\n"
+        assert actual == expected_handler
+
+
 def test_file_sha256_streams_the_complete_file(tmp_path):
     payload = b"a" * (1024 * 1024 + 3)
     source = tmp_path / "large.bin"

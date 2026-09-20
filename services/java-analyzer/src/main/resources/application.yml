@@ -7,7 +7,9 @@ spring:
 
 riskgraph:
   analyzer:
-    allowed-repository-roots: ${RISKGRAPH_ALLOWED_REPOSITORY_ROOTS:${user.dir}}
+    # No default: an unset allowlist must fail startup, not silently widen to
+    # the working directory. Matches the fail-closed service-token behaviour.
+    allowed-repository-roots: ${RISKGRAPH_ALLOWED_REPOSITORY_ROOTS:}
     max-java-files: ${RISKGRAPH_MAX_JAVA_FILES:5000}
     max-java-file-bytes: ${RISKGRAPH_MAX_JAVA_FILE_BYTES:2097152}
     max-total-java-bytes: ${RISKGRAPH_MAX_TOTAL_JAVA_BYTES:52428800}

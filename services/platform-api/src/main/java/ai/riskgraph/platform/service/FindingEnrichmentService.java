@@ -8,6 +8,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.HashSet;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -17,6 +19,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 @Component
 public class FindingEnrichmentService {
+    private static final long AI_ENRICHMENT_TIMEOUT_SECONDS = 20;
     private final AnalysisClient client;
     private final ContractValidator contracts;
     private final ObjectMapper mapper;
@@ -168,10 +171,16 @@ public class FindingEnrichmentService {
                 ai = fallbackExplanation(finding, "AI_FINDING_LIMIT");
             } else {
                 try {
-                    ai = futures.get(index).get();
+                    // Bounded: enrich() runs on one of only a couple of scan-job
+                    // workers, and an untimed get() inherits the 75s HTTP read
+                    // timeout, so two slow AI calls stall the whole pipeline.
+                    ai = futures.get(index).get(AI_ENRICHMENT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                 } catch (InterruptedException error) {
                     Thread.currentThread().interrupt();
                     ai = fallbackExplanation(finding, "AI_ENRICHMENT_INTERRUPTED");
+                } catch (TimeoutException error) {
+                    futures.get(index).cancel(true);
+                    ai = fallbackExplanation(finding, "AI_ENRICHMENT_TIMEOUT");
                 } catch (ExecutionException error) {
                     ai = fallbackExplanation(finding, "AI_ENRICHMENT_FAILED");
                 }
@@ -235,6 +244,7 @@ public class FindingEnrichmentService {
     private ObjectNode notRunValidation(boolean supported) {
         return mapper.createObjectNode().put("status", "NOT_RUN").put("confirmed", false)
                 .put("reason_code", supported ? "NOT_RUN" : "UNSUPPORTED_SOURCE_VALIDATION")
-                .put("sandbox_revision", "source-bound");
+                .put("sandbox_revision", "source-bound")
+                .put("cleanup_complete", true);
     }
 }

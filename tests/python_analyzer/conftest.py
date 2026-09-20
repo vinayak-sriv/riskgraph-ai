@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 path = Path(__file__).resolve().parents[2] / "services/python-analyzer/app"
 spec = importlib.util.spec_from_file_location(
     "python_analyzer_app", path / "__init__.py", submodule_search_locations=[str(path)]
@@ -43,3 +45,12 @@ def build_two_commit_repo(
     ).stdout.strip()
 
     return old_commit, new_commit
+
+
+@pytest.fixture(autouse=True)
+def allow_tmp_repository_roots(tmp_path, monkeypatch):
+    """The analyzer rejects any repository outside RISKGRAPH_ALLOWED_REPOSITORY_ROOTS.
+
+    Tests build throwaway repositories under tmp_path, so allow that root.
+    """
+    monkeypatch.setenv("RISKGRAPH_ALLOWED_REPOSITORY_ROOTS", str(tmp_path.resolve()))

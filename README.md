@@ -211,6 +211,28 @@ platform database.
 mvn -f services/java-analyzer/pom.xml clean verify
 ```
 
+### Python analyzer — FastAPI and the `ast` module
+
+`POST /analyze` is the FastAPI counterpart to the Java analyzer and emits the
+same envelope contract. It extracts route decorators, the handler function,
+authentication dependencies, and handler → service/repository → resource
+resolution from the Python AST, and classifies resource sensitivity with the
+same policy document the Java analyzer ships.
+
+The platform routes a repository here when `RepositoryFrameworkDetector`
+identifies it as FastAPI. Like the Java analyzer it refuses any repository
+outside `RISKGRAPH_ALLOWED_REPOSITORY_ROOTS`, never executes the code it reads,
+and neither scores risk nor writes to the platform database.
+
+Resolution is heuristic and says so in its diagnostics: it matches a handler's
+own direct calls by naming convention and does not follow calls across files,
+and router-prefix stitching is not yet resolved.
+
+```powershell
+python -m pytest tests/python_analyzer tests/parity -q
+ruff check services/python-analyzer
+```
+
 ### Graph and risk service — FastAPI and NetworkX
 
 This service consumes validated IR and provides:
@@ -234,7 +256,8 @@ ruff check services/graph-risk-service tests/graph_risk
 This service provides optional Ollama explanations and local sandbox validation:
 
 - `POST /ai/analyze` explains structured deterministic evidence;
-- `POST /ai/test-suggestion` proposes a schema-constrained authorization test;
+- `POST /ai/test-suggestion` is an alias of `/ai/analyze`; the explanation
+  already carries the deterministic `recommended_test`;
 - `POST /validation/http` runs an approved probe against a registered sandbox; and
 - `GET /health` reports service health.
 
@@ -381,7 +404,8 @@ The test tree is organized by responsibility:
 - `tests/contract/` — JSON Schema and OpenAPI compatibility;
 - `tests/dataset/` — corpus integrity and provenance;
 - `tests/graph_risk/` — graph construction, reachability, scoring, and containment;
-- `tests/integration/` — cross-module workflows;
+- `tests/parity/` — cross-analyzer agreement (shared sensitivity policy);
+- `tests/python_analyzer/` — FastAPI route, dependency, and envelope extraction;
 - `tests/release/` — packaging, reporting, container, and public-release invariants;
 - `tests/reporting/` — GitHub Check, SARIF, and summary output; and
 - `tests/tools/` — development and verification utilities.
@@ -452,7 +476,7 @@ docs/              Architecture, decisions, evidence, runbooks, and roadmap
 infrastructure/    Docker Compose, PostgreSQL, and validation isolation
 samples/           Authored Spring scenarios and sandbox application
 services/          Java and Python backend services
-tests/             Contract, graph, AI, release, reporting, and integration tests
+tests/             Contract, graph, AI, parity, release, and reporting tests
 tools/             Development, evaluation, reporting, and release utilities
 ```
 

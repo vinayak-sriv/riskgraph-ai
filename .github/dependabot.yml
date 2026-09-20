@@ -12,11 +12,37 @@ updates:
     directory: /apps/dashboard
     schedule:
       interval: weekly
+  # One entry per requirements file: `directory: /` only covers
+  # requirements-dev.txt, leaving every runtime service pin unmanaged.
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
+  - package-ecosystem: pip
+    directory: /services/graph-risk-service
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /services/ai-validation-service
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /services/python-analyzer
+    schedule:
+      interval: weekly
   - package-ecosystem: github-actions
     directory: /
+    schedule:
+      interval: weekly
+  # Digest-pinned base images never move without this.
+  - package-ecosystem: docker
+    directories:
+      - /services/java-analyzer
+      - /services/platform-api
+      - /services/graph-risk-service
+      - /services/ai-validation-service
+      - /services/python-analyzer
+      - /apps/dashboard
+      - /infrastructure/postgres
     schedule:
       interval: weekly

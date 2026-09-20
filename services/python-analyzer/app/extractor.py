@@ -19,6 +19,8 @@ from functools import lru_cache
 from .resolver import Resolution, confidence_minimum, resolve_dependencies
 from .sensitivity_policy import SensitivityPolicy
 
+FunctionDef = ast.FunctionDef | ast.AsyncFunctionDef
+
 _HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
 
 
@@ -44,20 +46,30 @@ def extract_endpoints(source: str, file_path: str) -> list[dict]:
             if route is None:
                 continue
             method, path = route
-            authenticated = _has_depends_param(node)
+            authenticated, authorization_confidence = _authorization(node)
             resolution = resolve_dependencies(node)
             findings.append(
-                _evidence(node, file_path, method, path, authenticated, resolution, policy)
+                _evidence(
+                    node,
+                    file_path,
+                    method,
+                    path,
+                    authenticated,
+                    authorization_confidence,
+                    resolution,
+                    policy,
+                )
             )
     return findings
 
 
 def _evidence(
-    node,
+    node: FunctionDef,
     file_path: str,
     method: str,
     path: str,
     authenticated: bool,
+    authorization_confidence: str,
     resolution: Resolution,
     policy: SensitivityPolicy,
 ) -> dict:
@@ -75,7 +87,6 @@ def _evidence(
         for dependency in resolution.paths
     ]
     route_confidence = "HIGH"
-    authorization_confidence = "MEDIUM" if authenticated else "HIGH"
     overall = confidence_minimum(route_confidence, authorization_confidence, resolution.confidence)
     return {
         "endpoint": {
@@ -143,20 +154,91 @@ def _match_route_decorator(decorator: ast.expr, router_names: set[str]) -> tuple
     path = decorator.args[0].value
     if not isinstance(path, str):
         return None
+    # `@router.get("")` and `@router.post("items")` are legal under an
+    # include_router prefix. The shared IR requires an absolute route, and an
+    # unnormalized one fails validation downstream, failing the whole scan with
+    # a 502 over a single unconventional route.
+    if not path.startswith("/"):
+        path = "/" + path
     return method.upper(), path
 
 
-def _has_depends_param(node) -> bool:
-    for default in list(node.args.defaults) + list(node.args.kw_defaults):
-        if not isinstance(default, ast.Call):
+# Substrings that mark a dependency as an authentication/authorization check.
+# Everything else (get_db, get_settings, pagination, ...) is plain injection.
+_AUTH_DEPENDENCY_HINTS = (
+    "auth",
+    "current_user",
+    "currentuser",
+    "token",
+    "identity",
+    "principal",
+    "permission",
+    "scope",
+    "security",
+    "login",
+    "jwt",
+    "oauth",
+    "bearer",
+    "require",
+)
+
+
+def _callee_name(func: ast.expr) -> str:
+    return func.id if isinstance(func, ast.Name) else getattr(func, "attr", "") or ""
+
+
+def _depends_calls(node: FunctionDef) -> list[ast.Call]:
+    """Every `Depends(...)` on the handler, from defaults and from annotations.
+
+    `user: Annotated[User, Depends(get_current_user)]` is the modern form and
+    is not a parameter default, so inspecting defaults alone misses it.
+    """
+    arguments = node.args
+    calls = [
+        default
+        for default in [*arguments.defaults, *arguments.kw_defaults]
+        if isinstance(default, ast.Call) and _callee_name(default.func) == "Depends"
+    ]
+    for argument in [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]:
+        if argument.annotation is None:
             continue
-        func = default.func
-        name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
-        if name == "Depends":
-            return True
-    return False
+        calls.extend(
+            sub
+            for sub in ast.walk(argument.annotation)
+            if isinstance(sub, ast.Call) and _callee_name(sub.func) == "Depends"
+        )
+    return calls
 
 
-def _signature(node) -> str:
+def _dependency_name(call: ast.Call) -> str:
+    """`Depends(get_db)` -> "get_db"; `Depends(HTTPBearer())` -> "HTTPBearer"."""
+    if not call.args:
+        return ""
+    argument = call.args[0]
+    if isinstance(argument, ast.Call):
+        return _callee_name(argument.func)
+    if isinstance(argument, (ast.Name, ast.Attribute)):
+        return _callee_name(argument)
+    return ""
+
+
+def _authorization(node: FunctionDef) -> tuple[bool, str]:
+    """Return (authenticated, authorization_confidence).
+
+    A bare `Depends(...)` is not evidence of authentication: `Depends(get_db)`
+    is the most common FastAPI idiom and only injects a database session.
+    Treating it as auth silently suppresses the anonymous-reachability check.
+    An unrecognised dependency is therefore reported unauthenticated at LOW
+    confidence, so the verdict escalates rather than trusting the guess.
+    """
+    names = [_dependency_name(call).lower() for call in _depends_calls(node)]
+    if not names:
+        return False, "HIGH"
+    if any(hint in name for name in names for hint in _AUTH_DEPENDENCY_HINTS):
+        return True, "MEDIUM"
+    return False, "LOW"
+
+
+def _signature(node: FunctionDef) -> str:
     args = [a.arg for a in node.args.args]
     return f"{node.name}({', '.join(args)})"

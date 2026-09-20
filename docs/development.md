@@ -7,10 +7,8 @@ commands below remain scoped regression tools.
 ## Verify Foundation
 
 ```powershell
-python tools/dev/verify_week2.py
-python tools/dev/verify_week3.py
-python tools/dev/verify_week6.py
 pytest tests/contract
+python tools/dev/verify_mvp.py
 ```
 
 ## Run PostgreSQL

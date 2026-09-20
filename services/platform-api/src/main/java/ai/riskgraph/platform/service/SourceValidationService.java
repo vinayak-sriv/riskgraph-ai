@@ -135,7 +135,6 @@ public class SourceValidationService {
             if (Set.of("CONFIRMED", "REJECTED", "INCONCLUSIVE").contains(status)
                     && (!validation.path("sandbox_revision").asString().equals("vulnerable")
                     || !validation.path("source_commit").asString().equals(commit)
-                    || !validation.path("cleanup_complete").asBoolean()
                     || status.equals("CONFIRMED") != validation.path("confirmed").asBoolean()
                     || status.equals("CONFIRMED") && !hasImmutableConfirmationEvidence(validation))) {
                 throw new PipelineException("SANDBOX_IDENTITY_MISMATCH", 502,
@@ -143,9 +142,7 @@ public class SourceValidationService {
             }
             return validation;
         } catch (PipelineException error) {
-            ObjectNode result = errorResult(error.code, "vulnerable");
-            result.put("cleanup_complete", false);
-            return result;
+            return errorResult(error.code, "vulnerable");
         }
     }
 
@@ -169,8 +166,9 @@ public class SourceValidationService {
     }
 
     private ObjectNode aggregateResult(ObjectNode result, List<JsonNode> validations, String status) {
+        // Unknown cleanup is not completed cleanup; every producer sets the field.
         boolean cleanupComplete = validations.stream()
-                .allMatch(value -> value.path("cleanup_complete").asBoolean(true));
+                .allMatch(value -> value.path("cleanup_complete").asBoolean(false));
         ObjectNode summary = mapper.createObjectNode().put("status", status)
                 .put("confirmed", status.equals("CONFIRMED"))
                 .put("reason_code", "AGGREGATED_FINDING_VALIDATIONS")
@@ -210,7 +208,8 @@ public class SourceValidationService {
 
     private ObjectNode errorResult(String reasonCode, String revision) {
         return mapper.createObjectNode().put("status", "ERROR").put("confirmed", false)
-                .put("reason_code", reasonCode).put("sandbox_revision", revision);
+                .put("reason_code", reasonCode).put("sandbox_revision", revision)
+                .put("cleanup_complete", false);
     }
 
     private ObjectNode notRunResult(String reasonCode) {

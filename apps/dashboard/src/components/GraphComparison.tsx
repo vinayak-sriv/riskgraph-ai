@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -149,21 +149,37 @@ export function GraphComparison({
   const { visibleBefore, visibleAfter, changeCounts, afterNodeCounts } =
     graphDiff;
 
-  const selectNode = (
-    nodeId: string,
-    graph: SecurityGraphData,
-    revision: "Before" | "After",
-  ) => {
-    const node = graph.nodes.find((candidate) => candidate.id === nodeId);
-    if (!node) return;
-    setSelectedNode({
-      node,
-      graph,
-      revision,
-      isPathNode:
-        revision === "After" && (newPath?.nodes.includes(nodeId) ?? false),
-    });
-  };
+  const selectNode = useCallback(
+    (
+      nodeId: string,
+      graph: SecurityGraphData,
+      revision: "Before" | "After",
+    ) => {
+      const node = graph.nodes.find((candidate) => candidate.id === nodeId);
+      if (!node) return;
+      setSelectedNode({
+        node,
+        graph,
+        revision,
+        isPathNode:
+          revision === "After" && (newPath?.nodes.includes(nodeId) ?? false),
+      });
+    },
+    [newPath],
+  );
+
+  // Stable handlers: an inline arrow here is a new function on every render,
+  // which invalidates SecurityGraph's interactiveNodes memo and rebuilds the
+  // data object for every one of up to 500 nodes on any unrelated state change.
+  const selectBeforeNode = useCallback(
+    (nodeId: string) =>
+      selectNode(nodeId, analysis.graph_delta.before, "Before"),
+    [selectNode, analysis.graph_delta.before],
+  );
+  const selectAfterNode = useCallback(
+    (nodeId: string) => selectNode(nodeId, analysis.graph_delta.after, "After"),
+    [selectNode, analysis.graph_delta.after],
+  );
   useEffect(() => {
     if (!focusTarget) return;
     const afterNode = analysis.graph_delta.after.nodes.find(
@@ -474,9 +490,7 @@ export function GraphComparison({
                   ? selectedNode.node.id
                   : null
               }
-              onNodeSelect={(nodeId) =>
-                selectNode(nodeId, analysis.graph_delta.before, "Before")
-              }
+              onNodeSelect={selectBeforeNode}
               theme={theme}
               viewport={syncViews ? sharedViewport : undefined}
               onViewportChange={syncViews ? setSharedViewport : undefined}
@@ -499,9 +513,7 @@ export function GraphComparison({
               selectedNodeId={
                 selectedNode?.revision === "After" ? selectedNode.node.id : null
               }
-              onNodeSelect={(nodeId) =>
-                selectNode(nodeId, analysis.graph_delta.after, "After")
-              }
+              onNodeSelect={selectAfterNode}
               theme={theme}
               viewport={syncViews ? sharedViewport : undefined}
               onViewportChange={syncViews ? setSharedViewport : undefined}

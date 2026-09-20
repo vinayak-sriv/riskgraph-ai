@@ -176,8 +176,8 @@ def main():
             )
             print(f"{name}: already listening on {port}")
             continue
-        except Exception:
-            pass
+        except Exception as error:
+            print(f"{name}: not yet listening on {port} ({type(error).__name__}); starting it")
         if name in ("analyzer", "platform"):
             artifact = "java-analyzer" if name == "analyzer" else "platform-api"
             shutil.copy2(

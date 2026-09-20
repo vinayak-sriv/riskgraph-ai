@@ -31,8 +31,9 @@ building Java services locally.
 Run the contract and infrastructure checks:
 
 ```powershell
-python tools/dev/verify_week2.py
+pytest tests/contract
+docker compose -f infrastructure/docker-compose.yml --profile app config --quiet
 ```
 
-This validates JSON examples, parses OpenAPI YAML, and checks Docker Compose
-configuration when Docker is available.
+This validates every contract example against its schema, parses the OpenAPI
+YAML, and checks the Docker Compose configuration when Docker is available.

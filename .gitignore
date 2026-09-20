@@ -34,6 +34,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+.venv*/
 venv/
 
 # Node/React
@@ -55,9 +56,16 @@ samples/generated/
 .test-tmp/
 .review-logic-pytest/
 pytest-cache-files-*/
+.release-test-*/
+
+# Release/presentation artifacts (kept out of git; publish as release assets)
+artifacts/
 
 # Local generated archives
 /apps/dashboard.zip
 /riskgraph-dataset-package.zip
 /.git.zip
 /*.git.bundle
+
+# Session scratch from assistant tooling
+Claude outputs/

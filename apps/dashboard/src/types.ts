@@ -89,10 +89,25 @@ export type RiskPolicyMetadata = {
   bands: { category: Category; minimum: number; maximum: number }[];
 };
 
+export type ExtractionCoverage = {
+  java_files_considered: number;
+  controllers_discovered: number;
+  endpoints_emitted: number;
+  endpoints_with_service: number;
+  endpoints_with_repository: number;
+  coverage_ratio: number;
+};
+
+// Union of contracts/ir/demo-result.schema.json and
+// contracts/ir/scan-result.schema.json: the demo path requires only
+// scenario/graph_delta/risk_result/verdict, so everything the pipeline adds is
+// optional here. Completeness against both schemas is enforced by
+// tests/contract/test_dashboard_types.py.
 export type AnalysisResult = {
   schema_version?: string;
   analyzer_version?: string;
   analyzer_config_hash?: string;
+  analysis_id?: string;
   mode?: string;
   scan_id?: string;
   status?: string;
@@ -100,7 +115,9 @@ export type AnalysisResult = {
   final_verdict?: Verdict;
   validation_status?: string;
   validation?: ValidationResult;
+  sandbox_demonstration?: ValidationResult;
   findings?: Finding[];
+  coverage?: ExtractionCoverage;
   quality?: { confidence: string; coverage_ratio: number; incomplete: boolean };
   provenance?: {
     repository_identity: string;

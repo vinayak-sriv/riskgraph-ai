@@ -153,11 +153,19 @@ public class SourceScanService {
         result.put("analyzer_version", envelope.path("analyzer_version").asString());
         result.put("analyzer_config_hash", envelope.path("analyzer_config_hash").asString());
         result.put("analysis_id", envelope.path("analysis_id").asString());
-        result.put("pre_validation_verdict", result.path("verdict").asString());
-        result.put("validation_status", "NOT_RUN").put("final_verdict", result.path("verdict").asString());
         result.put("status", incomplete || !confidence.equals("HIGH") ? "DEGRADED" : "COMPLETE");
         result.put("scan_id", ScanIdentityFactory.create(mapper, envelope, graphInput, result));
+        // buildFindings can discover ambiguity (AMBIGUOUS_ROUTE_HANDLERS) that
+        // degrades quality. Record the verdict only afterwards, so incomplete
+        // evidence escalates here exactly as it does in the graph service
+        // instead of shipping quality.incomplete=true next to ALLOW.
         findings.buildFindings(result);
+        String verdict = result.path("verdict").asString();
+        if (verdict.equals("ALLOW") && result.at("/quality/incomplete").asBoolean()) {
+            verdict = "REVIEW";
+        }
+        result.put("pre_validation_verdict", verdict);
+        result.put("validation_status", "NOT_RUN").put("final_verdict", verdict);
         String scanId = result.path("scan_id").asString();
         JsonNode previous = store.get(scanId);
         if (previous != null) findings.mergePreviousEnrichment(result, previous);

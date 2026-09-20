@@ -10,6 +10,10 @@ import sys
 from pathlib import Path
 
 from create_mvp_samples import CONTROLLER, FILES, ROOT, SOURCE, create, git
+from create_mvp_samples_python import FILES as FILES_PY
+from create_mvp_samples_python import HANDLER_PROTECTED, HANDLER_VULNERABLE
+from create_mvp_samples_python import SOURCE as SOURCE_PY
+from create_mvp_samples_python import create as create_python
 
 DEFAULT_PROBE_IMAGE = (
     "python:3.12.14-alpine3.24@"
@@ -20,6 +24,8 @@ SANDBOX_IMAGES = (
     "riskgraph-sandbox-protected:local",
     "riskgraph-sandbox-vulnerable:local",
     "riskgraph-sandbox:local",
+    "riskgraph-sandbox-protected-py:local",
+    "riskgraph-sandbox-vulnerable-py:local",
 )
 LOCAL_PROBE_IMAGE = "riskgraph-validation-probe:local"
 
@@ -134,6 +140,41 @@ def main():
         if not prepare_only:
             subprocess.run(
                 [*docker, "build", "--tag", f"riskgraph-sandbox-{revision}:local", str(context)],
+                check=True,
+            )
+    py_pair = create_python()["scenarios"]["authorization-removal"]
+    py_repo = Path(py_pair["repository_path"])
+    py_handler_by_revision = {"protected": HANDLER_PROTECTED, "vulnerable": HANDLER_VULNERABLE}
+    for revision, commit in [
+        ("protected", py_pair["old_commit"]),
+        ("vulnerable", py_pair["new_commit"]),
+    ]:
+        context = ROOT / f"samples/generated/build-{revision}-py"
+        context.mkdir(parents=True, exist_ok=True)
+        expected = {**FILES_PY, SOURCE_PY + "main.py": py_handler_by_revision[revision]}
+        for name, text in expected.items():
+            actual = git(py_repo, "show", f"{commit}:{name}") + "\n"
+            if actual != text:
+                raise SystemExit("Python sandbox source does not match the trusted fixture")
+            target = context / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text, encoding="utf-8", newline="\n")
+        shutil.copy2(ROOT / "samples/sandbox-python/requirements.txt", context / "requirements.txt")
+        dockerfile = (ROOT / "samples/sandbox-python/Dockerfile").read_text()
+        dockerfile = dockerfile.replace(
+            'LABEL ai.riskgraph.sandbox="1"',
+            f'LABEL ai.riskgraph.sandbox="1" ai.riskgraph.commit="{commit}"',
+        )
+        (context / "Dockerfile").write_text(dockerfile, encoding="utf-8", newline="\n")
+        if not prepare_only:
+            subprocess.run(
+                [
+                    *docker,
+                    "build",
+                    "--tag",
+                    f"riskgraph-sandbox-{revision}-py:local",
+                    str(context),
+                ],
                 check=True,
             )
     if not prepare_only:

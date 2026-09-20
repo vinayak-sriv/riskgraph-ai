@@ -58,6 +58,10 @@ public class GitSourceAcquirer {
                 .filter(value -> !value.isBlank())
                 .map(value -> Path.of(value).toAbsolutePath().normalize())
                 .toList();
+        if (this.allowedRoots.isEmpty()) {
+            throw new IllegalStateException(
+                    "RISKGRAPH_ALLOWED_REPOSITORY_ROOTS must be configured");
+        }
         this.maxJavaFiles = maxJavaFiles;
         this.maxJavaFileBytes = maxJavaFileBytes;
         this.maxTotalJavaBytes = maxTotalJavaBytes;
@@ -146,6 +150,11 @@ public class GitSourceAcquirer {
         } catch (IOException error) {
             throw new SourceAcquisitionException("SOURCE_ACQUISITION_FAILED", error.getMessage());
         }
+    }
+
+    /** Stable identity for a repository path, without materializing a snapshot. */
+    public String repositoryIdentity(Path repositoryPath) {
+        return localRepositoryIdentity(validatePath(repositoryPath));
     }
 
     private String localRepositoryIdentity(Path repositoryPath) {

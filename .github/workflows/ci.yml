@@ -33,9 +33,18 @@ jobs:
           cache: npm
           cache-dependency-path: apps/dashboard/package-lock.json
       - run: pip install -r requirements-dev.txt
-      - run: ruff check services/graph-risk-service services/ai-validation-service tests tools datasets/risk-corpus/tools
-      - run: ruff format --check services/graph-risk-service services/ai-validation-service tests tools datasets/risk-corpus/tools
-      - run: python -m pytest tests -q --cov=services/graph-risk-service/app --cov=services/ai-validation-service/app --cov-branch --cov-fail-under=93
+      - run: ruff check services/graph-risk-service services/ai-validation-service services/python-analyzer tests tools datasets/risk-corpus/tools
+      - run: ruff format --check services/graph-risk-service services/ai-validation-service services/python-analyzer tests tools datasets/risk-corpus/tools
+      - run: python -m pytest tests -q --cov=services/graph-risk-service/app --cov=services/ai-validation-service/app --cov=services/python-analyzer/app --cov-branch --cov-fail-under=93
+      # One run per service: all three have a package named `app`.
+      - run: |
+          for service in graph-risk-service ai-validation-service python-analyzer; do
+            python -m mypy "services/$service/app"
+          done
+      # Regenerating proves the generator still works AND that the committed
+      # contracts are current. Both were previously unchecked.
+      - run: python tools/dev/export_contracts.py
+      - run: git diff --exit-code contracts/
       - run: mvn -f services/java-analyzer/pom.xml clean verify
       - run: mvn -f services/platform-api/pom.xml clean verify
       - run: docker compose -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app config --quiet

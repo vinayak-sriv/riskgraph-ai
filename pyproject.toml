@@ -4,8 +4,31 @@ line-length = 100
 extend-exclude = ["samples/generated", "tmp"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
+# S = flake8-bandit. Worth having on in a security tool.
+select = ["E", "F", "I", "B", "UP", "S"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert, use fixture paths, and construct deliberately bad input.
+"tests/**" = ["S101", "S105", "S106", "S108", "S311", "S603", "S607"]
+# Local developer scripts: assert-as-check, fixed localhost URLs, git/docker by name.
+"tools/**" = ["S101", "S310", "S314", "S603", "S607"]
+"datasets/**" = ["S101", "S603", "S607"]
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+# No `files`: all three services have a package named `app`, so mypy cannot
+# resolve them in one run. CI invokes it once per service directory.
+# Start honest rather than strict: no untyped defs, no silent Any returns.
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+no_implicit_optional = true
+ignore_missing_imports = true

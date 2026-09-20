@@ -53,12 +53,16 @@ services:
           docker build --tag riskgraph-sandbox-protected:local samples/generated/build-protected
           docker build --tag riskgraph-sandbox-vulnerable:local samples/generated/build-vulnerable
           docker build --tag riskgraph-sandbox:local samples/sandbox
+          docker build --tag riskgraph-sandbox-protected-py:local samples/generated/build-protected-py
+          docker build --tag riskgraph-sandbox-vulnerable-py:local samples/generated/build-vulnerable-py
           docker pull "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"
           docker image tag "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}" riskgraph-validation-probe:local
         fi
         docker image inspect riskgraph-sandbox-protected:local >/dev/null
         docker image inspect riskgraph-sandbox-vulnerable:local >/dev/null
         docker image inspect riskgraph-sandbox:local >/dev/null
+        docker image inspect riskgraph-sandbox-protected-py:local >/dev/null
+        docker image inspect riskgraph-sandbox-vulnerable-py:local >/dev/null
         docker image inspect riskgraph-validation-probe:local >/dev/null
     networks: [validation-engine]
     restart: "no"

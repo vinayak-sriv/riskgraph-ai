@@ -35,15 +35,16 @@ def test_ci_retains_a_bounded_demo_artifact_and_local_gate_records_it():
 
 
 def test_week14_public_deliverables_exist_and_keep_the_human_gate_explicit():
+    # Dated reports and weekly progress notes now live under docs/archive/.
     required = [
-        ROOT / "docs/report-draft.md",
+        ROOT / "docs/archive/report-draft.md",
         ROOT / "docs/demo-recording.md",
-        ROOT / "docs/week-14-progress.md",
+        ROOT / "docs/archive/week-14-progress.md",
     ]
     for path in required:
         assert path.is_file(), path
 
-    week = (ROOT / "docs/week-14-progress.md").read_text(encoding="utf-8")
+    week = (ROOT / "docs/archive/week-14-progress.md").read_text(encoding="utf-8")
     plan = (ROOT / "docs/week-plan.md").read_text(encoding="utf-8")
     assert "independent human review" in week.lower()
     assert "gate-limited" in plan.lower()

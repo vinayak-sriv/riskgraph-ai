@@ -84,9 +84,12 @@ public class AsyncScanJobService {
                     "ANALYSIS", 10, null, null)) return;
             JsonNode result = scans.analyze(job.repository(), job.oldCommit(), job.newCommit());
             String scanId = result.path("scan_id").asString();
+            // Claim ownership as soon as the scan is persisted. Checking for
+            // cancellation first left a fully written scan with no membership
+            // row, which requireView then denied to everyone, forever.
+            access.claimFor(scanId, job.owner());
             ScanJobStore.ScanJob current = jobs.get(job.jobId());
             if (current == null || current.state() == ScanJobStore.State.CANCELLED) return;
-            access.claimFor(scanId, job.owner());
             jobs.updateIfActive(job.jobId(), ScanJobStore.State.COMPLETED,
                     "COMPLETED", 100, null, scanId);
         } catch (RuntimeException error) {

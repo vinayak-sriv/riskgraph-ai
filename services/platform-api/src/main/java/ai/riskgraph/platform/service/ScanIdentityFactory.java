@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.Map;
 import java.util.HexFormat;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -51,11 +51,17 @@ public final class ScanIdentityFactory {
             return result;
         }
         if (value.isArray()) {
-            var items = new ArrayList<JsonNode>();
-            value.forEach(item -> items.add(canonicalize(mapper, item)));
-            items.sort(Comparator.comparing(JsonNode::toString));
+            // Decorate-sort-undecorate: sorting on a JsonNode::toString key extractor
+            // re-serializes both operands on every comparison, which is megabytes
+            // of throwaway strings per revision at the 2000-row cap.
+            var items = new ArrayList<Map.Entry<String, JsonNode>>();
+            value.forEach(item -> {
+                JsonNode canonical = canonicalize(mapper, item);
+                items.add(Map.entry(canonical.toString(), canonical));
+            });
+            items.sort(Map.Entry.comparingByKey());
             ArrayNode result = mapper.createArrayNode();
-            items.forEach(result::add);
+            items.forEach(entry -> result.add(entry.getValue()));
             return result;
         }
         return value.deepCopy();

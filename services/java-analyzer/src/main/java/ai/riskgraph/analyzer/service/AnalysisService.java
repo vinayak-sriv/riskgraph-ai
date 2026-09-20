@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -55,6 +56,7 @@ public class AnalysisService {
     private final String executableJar;
     private final ObjectMapper mapper;
     private final DeterministicExtractionCache extractionCache;
+    private final Map<String, AnalysisResponse> isolatedResponses;
     private final FrameworkPreflightChecker frameworkPreflight = new FrameworkPreflightChecker();
 
     @Autowired
@@ -134,6 +136,14 @@ public class AnalysisService {
         this.executableJar = executableJar;
         this.mapper = mapper;
         this.extractionCache = new DeterministicExtractionCache(extractionCacheMaxEntries);
+        int isolatedCacheCapacity = Math.max(1, extractionCacheMaxEntries);
+        this.isolatedResponses = java.util.Collections.synchronizedMap(
+                new LinkedHashMap<>(16, 0.75f, true) {
+                    @Override
+                    protected boolean removeEldestEntry(Map.Entry<String, AnalysisResponse> eldest) {
+                        return size() > isolatedCacheCapacity;
+                    }
+                });
         int workers = Math.max(1, maxConcurrentAnalyses);
         int queueSize = Math.max(1, maxQueuedAnalyses);
         this.executor = new ThreadPoolExecutor(workers, workers, 0, TimeUnit.MILLISECONDS,
@@ -146,7 +156,7 @@ public class AnalysisService {
         Future<AnalysisResponse> future;
         try {
             future = executor.submit(() -> processIsolation
-                    ? analyzeInWorkerProcess(repositoryPath, oldCommit, newCommit)
+                    ? analyzeIsolated(repositoryPath, oldCommit, newCommit)
                     : analyzeInternal(repositoryPath, oldCommit, newCommit));
         } catch (RejectedExecutionException error) {
             throw new AnalysisException("ANALYZER_BUSY", "Analyzer capacity is exhausted; retry later");
@@ -177,6 +187,41 @@ public class AnalysisService {
         return analyzeInternal(repositoryPath, oldCommit, newCommit);
     }
 
+    /**
+     * Isolated analysis with a parent-side result cache.
+     *
+     * <p>The worker process exits as soon as it has written its result, taking
+     * its own {@link DeterministicExtractionCache} with it, so under process
+     * isolation that cache can never record a hit. Caching the worker's
+     * response in the long-lived parent is what makes repeat analyses cheap.
+     * Only {@code analyzed_at} is re-stamped, so a hit and a miss are
+     * otherwise byte-identical.
+     */
+    private AnalysisResponse analyzeIsolated(Path repositoryPath, String oldCommit, String newCommit) {
+        String cacheKey = analysisId(
+                sourceAcquirer.repositoryIdentity(repositoryPath),
+                oldCommit.toLowerCase(Locale.ROOT),
+                newCommit.toLowerCase(Locale.ROOT),
+                extractor.configurationFingerprint());
+        AnalysisResponse cached = isolatedResponses.get(cacheKey);
+        if (cached != null) {
+            LOG.info("extraction_cache_hit analysis_id={}", cached.analysis_id());
+            return restamped(cached);
+        }
+        LOG.info("extraction_cache_miss analysis_id={}", cacheKey);
+        AnalysisResponse response = analyzeInWorkerProcess(repositoryPath, oldCommit, newCommit);
+        isolatedResponses.put(cacheKey, response);
+        return response;
+    }
+
+    private AnalysisResponse restamped(AnalysisResponse response) {
+        return new AnalysisResponse(
+                response.schema_version(), response.analyzer_version(),
+                response.analyzer_config_hash(), response.analysis_id(), clock.instant(),
+                response.provenance(), response.changed_files(), response.before(),
+                response.after(), response.coverage(), response.diagnostics());
+    }
+
     private AnalysisResponse analyzeInWorkerProcess(Path repositoryPath, String oldCommit, String newCommit) {
         if (executableJar.isBlank() || !Files.isRegularFile(Path.of(executableJar))) {
             throw new AnalysisException("ANALYZER_WORKER_UNAVAILABLE",
@@ -190,7 +235,13 @@ public class AnalysisService {
             log = Files.createTempFile("riskgraph-analysis-", ".log");
             String javaBinary = Path.of(System.getProperty("java.home"), "bin",
                     System.getProperty("os.name").toLowerCase().contains("win") ? "java.exe" : "java").toString();
-            process = new ProcessBuilder(javaBinary, "-jar", executableJar, "--riskgraph-worker",
+            // The worker is short-lived and shares the parent's cgroup: cap its
+            // heap and skip the C2 warm-up it will never amortize, or N workers
+            // each size themselves to 25% of the whole container limit.
+            process = new ProcessBuilder(javaBinary,
+                    "-XX:MaxRAMPercentage=25", "-XX:TieredStopAtLevel=1", "-Xss512k",
+                    "-XX:+ExitOnOutOfMemoryError",
+                    "-jar", executableJar, "--riskgraph-worker",
                     repositoryPath.toString(), oldCommit, newCommit, output.toString())
                     .redirectErrorStream(true).redirectOutput(log.toFile()).start();
             int exitCode = process.waitFor();

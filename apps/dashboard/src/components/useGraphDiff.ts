@@ -39,15 +39,33 @@ function countBy<T>(values: T[], key: (value: T) => string) {
   );
 }
 
-function boundedGraph(graph: SecurityGraph, maximumNodes: number) {
-  if (graph.nodes.length <= maximumNodes) return graph;
-  const nodes = graph.nodes.slice(0, maximumNodes);
+function boundedGraph(
+  graph: SecurityGraph,
+  maximumNodes: number,
+  keepIds: Set<string> = new Set(),
+) {
+  if (graph.nodes.length <= maximumNodes) return { graph, truncated: 0 };
+  // Nodes arrive sorted by id, and "user:" sorts last, so a plain slice
+  // dropped user:anonymous and every attack path with it. Keep the evidence
+  // nodes first, then fill the remaining budget in order.
+  const pinned = graph.nodes.filter(
+    (node) => keepIds.has(node.id) || node.node_type === "USER",
+  );
+  const pinnedIds = new Set(pinned.map((node) => node.id));
+  const rest = graph.nodes.filter((node) => !pinnedIds.has(node.id));
+  const nodes = [...pinned, ...rest].slice(
+    0,
+    Math.max(maximumNodes, pinned.length),
+  );
   const ids = new Set(nodes.map((node) => node.id));
   return {
-    nodes,
-    edges: graph.edges.filter(
-      (edge) => ids.has(edge.source_id) && ids.has(edge.target_id),
-    ),
+    graph: {
+      nodes,
+      edges: graph.edges.filter(
+        (edge) => ids.has(edge.source_id) && ids.has(edge.target_id),
+      ),
+    },
+    truncated: graph.nodes.length - nodes.length,
   };
 }
 
@@ -97,14 +115,24 @@ export function useGraphDiff(
         : diffFilter === "path"
           ? pathNodeIds
           : null;
-    const visibleBefore = boundedGraph(
+    // Never truncate away the nodes a finding points at.
+    const evidenceIds = new Set([
+      ...pathNodeIds,
+      ...analysis.graph_delta.new_paths.flatMap((path) => path.nodes),
+    ]);
+    const bracketedBefore = boundedGraph(
       filterGraph(analysis.graph_delta.before, visibleIds(changedBeforeIds)),
       maximumVisualNodes,
+      evidenceIds,
     );
-    const visibleAfter = boundedGraph(
+    const bracketedAfter = boundedGraph(
       filterGraph(analysis.graph_delta.after, visibleIds(changedAfterIds)),
       maximumVisualNodes,
+      evidenceIds,
     );
+    const visibleBefore = bracketedBefore.graph;
+    const visibleAfter = bracketedAfter.graph;
+    const truncatedNodes = bracketedBefore.truncated + bracketedAfter.truncated;
 
     return {
       addedEdges,
@@ -113,6 +141,7 @@ export function useGraphDiff(
       removedNodes,
       visibleBefore,
       visibleAfter,
+      truncatedNodes,
       changeCounts: {
         addedEdges: countBy(addedEdges, (edge) => edge.relationship),
         removedEdges: countBy(removedEdges, (edge) => edge.relationship),

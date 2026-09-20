@@ -300,8 +300,12 @@ export function useAnalysis() {
             throw new Error(job.code ?? `HTTP ${statusResponse.status}`);
         }
         if (job.status !== "COMPLETED") {
+          // job.status can be absent (older platform builds, a proxy rewriting
+          // the body); without the guard this threw a TypeError that masked
+          // the real failure.
           throw new Error(
-            job.reason_code ?? `Scan job ${job.status.toLowerCase()}`,
+            job.reason_code ??
+              `Scan job ${String(job.status ?? "status unknown").toLowerCase()}`,
           );
         }
         const resultResponse = await api(

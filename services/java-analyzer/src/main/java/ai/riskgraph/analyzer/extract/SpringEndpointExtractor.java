@@ -68,15 +68,14 @@ public class SpringEndpointExtractor {
         Set<String> analyzedChangedPaths = changedRanges.keySet().stream()
                 .filter(path -> belongsToInputRoot(snapshot, inputRoots, path))
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        List<CtModel> models = new ArrayList<>();
-        for (Path inputRoot : inputRoots) {
-            CtModel model = buildModel(List.of(inputRoot), diagnostics);
-            if (model == null) {
-                return new ExtractionResult(List.of(), new ExtractionCoverage(
-                        analyzedChangedPaths.size(), 0, 0, 0, 0, 0.0), diagnostics);
-            }
-            models.add(model);
+        // One Launcher over every source root. Building a model per root made a
+        // multi-module repository pay N full Spoon parses and hold N live models.
+        CtModel combined = buildModel(inputRoots, diagnostics);
+        if (combined == null) {
+            return new ExtractionResult(List.of(), new ExtractionCoverage(
+                    analyzedChangedPaths.size(), 0, 0, 0, 0, 0.0), diagnostics);
         }
+        List<CtModel> models = List.of(combined);
 
         Set<String> modeledPaths = new HashSet<>();
         models.stream().flatMap(model -> model.getAllTypes().stream())
@@ -117,8 +116,14 @@ public class SpringEndpointExtractor {
             List<Diagnostic> diagnostics
     ) {
         ExecutableResolver executableResolver = new ExecutableResolver(model.getAllTypes());
-        boolean filterSecurityPresent = hasSecurityFilterChain(model);
-        boolean filterSecurityChanged = securityFilterChanged(snapshot, model, changedRanges);
+        // One traversal answers both questions. getElements materializes every
+        // CtMethod in the model, so doing it twice doubled the cost for nothing.
+        List<CtMethod<?>> securityFilterChains = model.getElements(new TypeFilter<>(CtMethod.class))
+                .stream().filter(this::isSecurityFilterChainMethod)
+                .map(method -> (CtMethod<?>) method).toList();
+        boolean filterSecurityPresent = !securityFilterChains.isEmpty();
+        boolean filterSecurityChanged = securityFilterChains.stream()
+                .anyMatch(method -> changedSurface.intersects(snapshot, method, changedRanges));
         if (filterSecurityPresent) {
             diagnostics.add(new Diagnostic("WARNING", "UNRESOLVED_SECURITY_FILTER_CHAIN",
                     "SecurityFilterChain authorization is outside the annotation-only MVP scope", null));
@@ -325,18 +330,6 @@ public class SpringEndpointExtractor {
             diagnostics.add(new Diagnostic("INFO", "MULTIPLE_DEPENDENCY_PATHS",
                     "Endpoint reaches multiple resolved dependency paths", location.path()));
         }
-    }
-
-    private boolean securityFilterChanged(
-            Path snapshot, CtModel model, Map<String, List<ChangedRange>> changedRanges) {
-        return model.getElements(new TypeFilter<>(CtMethod.class)).stream()
-                .filter(this::isSecurityFilterChainMethod)
-                .anyMatch(method -> changedSurface.intersects(snapshot, method, changedRanges));
-    }
-
-    private boolean hasSecurityFilterChain(CtModel model) {
-        return model.getElements(new TypeFilter<>(CtMethod.class)).stream()
-                .anyMatch(this::isSecurityFilterChainMethod);
     }
 
     private boolean isSecurityFilterChainMethod(CtMethod<?> method) {
