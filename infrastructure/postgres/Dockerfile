@@ -1,4 +1,4 @@
-FROM golang:1.25.7-alpine3.23@sha256:f6751d823c26342f9506c03797d2527668d095b0a15f1862cddb4d927a7a4ced AS gosu-builder
+FROM golang:1.27.0-alpine3.23@sha256:3747dcba41c8b0db3211fda4db61638b980e17ac5bb3c94460a975a9cfe19395 AS gosu-builder
 
 # gosu is pure Go. Rebuild release 1.19 at its immutable commit with the first
 # fixed Go 1.25 toolchain for CVE-2025-68121 instead of shipping the stale
