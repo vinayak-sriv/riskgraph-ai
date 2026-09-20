@@ -132,6 +132,12 @@ public class SourceValidationService {
                     .put("method", method).put("path", path));
             contracts.validate("validation/sandbox-result.schema.json", validation);
             String status = validation.path("status").asString();
+            // A confirmed exploit whose sandbox teardown didn't finish leaves the
+            // container in an unknown state; that evidence can't be trusted.
+            if (status.equals("CONFIRMED") && !validation.path("cleanup_complete").asBoolean(false)) {
+                throw new PipelineException("SANDBOX_CLEANUP_INCOMPLETE", 502,
+                        "Confirmed exploit evidence is not trustworthy without a clean sandbox teardown");
+            }
             if (Set.of("CONFIRMED", "REJECTED", "INCONCLUSIVE").contains(status)
                     && (!validation.path("sandbox_revision").asString().equals("vulnerable")
                     || !validation.path("source_commit").asString().equals(commit)

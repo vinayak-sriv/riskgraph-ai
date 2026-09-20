@@ -10,6 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
@@ -22,6 +23,12 @@ public class PlatformSecurity {
         GithubAuthenticationSuccessHandler githubSuccess, ClientRegistrationRepository registrations,
         LoginAttemptService loginAttempts, LoginRateLimitFilter loginRateLimitFilter) throws Exception {
         http.cors(Customizer.withDefaults())
+            // Default CSRF (XorCsrfTokenRequestAttributeHandler) BREACH-encodes the
+            // token on every response, including through .spa()'s SpaCsrfTokenRequestHandler
+            // (that variant is for JS reading the XSRF-TOKEN cookie directly). This app hands
+            // the raw token to the client as JSON instead (see AccountController#csrf) and
+            // expects it echoed back verbatim, so it needs the plain, non-BREACH handler.
+            .csrf(csrf -> csrf.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
             .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(request -> request.getRequestURI().startsWith(request.getContextPath() + "/demo/")).permitAll()
