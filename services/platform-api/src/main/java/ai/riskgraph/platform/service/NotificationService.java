@@ -96,9 +96,15 @@ public class NotificationService {
         // IN_APP defaults on, EMAIL defaults off, per NotificationRecipientResolver's own default.
         byChannel.put("IN_APP", new ChannelPreference("IN_APP", true, "REVIEW"));
         byChannel.put("EMAIL", new ChannelPreference("EMAIL", false, "REVIEW"));
+        // An expression lambda here (row -> byChannel.put(...)) is ambiguous between
+        // JdbcTemplate's ResultSetExtractor and RowCallbackHandler overloads, since
+        // Map.put returns a value; a block body with no return statement is
+        // void-compatible only, which resolves it to RowCallbackHandler.
         db.query("SELECT channel, enabled, min_severity FROM notification_preferences WHERE user_id=?",
-                row -> byChannel.put(row.getString("channel"), new ChannelPreference(
-                        row.getString("channel"), row.getBoolean("enabled"), row.getString("min_severity"))),
+                (java.sql.ResultSet row) -> {
+                    byChannel.put(row.getString("channel"), new ChannelPreference(
+                            row.getString("channel"), row.getBoolean("enabled"), row.getString("min_severity")));
+                },
                 userId);
         Boolean unsubscribedAll = db.queryForObject(
                 "SELECT EXISTS(SELECT 1 FROM notification_unsubscribes WHERE user_id=? AND scope='*')",
