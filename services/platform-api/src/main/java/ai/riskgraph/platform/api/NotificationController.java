@@ -7,10 +7,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+// Entirely Postgres-backed via NotificationService; no in-memory/local variant,
+// so this controller doesn't exist under the local profile either.
 @RestController
+@Profile("!local")
 public class NotificationController {
     private final NotificationService notifications;
 
