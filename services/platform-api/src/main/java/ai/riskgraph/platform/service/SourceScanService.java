@@ -3,6 +3,7 @@ package ai.riskgraph.platform.service;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,6 +37,8 @@ public class SourceScanService {
     private String sandboxManifest = "./samples/generated/mvp-v2/manifest.json";
     @Value("${RISKGRAPH_MAX_AI_FINDINGS:4}")
     private int maxAiFindings = 4;
+    @Value("${RISKGRAPH_SOURCE_FRAMEWORK:}")
+    private String configuredFramework = "";
     private final ScanStore store;
     private final FindingEnrichmentService findings;
     private final SourceValidationService validations;
@@ -102,16 +105,24 @@ public class SourceScanService {
     private JsonNode analyzeResolved(Path path, String oldCommit, String newCommit) {
         ObjectNode request = mapper.createObjectNode().put("repository_path", path.toString())
             .put("old_commit", oldCommit).put("new_commit", newCommit);
-        // Additive only: Java is the unconditional default (today's only behavior), and a
-        // positively detected FastAPI repository is the sole case that redirects elsewhere.
-        String targetAnalyzerUrl = analyzerUrl;
-        if (frameworks.detect(path) == RepositoryFrameworkDetector.Framework.PYTHON_FASTAPI) {
-            if (pythonAnalyzerUrl.isBlank()) {
-                throw new PipelineException("PYTHON_ANALYZER_NOT_CONFIGURED", 503,
-                    "This repository looks like a Python/FastAPI project, but the Python analyzer is not configured");
+        // Detect both immutable revisions; current working-tree contents must not affect routing.
+        RepositoryFrameworkDetector.Framework framework = configuredFramework.isBlank()
+                ? frameworks.detect(path, oldCommit, newCommit)
+                : configuredFramework();
+        String targetAnalyzerUrl = switch (framework) {
+            case JAVA_SPRING -> analyzerUrl;
+            case PYTHON_FASTAPI -> {
+                if (pythonAnalyzerUrl.isBlank()) {
+                    throw new PipelineException("PYTHON_ANALYZER_NOT_CONFIGURED", 503,
+                        "This repository looks like a Python/FastAPI project, but the Python analyzer is not configured");
+                }
+                yield pythonAnalyzerUrl;
             }
-            targetAnalyzerUrl = pythonAnalyzerUrl;
-        }
+            case MIXED -> throw new PipelineException("UNSUPPORTED_FRAMEWORK", 422,
+                    "Mixed Java/Python repositories are not supported");
+            case UNSUPPORTED -> throw new PipelineException("UNSUPPORTED_FRAMEWORK", 422,
+                    "No supported Spring Boot or FastAPI framework was found at the requested commits");
+        };
         JsonNode envelope = client.post(targetAnalyzerUrl, "/analyze", request);
         contracts.validate("ir/analysis-envelope.schema.json", envelope);
         if (!envelope.at("/provenance/old_commit").asString().equals(oldCommit.toLowerCase())
@@ -186,6 +197,21 @@ public class SourceScanService {
         LoggerFactory.getLogger(getClass()).info("scan_completed analysis_id={} verdict={}",
             result.path("analysis_id").asString(), result.path("verdict").asString());
         return result;
+    }
+
+    private RepositoryFrameworkDetector.Framework configuredFramework() {
+        try {
+            RepositoryFrameworkDetector.Framework selected = RepositoryFrameworkDetector.Framework.valueOf(
+                    configuredFramework.strip().toUpperCase(Locale.ROOT));
+            if (selected == RepositoryFrameworkDetector.Framework.MIXED
+                    || selected == RepositoryFrameworkDetector.Framework.UNSUPPORTED) {
+                throw new IllegalArgumentException();
+            }
+            return selected;
+        } catch (IllegalArgumentException error) {
+            throw new PipelineException("INVALID_FRAMEWORK_CONFIG", 500,
+                    "RISKGRAPH_SOURCE_FRAMEWORK must be JAVA_SPRING or PYTHON_FASTAPI");
+        }
     }
 
     private static Object[] createStoreLocks() {

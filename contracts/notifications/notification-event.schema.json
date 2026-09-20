@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "event_id", "event_type", "occurred_at", "dedup_key", "decision"],
   "properties": {
-    "schema_version": { "type": "string", "const": "1.0.0" },
+    "schema_version": { "type": "string", "const": "1.1.0" },
     "event_id": {
       "type": "string",
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"

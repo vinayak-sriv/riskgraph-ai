@@ -38,6 +38,9 @@ jobs:
         working-directory: engine
         env:
           RISKGRAPH_ALLOWED_REPOSITORY_ROOTS: ${{ github.workspace }}/target
+          # This repository intentionally contains both the Java MVP and an experimental
+          # FastAPI adapter. Self-analysis targets the supported Java/Spring surface.
+          RISKGRAPH_SOURCE_FRAMEWORK: JAVA_SPRING
           SPRING_PROFILES_ACTIVE: local
           RISKGRAPH_BOOTSTRAP_PASSWORD_FILE: ${{ github.workspace }}/engine/tmp/local-auth/admin.password
           RISKGRAPH_REQUIRE_GITHUB_CONNECTION: 'false'

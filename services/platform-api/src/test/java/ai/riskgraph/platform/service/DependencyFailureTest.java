@@ -12,6 +12,13 @@ import tools.jackson.databind.json.JsonMapper;
 import static org.assertj.core.api.Assertions.*;
 
 class DependencyFailureTest {
+    @Test void unsupportedFrameworkResponseHasNoSecurityVerdict() {
+        var response = new PipelineErrorHandler().pipeline(
+                new PipelineException("UNSUPPORTED_FRAMEWORK", 422, "Unsupported repository"));
+
+        assertThat(response.getBody().toString()).doesNotContain("final_verdict");
+    }
+
     final JsonMapper mapper=JsonMapper.builder().build();
 
     @Test void dependencyFailureAndInvalidJsonAreStructured() throws Exception {

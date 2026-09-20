@@ -34,12 +34,13 @@ class NotificationOutboxWriterTest {
         verify(db).update(anyString(), args.capture());
         Object[] params = args.getValue();
         assertThat(params[1]).isEqualTo(7L);
-        assertThat(params[2]).isEqualTo("scan-abc:BLOCK");
+        assertThat(params[2].toString()).startsWith("decision:").hasSize(73);
         assertThat(params[3]).isEqualTo("BLOCK");
         // The contract-validated event payload round-trips as valid JSON.
         JsonNode event = mapper.readTree((String) params[4]);
         assertThat(event.path("event_type").asString()).isEqualTo("final-decision");
         assertThat(event.path("decision").path("final_verdict").asString()).isEqualTo("BLOCK");
+        assertThat(event.at("/decision/finding_fingerprints/0").asString()).hasSize(64);
     }
 
     private JsonNode scanResult(String verdict) {
@@ -54,6 +55,11 @@ class NotificationOutboxWriterTest {
         ObjectNode riskResult = result.putObject("risk_result");
         riskResult.put("risk_before", 22);
         riskResult.put("risk_after", 91);
+        riskResult.put("risk_delta", 69);
+        riskResult.put("category_after", "CRITICAL");
+        result.putObject("quality").put("confidence", "HIGH");
+        result.putArray("findings").addObject().put("route_id", "endpoint:GET:/admin/export")
+                .put("resource", "Customer");
         return result;
     }
 }

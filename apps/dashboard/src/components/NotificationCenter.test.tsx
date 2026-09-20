@@ -237,3 +237,20 @@ it("shows an empty state when there are no notifications", async () => {
 
   expect(await screen.findByText("No notifications yet.")).toBeInTheDocument();
 });
+
+it("hides the panel when notifications are unavailable in the local profile", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({
+      ok: false,
+      status: 404,
+      json: async () => ({}),
+    })),
+  );
+
+  render(<NotificationCenter user={analyst} />);
+
+  await waitFor(() =>
+    expect(screen.queryByLabelText("Notifications")).not.toBeInTheDocument(),
+  );
+});

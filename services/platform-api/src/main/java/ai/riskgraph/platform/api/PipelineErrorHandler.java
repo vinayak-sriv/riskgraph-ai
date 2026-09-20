@@ -16,6 +16,10 @@ public class PipelineErrorHandler {
     }
     @ExceptionHandler(PipelineException.class)
     public ResponseEntity<?> pipeline(PipelineException ex) {
+        if (ex.code.equals("UNSUPPORTED_FRAMEWORK")) {
+            return ResponseEntity.status(ex.status).body(Map.of("status", "FAILED", "code", ex.code,
+                    "message", ex.getMessage()));
+        }
         return ResponseEntity.status(ex.status).body(Map.of("status", "FAILED", "code", ex.code,
             "message", ex.getMessage(), "final_verdict", "REVIEW"));
     }

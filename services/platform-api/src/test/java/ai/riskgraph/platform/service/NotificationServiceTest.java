@@ -27,6 +27,8 @@ class NotificationServiceTest {
             when(row.getObject("risk_before")).thenReturn(10);
             when(row.getObject("risk_after")).thenReturn(70);
             when(row.getString("scan_id")).thenReturn("scan-1");
+            when(row.getString("validation_status")).thenReturn("CONFIRMED");
+            when(row.getString("confidence")).thenReturn("HIGH");
             when(row.getTimestamp("created_at")).thenReturn(Timestamp.from(java.time.Instant.EPOCH));
             when(row.getTimestamp("read_at")).thenReturn(null);
             return java.util.List.of(mapper.mapRow(row, 0), mapper.mapRow(row, 1));

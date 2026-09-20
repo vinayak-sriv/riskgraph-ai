@@ -1,11 +1,11 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "event_id": "6d2c9e5a-3d0a-4c3f-8b0a-2f6d2c9e5a3d",
   "event_type": "final-decision",
   "occurred_at": "2026-09-18T12:00:00Z",
-  "dedup_key": "9f3f6a1e6f6a4c8a8f6a9f3f6a1e6f6a4c8a8f6a9f3f6a1e6f6a4c8a8f6a9f3f:BLOCK",
+  "dedup_key": "decision:2d711642b726b04401627ca9fbac32f5da7e5f9f8fba6b65684ec3a85d8b1a9e",
   "decision": {
-    "schema_version": "1.0.0",
+    "schema_version": "1.1.0",
     "scan_id": "9f3f6a1e6f6a4c8a8f6a9f3f6a1e6f6a4c8a8f6a9f3f6a1e6f6a4c8a8f6a9f3f",
     "repository": "demo/riskgraph-sample",
     "old_commit": "0f6e8614047bd74cf6223b4d8a858d2ed2824f8a",
@@ -13,6 +13,10 @@
     "final_verdict": "BLOCK",
     "risk_before": 22,
     "risk_after": 91,
+    "risk_delta": 69,
+    "risk_category": "CRITICAL",
+    "confidence": "HIGH",
+    "finding_fingerprints": ["2d711642b726b04401627ca9fbac32f5da7e5f9f8fba6b65684ec3a85d8b1a9e"],
     "validation_status": "CONFIRMED",
     "decided_at": "2026-09-18T12:00:00Z"
   }

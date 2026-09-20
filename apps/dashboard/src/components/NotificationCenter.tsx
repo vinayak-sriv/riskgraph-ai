@@ -10,6 +10,8 @@ export type NotificationItem = {
   risk_before: number | null;
   risk_after: number | null;
   scan_id: string | null;
+  validation_status?: string | null;
+  confidence?: string | null;
   created_at: string;
   read_at: string | null;
 };
@@ -33,6 +35,7 @@ export function NotificationCenter({ user }: { user: Account | null }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [available, setAvailable] = useState(true);
   const [preferences, setPreferences] = useState<Preferences | null>(null);
 
   async function load(cursor?: number) {
@@ -42,6 +45,10 @@ export function NotificationCenter({ user }: { user: Account | null }) {
       const response = await api(
         `/notifications${cursor ? `?cursor=${cursor}` : ""}`,
       );
+      if (response.status === 404) {
+        setAvailable(false);
+        return;
+      }
       if (!response.ok) throw new Error("Notifications unavailable");
       // Defensive: an unrelated response shape (a misrouted mock, a proxy
       // error page) should show "no notifications", not crash the panel.
@@ -118,7 +125,7 @@ export function NotificationCenter({ user }: { user: Account | null }) {
     if (response.ok) setPreferences((await response.json()) as Preferences);
   }
 
-  if (!user) return null;
+  if (!user || !available) return null;
 
   return (
     <section className="notification-center surface" aria-label="Notifications">
@@ -160,6 +167,12 @@ export function NotificationCenter({ user }: { user: Account | null }) {
                     Risk {item.risk_before} → {item.risk_after}
                   </span>
                 )}
+                <span className="notification-risk">
+                  {item.validation_status === "CONFIRMED"
+                    ? "Docker-confirmed"
+                    : "Possible"}
+                  {item.confidence ? ` · ${item.confidence} confidence` : ""}
+                </span>
               </div>
               {!item.read_at && (
                 <button
