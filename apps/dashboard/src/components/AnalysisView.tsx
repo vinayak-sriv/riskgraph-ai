@@ -102,9 +102,24 @@ export function AnalysisView({
             aria-label="Demo scenario"
             value={analysis.provenance ? "" : analysis.scenario}
             disabled={loading}
-            onChange={(event) =>
-              void onLoadDemo(event.target.value as Scenario)
-            }
+            onChange={(event) => {
+              const next = event.target.value as Scenario;
+              // Loading a demo scenario replaces whatever repository result is
+              // currently on screen, with no way back except re-entering the
+              // repo path on New Analysis. Confirm first so a real scan isn't
+              // lost by accident.
+              if (
+                analysis.provenance &&
+                !window.confirm(
+                  "This replaces your current repository analysis with a demo fixture. " +
+                    "Your scan result stays available under Saved scans. Continue?",
+                )
+              ) {
+                event.target.value = "";
+                return;
+              }
+              void onLoadDemo(next);
+            }}
           >
             {analysis.provenance && (
               <option value="" disabled>
