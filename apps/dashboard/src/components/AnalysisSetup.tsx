@@ -126,7 +126,9 @@ export function NewAnalysisPanel({
               <RefreshCw className="spin" size={16} />
               <div>
                 <strong>{operation}…</strong>
-                <span>Evidence graphs are being built from the requested revisions.</span>
+                <span>
+                  Evidence graphs are being built from the requested revisions.
+                </span>
               </div>
             </div>
           )}

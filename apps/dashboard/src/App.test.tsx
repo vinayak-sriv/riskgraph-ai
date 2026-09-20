@@ -594,7 +594,10 @@ it("refreshes the displayed source revisions instead of unsaved form edits", asy
       screen.getByRole("button", { name: "Refresh analysis" }),
     ).toBeEnabled(),
   );
-  vi.stubGlobal("confirm", vi.fn(() => true));
+  vi.stubGlobal(
+    "confirm",
+    vi.fn(() => true),
+  );
   fireEvent.change(screen.getByLabelText("Demo scenario"), {
     target: { value: "authorization-removal" },
   });
@@ -620,7 +623,10 @@ it("keeps the current repository result when switching to a demo scenario is dec
   const demoRequestsBefore = fetcher.mock.calls.filter(([url]) =>
     url.includes("/demo/scenarios/"),
   ).length;
-  vi.stubGlobal("confirm", vi.fn(() => false));
+  vi.stubGlobal(
+    "confirm",
+    vi.fn(() => false),
+  );
   fireEvent.change(screen.getByLabelText("Demo scenario"), {
     target: { value: "safe-change" },
   });
