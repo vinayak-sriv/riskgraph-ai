@@ -77,7 +77,7 @@ def sanitize_evidence_payload(request: EvidenceRequest) -> dict:
 
 
 class OllamaProvider:
-    def __init__(self, transport=None):
+    def __init__(self, transport: httpx.AsyncBaseTransport | None = None) -> None:
         self.base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
         self.model = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
         self.transport = transport
@@ -163,7 +163,8 @@ class OllamaProvider:
                             data.extend(chunk)
                             if len(data) > 65536:
                                 raise ValueError("LLM_RESPONSE_TOO_LARGE")
-                    return json.loads(json.loads(data)["response"])
+                    parsed: dict = json.loads(json.loads(data)["response"])
+                    return parsed
                 except (httpx.TimeoutException, httpx.HTTPStatusError):
                     if attempt:
                         raise

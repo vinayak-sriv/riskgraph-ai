@@ -1,12 +1,16 @@
 server:
   port: 8080
+  tomcat:
+    threads:
+      # Keep request threads within range of what the connection pool can serve.
+      max: ${RISKGRAPH_HTTP_THREADS:50}
   servlet:
     session:
       timeout: 30m
       cookie:
         http-only: true
         same-site: lax
-        secure: ${RISKGRAPH_SECURE_COOKIE:false}
+        secure: ${RISKGRAPH_SECURE_COOKIE:true}
 
 spring:
   application:
@@ -14,7 +18,15 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/riskgraph}
     username: ${POSTGRES_USER:riskgraph}
-    password: ${POSTGRES_PASSWORD:riskgraph_dev_password}
+    password: ${POSTGRES_PASSWORD}
+    hikari:
+      # Default pool is 10 against Tomcat's 200 request threads, and the
+      # advisory-locked scan writes hold a connection for a whole transaction.
+      maximum-pool-size: ${RISKGRAPH_DB_POOL_SIZE:20}
+      minimum-idle: 2
+      # Fail fast instead of queueing 30s behind a saturated pool.
+      connection-timeout: 3000
+      leak-detection-threshold: 20000
   security:
     oauth2:
       client:

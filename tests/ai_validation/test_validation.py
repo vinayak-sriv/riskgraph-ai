@@ -92,10 +92,21 @@ def test_timeout_and_cleanup_failure_are_explicit():
     result = runner.validate(ValidationRequest(sandbox_revision="vulnerable"))
     assert result.status == "ERROR" and result.reason_code == "DOCKER_TIMEOUT"
     assert runner.calls[-1][:2] == ["network", "rm"]
-    result = FakeDocker(cleanup_failure=True).validate(
+    result = FakeDocker("INCONCLUSIVE", cleanup_failure=True).validate(
         ValidationRequest(sandbox_revision="vulnerable")
     )
-    assert result.status == "ERROR" and not result.confirmed and not result.cleanup_complete
+    assert result.status == "INCONCLUSIVE" and not result.confirmed
+    assert not result.cleanup_complete and result.reason_code == "CLEANUP_FAILED"
+
+
+def test_cleanup_failure_does_not_erase_a_confirmed_exploit():
+    """A failed teardown says nothing about whether the probe reached the endpoint."""
+    result = FakeDocker("CONFIRMED", cleanup_failure=True).validate(
+        ValidationRequest(sandbox_revision="vulnerable")
+    )
+    assert result.status == "CONFIRMED" and result.confirmed
+    assert not result.cleanup_complete
+    assert "Sandbox teardown did not complete" in result.evidence
 
 
 def test_commit_binding_rejects_mismatched_image_before_network_creation():
@@ -105,6 +116,20 @@ def test_commit_binding_rejects_mismatched_image_before_network_creation():
     )
     assert result.status == "ERROR" and not result.confirmed
     assert runner.calls == [["image", "inspect", "riskgraph-sandbox-vulnerable:local"]]
+
+
+def test_python_language_selects_the_python_sandbox_image():
+    runner = FakeDocker()
+    runner.validate(
+        ValidationRequest(
+            sandbox_revision="vulnerable", language="python", expected_commit="b" * 40
+        )
+    )
+    assert runner.calls == [["image", "inspect", "riskgraph-sandbox-vulnerable-py:local"]]
+
+
+def test_language_defaults_to_java_for_existing_callers():
+    assert ValidationRequest(sandbox_revision="protected").language == "java"
 
 
 def test_missing_isolated_daemon_fails_closed_and_ignores_ambient_context(monkeypatch):
@@ -130,11 +155,27 @@ def test_host_daemon_requires_both_local_profile_and_explicit_opt_in(monkeypatch
 
 
 def test_only_dedicated_validation_daemon_can_be_configured(monkeypatch):
-    monkeypatch.setenv("RISKGRAPH_VALIDATION_DOCKER_HOST", "tcp://attacker.example:2375")
+    monkeypatch.setenv("RISKGRAPH_VALIDATION_DOCKER_HOST", "tcp://attacker.example:2376")
     with pytest.raises(ValueError, match="not allowlisted"):
         DockerRunner()
+    # the pre-TLS plaintext port is no longer an accepted destination
     monkeypatch.setenv("RISKGRAPH_VALIDATION_DOCKER_HOST", "tcp://validation-docker:2375")
-    assert DockerRunner().command[-1] == "tcp://validation-docker:2375"
+    with pytest.raises(ValueError, match="not allowlisted"):
+        DockerRunner()
+    monkeypatch.setenv("RISKGRAPH_VALIDATION_DOCKER_HOST", "tcp://validation-docker:2376")
+    command = DockerRunner().command
+    assert "tcp://validation-docker:2376" in command
+
+
+def test_isolated_daemon_client_requires_mutual_tls(monkeypatch):
+    monkeypatch.setenv("RISKGRAPH_VALIDATION_DOCKER_HOST", "tcp://validation-docker:2376")
+    monkeypatch.setenv("DOCKER_CERT_PATH", "/certs/client")
+    command = DockerRunner().command
+
+    assert "--tlsverify" in command
+    assert "/certs/client/ca.pem" in command
+    assert "/certs/client/cert.pem" in command
+    assert "/certs/client/key.pem" in command
 
 
 def test_isolated_mode_fails_closed_without_daemon(monkeypatch):
@@ -187,7 +228,6 @@ def test_validation_startup_timeout_is_bounded_and_embedded_in_fixed_probe():
         {"status": "CONFIRMED", "confirmed": False, "actual_status": 200},
         {"status": "CONFIRMED", "confirmed": True, "actual_status": 403},
         {"status": "REJECTED", "confirmed": False, "actual_status": 200},
-        {"status": "REJECTED", "confirmed": False, "actual_status": 403, "cleanup_complete": False},
     ],
 )
 def test_contradictory_validation_results_are_rejected(payload):

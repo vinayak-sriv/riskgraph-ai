@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 WEIGHTS = dict(
@@ -20,13 +20,13 @@ WEIGHTS = dict(
 class Policy(BaseModel):
     model_config = ConfigDict(extra="forbid")
     version: Literal["1.0.0"]
-    weights: dict[str, float] = Field(json_schema_extra={"const": WEIGHTS})
+    weights: dict[str, float] = Field(json_schema_extra={"const": dict(WEIGHTS)})
     block_after: int = Field(ge=61, le=61)
     review_after: int = Field(ge=41, le=41)
     review_delta: int = Field(ge=21, le=21)
 
     @model_validator(mode="after")
-    def fixed_formula(self):
+    def fixed_formula(self) -> "Policy":
         if self.weights != WEIGHTS:
             raise ValueError("Policy v1 must preserve the documented six-component formula")
         return self

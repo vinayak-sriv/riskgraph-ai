@@ -68,6 +68,10 @@ public class SpringEndpointExtractor {
         Set<String> analyzedChangedPaths = changedRanges.keySet().stream()
                 .filter(path -> belongsToInputRoot(snapshot, inputRoots, path))
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        // A separate Launcher per source root. A single combined Launcher merges
+        // distinct modules' identically-qualified types (e.g. two src/main/java
+        // roots each declaring com.example.Application) into one type registry,
+        // silently dropping one module's types from the model.
         List<CtModel> models = new ArrayList<>();
         for (Path inputRoot : inputRoots) {
             CtModel model = buildModel(List.of(inputRoot), diagnostics);
@@ -117,8 +121,15 @@ public class SpringEndpointExtractor {
             List<Diagnostic> diagnostics
     ) {
         ExecutableResolver executableResolver = new ExecutableResolver(model.getAllTypes());
-        boolean filterSecurityPresent = hasSecurityFilterChain(model);
-        boolean filterSecurityChanged = securityFilterChanged(snapshot, model, changedRanges);
+        // One traversal answers both questions. getElements materializes every
+        // CtMethod in the model, so doing it twice doubled the cost for nothing.
+        List<CtMethod<?>> allMethods = model.getElements(new TypeFilter<>(CtMethod.class));
+        List<CtMethod<?>> securityFilterChains = allMethods.stream()
+                .filter(this::isSecurityFilterChainMethod)
+                .toList();
+        boolean filterSecurityPresent = !securityFilterChains.isEmpty();
+        boolean filterSecurityChanged = securityFilterChains.stream()
+                .anyMatch(method -> changedSurface.intersects(snapshot, method, changedRanges));
         if (filterSecurityPresent) {
             diagnostics.add(new Diagnostic("WARNING", "UNRESOLVED_SECURITY_FILTER_CHAIN",
                     "SecurityFilterChain authorization is outside the annotation-only MVP scope", null));
@@ -183,7 +194,6 @@ public class SpringEndpointExtractor {
                 SensitivityPolicy.Classification classification = sensitivityPolicy.classify(
                         primaryPath.resource(), primaryPath.repository() != null);
                 SourceLocation location = sourceLocation(snapshot, method);
-                String callConfidence = confidenceEvaluator.callConfidence(resolution);
 
                 addDiagnostics(diagnostics, location, authenticatedByAnnotation, annotationRole, resolution);
                 if (classification.defaulted() && primaryPath.repository() != null) {
@@ -199,38 +209,76 @@ public class SpringEndpointExtractor {
                     diagnostics.add(new Diagnostic("WARNING", "COMPLEX_AUTHORIZATION",
                         "Authorization cannot be fully represented by a single canonical role", location.path()));
                 }
-                for (String classPath : classMapping.paths()) {
-                    for (String methodPath : methodMapping.paths()) {
-                        String route = normalizePath(classPath, methodPath);
-                        boolean authenticated = authenticatedByAnnotation;
-                        String requiredRole = authenticatedByAnnotation ? annotationRole : null;
-                        boolean unresolvedFilter = !authenticatedByAnnotation
-                                && filterSecurityPresent;
-                        String authorizationConfidence = !simpleAuthorization || unresolvedFilter
-                                || resolution.serviceAuthorizationAmbiguous() ? "LOW" : "HIGH";
-                        if (unresolvedFilter) {
-                            diagnostics.add(new Diagnostic("WARNING", "UNRESOLVED_ROUTE_AUTHORIZATION",
-                                    "SecurityFilterChain does not prove authorization for " + route, location.path()));
-                        }
-                        ExtractionConfidence confidence = new ExtractionConfidence(
-                                "HIGH", authorizationConfidence, callConfidence,
-                                confidenceEvaluator.minimum("HIGH", authorizationConfidence, callConfidence));
-                        for (String httpMethod : httpMethods) {
-                            EndpointIr endpoint = new EndpointIr(
-                                    route, httpMethod, type.getSimpleName(), authenticated,
-                                    requiredRole, primaryPath.service(), primaryPath.repository(), primaryPath.resource(),
-                                    classification.sensitivity());
-                            endpoints.add(new EndpointEvidence(
-                                    endpoint, location, type.getQualifiedName(), method.getSignature(), resolution.paths(),
-                                    new SensitivityEvidence(classification.sensitivity(), classification.source(),
-                                            classification.matchedRule()),
-                                    confidence));
-                        }
-                    }
-                }
+                emitRouteEndpoints(type, method,
+                        new AuthorizedMapping(classMapping, methodMapping, authenticatedByAnnotation,
+                                annotationRole, simpleAuthorization),
+                        filterSecurityPresent, resolution, primaryPath, classification, location,
+                        httpMethods, diagnostics, endpoints);
             }
         }
         return new ModelExtraction(List.copyOf(endpoints), controllers);
+    }
+
+    // Bundles the mapping + authorization facts extractModel already resolved for one
+    // controller method, so emitRouteEndpoints below can take one parameter for them
+    // instead of five (Checkstyle's ParameterNumber limit is 12).
+    private record AuthorizedMapping(
+            SpringMappingResolver.Result classMapping,
+            SpringMappingResolver.Result methodMapping,
+            boolean authenticatedByAnnotation,
+            String annotationRole,
+            boolean simpleAuthorization
+    ) {
+    }
+
+    // Split out of extractModel to stay under Checkstyle's MethodLength limit; this is
+    // the leaf that turns one resolved (controller, method) pair into its route(s).
+    private void emitRouteEndpoints(
+            CtType<?> type,
+            CtMethod<?> method,
+            AuthorizedMapping mapping,
+            boolean filterSecurityPresent,
+            DependencyPathResolver.Result resolution,
+            DependencyPath primaryPath,
+            SensitivityPolicy.Classification classification,
+            SourceLocation location,
+            List<String> httpMethods,
+            List<Diagnostic> diagnostics,
+            List<EndpointEvidence> endpoints
+    ) {
+        boolean authenticatedByAnnotation = mapping.authenticatedByAnnotation();
+        String annotationRole = mapping.annotationRole();
+        boolean simpleAuthorization = mapping.simpleAuthorization();
+        String callConfidence = confidenceEvaluator.callConfidence(resolution);
+        for (String classPath : mapping.classMapping().paths()) {
+            for (String methodPath : mapping.methodMapping().paths()) {
+                String route = normalizePath(classPath, methodPath);
+                boolean authenticated = authenticatedByAnnotation;
+                String requiredRole = authenticatedByAnnotation ? annotationRole : null;
+                boolean unresolvedFilter = !authenticatedByAnnotation
+                        && filterSecurityPresent;
+                String authorizationConfidence = !simpleAuthorization || unresolvedFilter
+                        || resolution.serviceAuthorizationAmbiguous() ? "LOW" : "HIGH";
+                if (unresolvedFilter) {
+                    diagnostics.add(new Diagnostic("WARNING", "UNRESOLVED_ROUTE_AUTHORIZATION",
+                            "SecurityFilterChain does not prove authorization for " + route, location.path()));
+                }
+                ExtractionConfidence confidence = new ExtractionConfidence(
+                        "HIGH", authorizationConfidence, callConfidence,
+                        confidenceEvaluator.minimum("HIGH", authorizationConfidence, callConfidence));
+                for (String httpMethod : httpMethods) {
+                    EndpointIr endpoint = new EndpointIr(
+                            route, httpMethod, type.getSimpleName(), authenticated,
+                            requiredRole, primaryPath.service(), primaryPath.repository(), primaryPath.resource(),
+                            classification.sensitivity());
+                    endpoints.add(new EndpointEvidence(
+                            endpoint, location, type.getQualifiedName(), method.getSignature(), resolution.paths(),
+                            new SensitivityEvidence(classification.sensitivity(), classification.source(),
+                                    classification.matchedRule()),
+                            confidence));
+                }
+            }
+        }
     }
 
     private List<Path> modelInputRoots(
@@ -325,18 +373,6 @@ public class SpringEndpointExtractor {
             diagnostics.add(new Diagnostic("INFO", "MULTIPLE_DEPENDENCY_PATHS",
                     "Endpoint reaches multiple resolved dependency paths", location.path()));
         }
-    }
-
-    private boolean securityFilterChanged(
-            Path snapshot, CtModel model, Map<String, List<ChangedRange>> changedRanges) {
-        return model.getElements(new TypeFilter<>(CtMethod.class)).stream()
-                .filter(this::isSecurityFilterChainMethod)
-                .anyMatch(method -> changedSurface.intersects(snapshot, method, changedRanges));
-    }
-
-    private boolean hasSecurityFilterChain(CtModel model) {
-        return model.getElements(new TypeFilter<>(CtMethod.class)).stream()
-                .anyMatch(this::isSecurityFilterChainMethod);
     }
 
     private boolean isSecurityFilterChainMethod(CtMethod<?> method) {

@@ -53,6 +53,10 @@ PROBE_IMAGE = approved_probe_image()
 
 class ValidationRequest(StrictModel):
     sandbox_revision: Literal["protected", "vulnerable"]
+    # Selects which pre-built sandbox image family to run -- "java" is the
+    # original Spring Boot sandbox, "python" the FastAPI one. Both expose the
+    # identical GET /admin/export probe contract, so no other field changes.
+    language: Literal["java", "python"] = "java"
     expected_commit: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
     method: Literal["GET"] = "GET"
     path: Literal["/admin/export"] = "/admin/export"
@@ -77,15 +81,13 @@ class ValidationResult(StrictModel):
     source_commit: str | None = None
 
     @model_validator(mode="after")
-    def consistent_outcome(self):
+    def consistent_outcome(self) -> "ValidationResult":
         if self.confirmed != (self.status == "CONFIRMED"):
             raise ValueError("confirmed must exactly match CONFIRMED status")
         if self.status == "CONFIRMED" and self.actual_status != 200:
             raise ValueError("confirmed validation requires HTTP 200")
         if self.status == "REJECTED" and self.actual_status not in (401, 403):
             raise ValueError("rejected validation requires HTTP 401 or 403")
-        if not self.cleanup_complete and self.status != "ERROR":
-            raise ValueError("incomplete cleanup must be reported as ERROR")
         return self
 
 
@@ -123,11 +125,11 @@ PROBE = PROBE_TEMPLATE.replace("__STARTUP_SECONDS__", str(VALIDATION_STARTUP_SEC
 
 
 class DockerRunner:
-    def __init__(self):
+    def __init__(self) -> None:
         # Never honor ambient DOCKER_HOST/context. Compose supplies the one
         # allowlisted, dedicated validation daemon address explicitly.
         configured = os.environ.get("RISKGRAPH_VALIDATION_DOCKER_HOST", "")
-        if configured and configured != "tcp://validation-docker:2375":
+        if configured and configured != "tcp://validation-docker:2376":
             raise ValueError("Validation Docker host is not allowlisted")
         if configured:
             host = configured
@@ -148,15 +150,31 @@ class DockerRunner:
                 "result=explicit-development-override"
             )
         self.command = ["docker", "--host", host]
+        if self.daemon_mode == "isolated":
+            # The isolated daemon speaks mutual TLS; without these the client
+            # would silently fall back to an unauthenticated plaintext attempt.
+            certs = os.environ.get("DOCKER_CERT_PATH", "/certs/client")
+            self.command += [
+                "--tlsverify",
+                "--tlscacert",
+                f"{certs}/ca.pem",
+                "--tlscert",
+                f"{certs}/cert.pem",
+                "--tlskey",
+                f"{certs}/key.pem",
+            ]
 
-    def run(self, args: list[str], timeout=5):
-        result = subprocess.run(
+    def run(self, args: list[str], timeout: float = 5) -> str:
+        # S603: argv list, never a shell. self.command is built only from the
+        # allowlisted daemon address; args are fixed docker verbs plus
+        # server-generated container names, never user or AI input.
+        result = subprocess.run(  # noqa: S603
             self.command + args,
             capture_output=True,
             text=True,
             timeout=timeout,
             check=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0,
         )
         if len(result.stdout) > 131072:
             raise ValueError("Docker output limit")
@@ -175,8 +193,9 @@ class DockerRunner:
         )
         exit_category = "unknown"
         try:
+            suffix_lang = "-py" if request.language == "python" else ""
             image_name = (
-                f"riskgraph-sandbox-{request.sandbox_revision}:local"
+                f"riskgraph-sandbox-{request.sandbox_revision}{suffix_lang}:local"
                 if request.expected_commit
                 else "riskgraph-sandbox:local"
             )
@@ -211,7 +230,9 @@ class DockerRunner:
                 "--memory=256m",
                 "--pids-limit=64",
                 "--tmpfs",
-                "/tmp:rw,noexec,nosuid,size=32m",
+                # S108: a docker --tmpfs mount spec for the probe container, not
+                # a host temp path.
+                "/tmp:rw,noexec,nosuid,size=32m",  # noqa: S108
                 "--label",
                 f"ai.riskgraph.run={suffix}",
             ]
@@ -272,8 +293,13 @@ class DockerRunner:
                     cleanup = False
         result.cleanup_complete = cleanup
         if not cleanup:
-            result.status, result.confirmed, result.reason_code = "ERROR", False, "CLEANUP_FAILED"
-            exit_category = "cleanup-failed"
+            # A failed teardown says nothing about whether the probe reached the
+            # endpoint. Report it alongside the verdict instead of replacing it,
+            # so a CONFIRMED exploit still blocks.
+            result.evidence = [*result.evidence, "Sandbox teardown did not complete"]
+            if result.status not in ("CONFIRMED", "REJECTED"):
+                result.reason_code = "CLEANUP_FAILED"
+            exit_category = f"{exit_category}+cleanup-failed"
         LOGGER.info(
             "validation_run operation=http-authorization-probe run_id=%s daemon_mode=%s "
             "exit_category=%s cleanup_complete=%s",

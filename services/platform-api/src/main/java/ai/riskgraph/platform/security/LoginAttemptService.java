@@ -59,7 +59,7 @@ public class LoginAttemptService {
 
     public boolean blocked(HttpServletRequest request) {
         cleanupOccasionally();
-        return blocked(accountAttempts, username(request))
+        return blocked(accountAttempts, accountKey(request))
                 || blocked(networkAttempts, clientAddresses.resolve(request));
     }
 
@@ -74,7 +74,7 @@ public class LoginAttemptService {
 
     public void failed(HttpServletRequest request) {
         long now = clock.millis();
-        recordFailure(accountAttempts, username(request), maxFailures, now);
+        recordFailure(accountAttempts, accountKey(request), maxFailures, now);
         recordFailure(networkAttempts, clientAddresses.resolve(request), networkMaxFailures, now);
     }
 
@@ -95,12 +95,26 @@ public class LoginAttemptService {
     }
 
     public void succeeded(HttpServletRequest request) {
-        accountAttempts.remove(username(request));
+        accountAttempts.remove(accountKey(request));
     }
 
     private String username(HttpServletRequest request) {
         String username = request.getParameter("username");
         return username == null ? "" : username.strip().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Throttling key for the per-account counter.
+     *
+     * <p>The username is attacker-supplied and unauthenticated, so keying on it
+     * alone lets anyone lock any known account out indefinitely: five bad
+     * passwords a minute for "admin" from one address stays under the per-IP
+     * ceiling while the real user is permanently blocked. Binding the counter
+     * to the client address means an attacker can only lock out themselves,
+     * and the per-IP counter still bounds credential stuffing.
+     */
+    private String accountKey(HttpServletRequest request) {
+        return username(request) + "|" + clientAddresses.resolve(request);
     }
 
     private boolean evictOldestUnblocked(ConcurrentHashMap<String, Attempt> attempts, long now) {

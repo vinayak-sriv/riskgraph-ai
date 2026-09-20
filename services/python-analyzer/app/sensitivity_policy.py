@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 _ALLOWED = {"LOW", "MODERATE", "MEDIUM", "HIGH", "CRITICAL"}
 _KIND_PRECEDENCE = {"exact": 0, "prefix": 1, "suffix": 1}
@@ -101,6 +101,15 @@ def _load_rules(configured_rules: list[dict]) -> list[_Rule]:
     for configured in configured_rules:
         rule_id = _required(configured, "id")
         sensitivity = _normalize(_required(configured, "sensitivity"))
+        # Fail closed on a matcher this engine does not implement. The Java
+        # engine also supports `resources` and `regex`; silently skipping one
+        # here would classify the same resource differently in each analyzer.
+        unsupported = set(configured) - {"id", "sensitivity", "exact", "prefix", "suffix"}
+        if unsupported:
+            raise ValueError(
+                f"Sensitivity rule {rule_id} uses unsupported matchers: "
+                f"{', '.join(sorted(unsupported))}"
+            )
         for field, kind in (("exact", "exact"), ("prefix", "prefix"), ("suffix", "suffix")):
             for expression in _as_list(configured.get(field)):
                 rules.append(_Rule(rule_id, sensitivity, kind, expression.lower(), len(rules)))
@@ -109,7 +118,11 @@ def _load_rules(configured_rules: list[dict]) -> list[_Rule]:
     return rules
 
 
-def _as_list(value) -> list[str]:
+def _as_list(value: object) -> list[str]:
     if value is None:
         return []
-    return [value] if isinstance(value, str) else list(value)
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    raise ValueError(f"Expected a string or list of strings, got {type(value).__name__}")

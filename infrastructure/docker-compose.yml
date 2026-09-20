@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-riskgraph}
       POSTGRES_USER: ${POSTGRES_USER:-riskgraph}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-riskgraph_dev_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a database password}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -43,7 +43,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/riskgraph}
       POSTGRES_USER: ${POSTGRES_USER:-riskgraph}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-riskgraph_dev_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a database password}
       JAVA_ANALYZER_BASE_URL: ${JAVA_ANALYZER_BASE_URL:-http://java-analyzer:8081}
       PYTHON_ANALYZER_BASE_URL: ${PYTHON_ANALYZER_BASE_URL:-http://python-analyzer:8084}
       GRAPH_RISK_BASE_URL: ${GRAPH_RISK_BASE_URL:-http://graph-risk-service:8082}
@@ -53,10 +53,10 @@ services:
       RISKGRAPH_ALLOWED_REPOSITORY_ROOTS: /analysis-repositories
       RISKGRAPH_SANDBOX_MANIFEST: /analysis-repositories/mvp-v2/manifest.compose.json
       RISKGRAPH_BOOTSTRAP_PASSWORD_FILE: /run/riskgraph-auth/admin.password
-      RISKGRAPH_SECURE_COOKIE: ${RISKGRAPH_SECURE_COOKIE:-false}
+      RISKGRAPH_SECURE_COOKIE: ${RISKGRAPH_SECURE_COOKIE:-true}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-riskgraph-oauth-disabled}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-riskgraph-oauth-disabled}
-      RISKGRAPH_REQUIRE_GITHUB_CONNECTION: ${RISKGRAPH_REQUIRE_GITHUB_CONNECTION:-false}
+      RISKGRAPH_REQUIRE_GITHUB_CONNECTION: ${RISKGRAPH_REQUIRE_GITHUB_CONNECTION:-true}
       RISKGRAPH_ANALYZER_SERVICE_TOKEN: ${RISKGRAPH_ANALYZER_SERVICE_TOKEN:?Set an analyzer service secret}
       RISKGRAPH_GRAPH_SERVICE_TOKEN: ${RISKGRAPH_GRAPH_SERVICE_TOKEN:?Set a graph service secret}
       RISKGRAPH_AI_SERVICE_TOKEN: ${RISKGRAPH_AI_SERVICE_TOKEN:?Set an AI service secret}
@@ -157,6 +157,7 @@ services:
       # Shares the analyzer-role secret with java-analyzer; platform-api's AnalysisClient
       # doesn't distinguish which analyzer it's talking to when sending it.
       RISKGRAPH_ANALYZER_SERVICE_TOKEN: ${RISKGRAPH_ANALYZER_SERVICE_TOKEN:?Set an analyzer service secret}
+      RISKGRAPH_ALLOWED_REPOSITORY_ROOTS: /analysis-repositories
     volumes:
       - ${ANALYZER_REPOSITORY_ROOT:-../samples/generated}:/analysis-repositories:ro
     healthcheck:

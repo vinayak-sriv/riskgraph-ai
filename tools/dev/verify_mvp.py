@@ -40,10 +40,15 @@ def main():
         "authorization-removal": (22, 91, "BLOCK"),
         "safe-change": (22, 22, "ALLOW"),
         "new-public-sensitive-endpoint": (0, 65, "BLOCK"),
-        # The comparison is scoped to the newly affected route/resource pair.
-        # Catalog and Payment are distinct resource identities, so the prior
-        # state for the newly reachable Payment resource is zero.
-        "sensitive-resource-exposure": (0, 65, "BLOCK"),
+        # risk_result.risk_before/risk_after are repository-wide, not scoped to
+        # the newly affected route/resource pair (see risk_engine.score_risk).
+        # The "before" fixture is already a public endpoint on a MEDIUM-
+        # sensitivity resource (Catalog), so its own risk is already nonzero:
+        # reachability(100*.25) + data_sensitivity(60*.20) +
+        # external_exposure(100*.15) + exploitability(50*.10) = 57.
+        # The route-scoped before-state (i.e. Payment specifically wasn't
+        # reachable yet) lives in result["risk_result"]["finding_results"][0].
+        "sensitive-resource-exposure": (57, 65, "BLOCK"),
     }
     summary = {}
     manifest = create()

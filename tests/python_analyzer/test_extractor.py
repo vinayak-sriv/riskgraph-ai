@@ -98,3 +98,56 @@ def delete_account(account_id: str):
 
 def test_syntax_error_returns_no_endpoints_instead_of_raising():
     assert extract_endpoints("def broken(:", "app/broken.py") == []
+
+
+def test_router_relative_paths_are_normalized_to_absolute():
+    source = (
+        "from fastapi import APIRouter\n\n"
+        "router = APIRouter()\n\n\n"
+        '@router.get("")\n'
+        "def list_items():\n"
+        "    return []\n\n\n"
+        '@router.post("items")\n'
+        "def create_item():\n"
+        "    return {}\n"
+    )
+
+    endpoints = extract_endpoints(source, "app/routes.py")
+
+    assert sorted(e["endpoint"]["endpoint"] for e in endpoints) == ["/", "/items"]
+
+
+def test_a_plain_dependency_injection_is_not_treated_as_authentication():
+    """`Depends(get_db)` injects a session; counting it as auth silently
+    suppressed the anonymous-reachability check on most FastAPI repos."""
+    source = (
+        "from fastapi import Depends, FastAPI\n"
+        "from sqlalchemy.orm import Session\n\n"
+        "app = FastAPI()\n\n\n"
+        '@app.get("/customers")\n'
+        "def list_customers(db: Session = Depends(get_db)):\n"
+        "    return customer_repository.query(db)\n"
+    )
+
+    endpoint = extract_endpoints(source, "app/routes.py")[0]
+
+    assert endpoint["endpoint"]["authentication"] is False
+    assert endpoint["extraction_confidence"]["authorization"] == "LOW"
+
+
+def test_annotated_dependency_is_recognised_as_authentication():
+    """The modern `Annotated[..., Depends(...)]` form is not a parameter
+    default, so inspecting defaults alone reported a protected route public."""
+    source = (
+        "from typing import Annotated\n"
+        "from fastapi import Depends, FastAPI\n\n"
+        "app = FastAPI()\n\n\n"
+        '@app.get("/customers")\n'
+        "def list_customers(user: Annotated[User, Depends(get_current_user)]):\n"
+        "    return customer_repository.all()\n"
+    )
+
+    endpoint = extract_endpoints(source, "app/routes.py")[0]
+
+    assert endpoint["endpoint"]["authentication"] is True
+    assert endpoint["extraction_confidence"]["authorization"] == "MEDIUM"

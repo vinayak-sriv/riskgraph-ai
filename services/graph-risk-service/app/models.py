@@ -45,7 +45,7 @@ class EndpointIr(ContractModel):
     sensitivity: Sensitivity
 
     @model_validator(mode="after")
-    def consistent_auth(self):
+    def consistent_auth(self) -> "EndpointIr":
         if not self.endpoint.startswith("/") or (not self.authentication and self.required_role):
             raise ValueError("Route must be absolute and public endpoints cannot require a role")
         return self
@@ -62,9 +62,9 @@ class EndpointPair(ContractModel):
     after: list[EndpointIr] = Field(max_length=2000)
 
     @model_validator(mode="after")
-    def unambiguous_routes(self):
+    def unambiguous_routes(self) -> "EndpointPair":
         for rows in (self.before, self.after):
-            seen = {}
+            seen: dict[tuple[str, str], tuple[bool, str | None]] = {}
             for row in rows:
                 key = (row.method, row.endpoint)
                 auth = (row.authentication, row.required_role)

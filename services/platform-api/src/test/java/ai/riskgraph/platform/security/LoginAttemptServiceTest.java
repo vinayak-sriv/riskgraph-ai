@@ -53,6 +53,18 @@ class LoginAttemptServiceTest {
         assertThat(service.blocked(target)).isTrue();
     }
 
+    @Test
+    void oneAddressCannotLockOutAnAccountForEveryoneElse() {
+        LoginAttemptService service = new LoginAttemptService(CLOCK, 3, 100_000, 300, 60);
+
+        for (int index = 0; index < 10; index++) {
+            service.failed(request("admin", "198.51.100.30"));
+        }
+
+        assertThat(service.blocked(request("admin", "198.51.100.30"))).isTrue();
+        assertThat(service.blocked(request("admin", "203.0.113.40"))).isFalse();
+    }
+
     private MockHttpServletRequest request(String username, String address) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("username", username);

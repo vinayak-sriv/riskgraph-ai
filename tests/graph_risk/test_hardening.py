@@ -130,8 +130,9 @@ def test_equal_final_risk_prefers_largest_delta_across_input_permutations():
         results[0].risk_result.risk_before,
         results[0].risk_result.risk_after,
         results[0].risk_result.risk_delta,
-    ) == (0, 91, 91)
-    assert results[0].risk_result.components_before.data_sensitivity.score == 0
+    ) == (22, 91, 69)
+    # repository-wide before-state: the protected CRITICAL customer route
+    assert results[0].risk_result.components_before.data_sensitivity.score == 100
     assert results[0].verdict == "BLOCK"
 
 

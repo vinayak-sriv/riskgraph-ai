@@ -87,7 +87,8 @@ public class SnapshotCache {
                 Files.createDirectory(staging);
                 try {
                     writer.write(staging);
-                    Files.writeString(staging.resolve(".complete"), key, StandardCharsets.US_ASCII);
+                    Files.writeString(staging.resolve(".complete"),
+                            key + "\n" + walkSize(staging), StandardCharsets.US_ASCII);
                     try {
                         Files.move(staging, entry, StandardCopyOption.ATOMIC_MOVE);
                     } catch (AtomicMoveNotSupportedException error) {
@@ -226,7 +227,30 @@ public class SnapshotCache {
         }
     }
 
+    /**
+     * Entry size, from the {@code .complete} marker when it records one.
+     *
+     * <p>The sweep runs on every cache miss and used to walk every cached
+     * snapshot to total its bytes: 32 entries of up to 5000 files each is
+     * ~160k stat calls per miss, serialized behind the global sweep lock.
+     * Entries written before the marker carried a size fall back to a walk.
+     */
     private long size(Path path) throws IOException {
+        Path marker = path.resolve(".complete");
+        if (Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)) {
+            String[] lines = Files.readString(marker, StandardCharsets.US_ASCII).split("\n");
+            if (lines.length > 1) {
+                try {
+                    return Long.parseLong(lines[1].strip());
+                } catch (NumberFormatException ignored) {
+                    // fall through to the walk
+                }
+            }
+        }
+        return walkSize(path);
+    }
+
+    private long walkSize(Path path) throws IOException {
         try (var paths = Files.walk(path)) {
             long total = 0;
             for (Path value : paths.filter(item -> Files.isRegularFile(

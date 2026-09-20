@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Literal
 
@@ -19,7 +20,7 @@ class HealthResponse(BaseModel):
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
     await ollama.close()
 
@@ -37,6 +38,10 @@ async def analyze(request: EvidenceRequest) -> Explanation:
     return await explain(request, ollama)
 
 
+# Alias of /ai/analyze. The Explanation already carries `recommended_test`
+# (a fixed deterministic string the model cannot alter), so a separate
+# implementation would return the identical body. Kept as a named route
+# because the contract publishes it.
 @app.post(
     "/ai/test-suggestion", response_model=Explanation, dependencies=[Depends(require_service_token)]
 )

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from .graph_engine import endpoint_node_id, resource_node_id
 from .models import (
+    Category,
     ComponentScore,
     EndpointIr,
     FindingRiskResult,
@@ -99,12 +100,15 @@ def score_risk(
                     policy_version=POLICY.version,
                 )
             )
-        _, _, before_scores, after_scores = max(candidates, key=_candidate_rank)
+        _, _, _, after_scores = max(candidates, key=_candidate_rank)
+        # risk_before/risk_after are repository-wide by definition; the winning
+        # route's own before-state stays in finding_results[].risk_before.
+        before_scores = _highest_state(before)
         risk_before = _weighted_total(before_scores)
         risk_after = _weighted_total(after_scores)
     else:
         before_scores = _highest_state(before)
-        after_scores = _highest_state(after)
+        after_scores = _highest_state(after, removed_auth)
         risk_before = _weighted_total(before_scores)
         risk_after = _weighted_total(after_scores)
     return RiskResult(
@@ -123,11 +127,16 @@ def score_risk(
 
 
 def decide(risk: RiskResult, graph_delta: GraphDelta, insufficient: bool = False) -> Verdict:
-    if insufficient:
-        return "REVIEW"
+    # Incomplete evidence is an escalation floor, never a ceiling: it can lift
+    # ALLOW to REVIEW but must not soften a BLOCK, or an unrelated unresolved
+    # authorization delta would be enough to unblock an exposed endpoint.
     if graph_delta.new_paths and risk.risk_after >= POLICY.block_after:
         return "BLOCK"
-    if risk.risk_after >= POLICY.review_after or risk.risk_delta >= POLICY.review_delta:
+    if (
+        risk.risk_after >= POLICY.review_after
+        or risk.risk_delta >= POLICY.review_delta
+        or insufficient
+    ):
         return "REVIEW"
     return "ALLOW"
 
@@ -154,16 +163,18 @@ def reason_codes(
     return reasons or ["NO_REVIEW_CONDITION"]
 
 
-def category_for(score: int) -> str:
-    if score <= 20:
-        return "LOW"
-    if score <= 40:
-        return "MODERATE"
-    if score <= 60:
-        return "MEDIUM"
-    if score <= 80:
-        return "HIGH"
-    return "CRITICAL"
+BANDS = [
+    RiskBand(category="LOW", minimum=0, maximum=20),
+    RiskBand(category="MODERATE", minimum=21, maximum=40),
+    RiskBand(category="MEDIUM", minimum=41, maximum=60),
+    RiskBand(category="HIGH", minimum=61, maximum=80),
+    RiskBand(category="CRITICAL", minimum=81, maximum=100),
+]
+
+
+def category_for(score: int) -> Category:
+    """Derived from BANDS so the published rubric cannot disagree with it."""
+    return next((band.category for band in BANDS if score <= band.maximum), BANDS[-1].category)
 
 
 def _state_scores(
@@ -196,12 +207,26 @@ def _state_scores(
     )
 
 
-def _highest_state(endpoints: list[EndpointIr]) -> RawScores:
-    """Return one coherent route state instead of mixing component maxima."""
+def _highest_state(
+    endpoints: list[EndpointIr],
+    removed_auth: set[str] | None = None,
+) -> RawScores:
+    """Return one coherent route state instead of mixing component maxima.
+
+    ``removed_auth`` must be threaded through: without it an authorization
+    removal on a LOW/MODERATE resource scores zero, because such a route never
+    produces a new anonymous->sensitive path and so never reaches the
+    per-route scoring branch in ``score_risk``.
+    """
+    removed_auth = removed_auth or set()
     if not endpoints:
         return _state_scores([], False)
     candidates = [
-        _state_scores([endpoint], _has_public_sensitive_endpoint([endpoint]))
+        _state_scores(
+            [endpoint],
+            _has_public_sensitive_endpoint([endpoint]),
+            {endpoint_node_id(endpoint)} & removed_auth,
+        )
         for endpoint in endpoints
     ]
     return max(candidates, key=_weighted_total)
@@ -226,7 +251,8 @@ def _has_public_sensitive_endpoint(endpoints: list[EndpointIr]) -> bool:
 
 
 def _weighted_total(scores: RawScores) -> int:
-    return round(sum(getattr(scores, name) * weight for name, weight in WEIGHTS.items()))
+    total: float = sum(getattr(scores, name) * weight for name, weight in WEIGHTS.items())
+    return round(total)
 
 
 def _candidate_rank(candidate: RiskCandidate) -> tuple[int, int, str, str]:
@@ -260,13 +286,7 @@ def _policy_metadata() -> RiskPolicyMetadata:
         review_after=POLICY.review_after,
         block_after=POLICY.block_after,
         review_delta=POLICY.review_delta,
-        bands=[
-            RiskBand(category="LOW", minimum=0, maximum=20),
-            RiskBand(category="MODERATE", minimum=21, maximum=40),
-            RiskBand(category="MEDIUM", minimum=41, maximum=60),
-            RiskBand(category="HIGH", minimum=61, maximum=80),
-            RiskBand(category="CRITICAL", minimum=81, maximum=100),
-        ],
+        bands=list(BANDS),
     )
 
 

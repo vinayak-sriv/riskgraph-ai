@@ -13,7 +13,6 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import ai.riskgraph.platform.client.GraphRiskClient;
 import ai.riskgraph.platform.service.ScanStore;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -21,7 +20,11 @@ import static org.mockito.Mockito.when;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {"spring.profiles.active=local", "RISKGRAPH_BOOTSTRAP_PASSWORD_FILE=", "server.address=127.0.0.1",
-        "GITHUB_CLIENT_ID=test-client", "GITHUB_CLIENT_SECRET=test-secret"})
+        // The embedded test server is plain HTTP; a Secure session cookie (the
+        // production default) would never be sent back by an HTTP client, so
+        // every request here would look like a fresh, unauthenticated session.
+        "RISKGRAPH_SECURE_COOKIE=false",
+        "GITHUB_CLIENT_ID=test-client", "GITHUB_CLIENT_SECRET=0123456789abcdef0123456789abcdef01234567"})
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PlatformSecurityTest {
     @LocalServerPort int port;
@@ -82,7 +85,7 @@ class PlatformSecurityTest {
         String location = authorize.headers().firstValue("location").orElseThrow();
         assertThat(location).startsWith("https://github.com/login/oauth/authorize?")
             .contains("client_id=test-client", "state=", "code_challenge=", "code_challenge_method=S256")
-            .doesNotContain("test-secret");
+            .doesNotContain("0123456789abcdef0123456789abcdef01234567");
     }
 
     @Test void sessionReportsTheLinkedGithubIdentityWithoutTokens() throws Exception {
@@ -91,7 +94,7 @@ class PlatformSecurityTest {
         assertThat(body.at("/github/status").asString()).isEqualTo("CONNECTED");
         assertThat(body.at("/github/login").asString()).isEqualTo("developer");
         assertThat(body.path("github_connection_required").asBoolean()).isTrue();
-        assertThat(response.body()).doesNotContain("access_token", "client_secret", "test-secret");
+        assertThat(response.body()).doesNotContain("access_token", "client_secret", "0123456789abcdef0123456789abcdef01234567");
     }
 
     @Test void developerCanReadButCannotStartScansOrValidationOrCreateAccounts() throws Exception {

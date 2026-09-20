@@ -270,6 +270,10 @@ def test_new_resource_compares_the_same_route_resource_scope() -> None:
     risk = score_risk(request.before, request.after, delta)
 
     assert [path.target for path in delta.new_paths] == ["resource:Customer"]
-    assert (risk.risk_before, risk.risk_after, risk.risk_delta) == (0, 57, 57)
-    assert (risk.category_before, risk.category_after) == ("LOW", "MEDIUM")
+    # risk_before is repository-wide: the pre-existing public CRITICAL endpoint
+    # already scored 61, so adding a route cannot report a "before" of 0.
+    assert (risk.risk_before, risk.risk_after, risk.risk_delta) == (65, 57, -8)
+    assert (risk.category_before, risk.category_after) == ("HIGH", "MEDIUM")
     assert decide(risk, delta) == "REVIEW"
+    # the winning route's own before-state stays available per finding
+    assert risk.finding_results[0].risk_before == 0

@@ -16,6 +16,46 @@ function fallbackPositions(graph: SecurityGraph) {
   );
 }
 
+// One shared worker instead of spawning and terminating a ~47KB module per
+// layout. Two graph panels x every filter toggle was re-instantiating and
+// re-parsing dagre each time; responses are matched by requestId instead.
+let sharedWorker: Worker | null = null;
+const pending = new Map<
+  number,
+  (response: GraphLayoutResponse | null) => void
+>();
+
+function resolveAll(response: GraphLayoutResponse | null) {
+  const waiting = [...pending.values()];
+  pending.clear();
+  waiting.forEach((settle) => settle(response));
+}
+
+function layoutWorker(): Worker | null {
+  if (sharedWorker) return sharedWorker;
+  try {
+    sharedWorker = new Worker(
+      new URL("./graph-layout.worker.ts", import.meta.url),
+      { type: "module" },
+    );
+  } catch {
+    return null;
+  }
+  sharedWorker.onmessage = (event: MessageEvent<GraphLayoutResponse>) => {
+    const settle = pending.get(event.data.requestId);
+    if (!settle) return;
+    pending.delete(event.data.requestId);
+    settle(event.data);
+  };
+  sharedWorker.onerror = () => {
+    // A dead worker cannot serve the queue; drop it and fall back.
+    sharedWorker?.terminate();
+    sharedWorker = null;
+    resolveAll(null);
+  };
+  return sharedWorker;
+}
+
 export function requestGraphLayout(
   graph: SecurityGraph,
   signal: AbortSignal,
@@ -23,35 +63,27 @@ export function requestGraphLayout(
   if (typeof Worker === "undefined") {
     return Promise.resolve(fallbackPositions(graph));
   }
+  const worker = layoutWorker();
+  if (!worker) return Promise.resolve(fallbackPositions(graph));
 
   const requestId = nextRequestId++;
-  const worker = new Worker(
-    new URL("./graph-layout.worker.ts", import.meta.url),
-    {
-      type: "module",
-    },
-  );
   const request: GraphLayoutRequest = { requestId, graph };
 
   return new Promise((resolve, reject) => {
-    const stop = () => worker.terminate();
-    signal.addEventListener(
-      "abort",
-      () => {
-        stop();
-        reject(new DOMException("Graph layout cancelled", "AbortError"));
-      },
-      { once: true },
-    );
-    worker.onerror = () => {
-      stop();
-      resolve(fallbackPositions(graph));
+    const onAbort = () => {
+      pending.delete(requestId);
+      reject(new DOMException("Graph layout cancelled", "AbortError"));
     };
-    worker.onmessage = (event: MessageEvent<GraphLayoutResponse>) => {
-      if (event.data.requestId !== requestId || signal.aborted) return;
-      stop();
-      resolve(new Map(Object.entries(event.data.positions)));
-    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    pending.set(requestId, (response) => {
+      signal.removeEventListener("abort", onAbort);
+      if (signal.aborted) return;
+      resolve(
+        response
+          ? new Map(Object.entries(response.positions))
+          : fallbackPositions(graph),
+      );
+    });
     worker.postMessage(request);
   });
 }

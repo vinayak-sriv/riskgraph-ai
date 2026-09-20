@@ -231,20 +231,20 @@ analysis result must include repository/commit identity, source locations, analy
 version, coverage/diagnostics, and deterministic inputs. Risk and confidence are
 separate values: risk estimates impact; confidence reports extraction reliability.
 
-### Post-MVP planned tracks
+### Post-MVP tracks
 
-These tracks start only after the Week 12 human-review gate and the Java/Spring Boot
-release are complete. They must not delay or weaken the primary MVP.
-
-1. **Python web analysis — FastAPI first.** Add framework detection and a separate
-   Python analyzer that uses Python AST evidence and emits the unchanged Stage 3 IR.
-   The first supported target is Python 3 FastAPI, not every Python repository.
-   Python without a supported framework must return `UNSUPPORTED_FRAMEWORK` with no
-   ALLOW/BLOCK verdict. Partial or ambiguous FastAPI extraction must lower confidence
-   and force REVIEW. Promotion from experimental to supported requires the four MVP
-   scenarios, source provenance, coverage/diagnostics, clean-checkout automation, and
-   evaluation on pinned public FastAPI repositories. Django and Flask require later,
-   separate adapters.
+1. **Python web analysis — FastAPI first. In progress, not yet promoted.**
+   `services/python-analyzer/` ships framework detection and a separate analyzer
+   that uses Python AST evidence and emits the unchanged Stage 3 IR. The only
+   supported target is Python 3 FastAPI, not every Python repository. Python
+   without a supported framework returns `UNSUPPORTED_FRAMEWORK` with no
+   ALLOW/BLOCK verdict. Partial or ambiguous FastAPI extraction lowers
+   confidence and forces REVIEW — an unrecognised `Depends(...)` is reported
+   unauthenticated at LOW confidence rather than assumed authenticated.
+   Still outstanding before promotion from experimental to supported:
+   router-prefix stitching across files, cross-file call resolution, and
+   evaluation on the pinned public FastAPI repositories. Django and Flask
+   require later, separate adapters.
 2. **Notification manager.** Consume final platform decision events independently of
    the source language. Notify only verified RiskGraph users whose repository access
    is rechecked at delivery time. Start with in-app and email notifications for REVIEW

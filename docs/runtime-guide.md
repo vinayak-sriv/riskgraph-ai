@@ -60,7 +60,7 @@ docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile a
 | `SPRING_PROFILES_ACTIVE` | Omit for PostgreSQL; `local` opts into memory storage |
 | `RISKGRAPH_ANALYZER_PROCESS_ISOLATION` | `false` natively; Compose sets `true` so analyzer deadlines kill a separate JVM |
 | `RISKGRAPH_ANALYZER_EXECUTABLE_JAR` | Packaged analyzer jar used by isolated worker mode |
-| `RISKGRAPH_VALIDATION_DOCKER_HOST` | Required by default; the sole accepted configured value is `tcp://validation-docker:2375` |
+| `RISKGRAPH_VALIDATION_DOCKER_HOST` | Required by default; the sole accepted configured value is `tcp://validation-docker:2376` |
 | `RISKGRAPH_RUNTIME_PROFILE`, `RISKGRAPH_ALLOW_HOST_DOCKER` | Both must be `local`/`true` to opt into the host daemon for native development; never set in deployment |
 | `RISKGRAPH_TRUSTED_PROXY_ADDRESSES` | Exact direct-peer IP allowlist permitted to supply `X-Forwarded-For`; empty means direct peer only |
 | `RISKGRAPH_REQUIRE_GITHUB_CONNECTION` | `false` only for local launcher/Compose; set `true` in connected deployments |
@@ -187,8 +187,6 @@ analysis/artifacts. Same-repo publishing requires owner opt-in via repository va
 python tools/dev/verify_release.py
 python tools/dev/verify_mvp.py --compose --validation
 python tools/dev/verify_runtime.py
-python tools/dev/verify_access.py
-python tools/dev/verify_ollama.py
 python tools/evaluation/external_spring.py --compose
 ```
 
@@ -211,7 +209,7 @@ docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastr
 ```
 
 The overlay does not mount `/var/run/docker.sock`. It starts a dedicated Docker daemon
-reachable only as `tcp://validation-docker:2375` on an internal Compose network. A
+reachable only as `tcp://validation-docker:2376` on an internal Compose network. A
 one-shot loader builds the two source-bound images and the demonstration image into
 that private daemon and pulls the fixed probe image before the validation API starts.
 The daemon has its own named image store; deleting that volume is not a routine repair
@@ -235,7 +233,6 @@ benchmarked. A larger model needs more memory and should be evaluated separately
 ```powershell
 docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml -f infrastructure/docker-compose.ollama.yml --profile app --profile ollama up -d --build
 docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.ollama.yml --profile ollama exec -T ollama ollama pull qwen2.5:0.5b
-python tools/dev/verify_ollama.py
 ```
 
 If `OLLAMA_MODEL` is set in your environment, clear it or select an installed model.

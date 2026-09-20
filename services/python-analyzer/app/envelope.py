@@ -148,8 +148,12 @@ def _read_file_at_commit(repository_path: str, commit: str, path: str) -> str | 
     command below -- never checks out the commit, so it's safe to call
     concurrently with other scans against the same working copy."""
     try:
-        result = subprocess.run(
-            ["git", "-C", repository_path, "show", f"{commit}:{path}"],
+        # S603/S607: argv list, never a shell. repository_path is allowlisted by
+        # repository_access.validate_repository_path and commit is a validated
+        # 40-hex SHA. `git` resolves from PATH because its location differs per
+        # platform and the container image pins the binary.
+        result = subprocess.run(  # noqa: S603
+            ["git", "-C", repository_path, "show", f"{commit}:{path}"],  # noqa: S607
             capture_output=True,
             text=True,
             timeout=30,
@@ -164,8 +168,10 @@ def _changed_python_files(
     repository_path: str, old_commit: str, new_commit: str
 ) -> list[dict] | None:
     try:
-        result = subprocess.run(
-            [
+        # S603/S607: see _read_file_at_commit -- same argv-list, allowlisted-path
+        # and validated-SHA guarantees.
+        result = subprocess.run(  # noqa: S603
+            [  # noqa: S607
                 "git",
                 "-C",
                 repository_path,
@@ -183,7 +189,7 @@ def _changed_python_files(
         )
     except (subprocess.SubprocessError, OSError):
         return None
-    changed = []
+    changed: list[dict] = []
     for line in result.stdout.splitlines():
         if not line.strip():
             continue

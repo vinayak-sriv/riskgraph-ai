@@ -4,11 +4,21 @@ services:
   validation-docker:
     image: docker:29.8.0-dind@sha256:5efed980cba3fc126cf54e21a5a6ff8849d05b6e0623d6e7612f48e9cd6cd17e
     privileged: true
+    # The dind entrypoint bakes the container's own hostname into the
+    # auto-generated server cert's SAN list; without this it defaults to the
+    # random container ID, which doesn't match the "validation-docker"
+    # DNS name the other services connect through, so TLS verification fails.
+    hostname: validation-docker
     environment:
-      DOCKER_TLS_CERTDIR: ""
-    command: ["--tls=false", "--host=tcp://0.0.0.0:2375", "--host=unix:///var/run/docker.sock"]
+      # Default dind behavior: generates a CA + server + client cert triple
+      # under /certs and listens TLS-verified on 2376 (plus the local unix
+      # socket used by this container's own healthcheck below). No custom
+      # --host/--tls flags needed; letting the entrypoint manage both
+      # listeners is what keeps the client cert auto-generation working.
+      DOCKER_TLS_CERTDIR: /certs
     volumes:
       - riskgraph-validation-docker:/var/lib/docker
+      - riskgraph-validation-certs:/certs/client
     networks:
       validation-engine: {}
       validation-egress:
@@ -28,12 +38,15 @@ services:
       validation-docker:
         condition: service_healthy
     environment:
-      DOCKER_HOST: tcp://validation-docker:2375
+      DOCKER_HOST: tcp://validation-docker:2376
+      DOCKER_TLS_VERIFY: "1"
+      DOCKER_CERT_PATH: /certs/client
       RISKGRAPH_VALIDATION_PROBE_IMAGE: ${RISKGRAPH_VALIDATION_PROBE_IMAGE:-python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a}
     working_dir: /workspace
     volumes:
       - ../samples:/workspace/samples:ro
       - ../tmp/validation-images:/workspace/preloaded:ro
+      - riskgraph-validation-certs:/certs/client:ro
     command:
       - sh
       - -ec
@@ -53,12 +66,16 @@ services:
           docker build --tag riskgraph-sandbox-protected:local samples/generated/build-protected
           docker build --tag riskgraph-sandbox-vulnerable:local samples/generated/build-vulnerable
           docker build --tag riskgraph-sandbox:local samples/sandbox
+          docker build --tag riskgraph-sandbox-protected-py:local samples/generated/build-protected-py
+          docker build --tag riskgraph-sandbox-vulnerable-py:local samples/generated/build-vulnerable-py
           docker pull "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}"
           docker image tag "$${RISKGRAPH_VALIDATION_PROBE_IMAGE}" riskgraph-validation-probe:local
         fi
         docker image inspect riskgraph-sandbox-protected:local >/dev/null
         docker image inspect riskgraph-sandbox-vulnerable:local >/dev/null
         docker image inspect riskgraph-sandbox:local >/dev/null
+        docker image inspect riskgraph-sandbox-protected-py:local >/dev/null
+        docker image inspect riskgraph-sandbox-vulnerable-py:local >/dev/null
         docker image inspect riskgraph-validation-probe:local >/dev/null
     networks: [validation-engine]
     restart: "no"
@@ -73,9 +90,11 @@ services:
       validation-image-loader:
         condition: service_completed_successfully
     environment:
-      RISKGRAPH_VALIDATION_DOCKER_HOST: tcp://validation-docker:2375
+      RISKGRAPH_VALIDATION_DOCKER_HOST: tcp://validation-docker:2376
       RISKGRAPH_REQUIRE_ISOLATED_DOCKER: "true"
       RISKGRAPH_VALIDATION_PROBE_IMAGE: riskgraph-validation-probe:local
+    volumes:
+      - riskgraph-validation-certs:/certs/client:ro
     networks:
       - default
       - validation-engine
@@ -87,3 +106,4 @@ networks:
 
 volumes:
   riskgraph-validation-docker:
+  riskgraph-validation-certs:

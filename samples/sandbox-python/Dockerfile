@@ -1,0 +1,11 @@
+FROM python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt \
+    && groupadd --system --gid 10001 riskgraph \
+    && useradd --system --uid 10001 --gid riskgraph --no-create-home riskgraph
+COPY --chown=riskgraph:riskgraph app ./app
+LABEL ai.riskgraph.sandbox="1"
+USER 10001:10001
+EXPOSE 8084
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8084"]

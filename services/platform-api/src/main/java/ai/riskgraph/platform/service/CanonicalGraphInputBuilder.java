@@ -32,8 +32,13 @@ public class CanonicalGraphInputBuilder {
             incomplete |= !diagnostic.path("severity").asString().equals("INFO");
             if (diagnostic.path("severity").asString().equals("ERROR")) confidence = "LOW";
         }
-        boolean emptyChangedSurface = !envelope.path("changed_files").isEmpty()
-                && envelope.path("before").isEmpty() && envelope.path("after").isEmpty();
+        // An empty extraction surface is always low confidence. Requiring
+        // changed_files to be non-empty missed the worst case: a PR that
+        // touches only non-Java files (SecurityConfig.kt, application.yml)
+        // is filtered out upstream, so changed_files is empty and the
+        // analyzer reported full coverage on a change it never modelled.
+        boolean emptyChangedSurface =
+                envelope.path("before").isEmpty() && envelope.path("after").isEmpty();
         incomplete |= emptyChangedSurface;
         if (emptyChangedSurface) confidence = "LOW";
         graphInput.putObject("quality").put("confidence", confidence)

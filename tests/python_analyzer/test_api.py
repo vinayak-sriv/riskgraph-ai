@@ -60,3 +60,24 @@ def test_health_needs_no_credential():
     response = asyncio.run(send())
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "service": "python-analyzer"}
+
+
+def test_analyze_rejects_a_repository_outside_the_allowed_roots(tmp_path, monkeypatch):
+    outside = tmp_path.parent / "outside-the-allowlist"
+    outside.mkdir(exist_ok=True)
+    payload = {
+        "repository_path": str(outside),
+        "old_commit": "a" * 40,
+        "new_commit": "b" * 40,
+    }
+
+    assert post("/analyze", payload).status_code == 403
+
+
+def test_analyze_fails_closed_when_no_roots_are_configured(tmp_path, monkeypatch):
+    monkeypatch.delenv("RISKGRAPH_ALLOWED_REPOSITORY_ROOTS", raising=False)
+    payload = {"repository_path": str(tmp_path), "old_commit": "a" * 40, "new_commit": "b" * 40}
+
+    response = post("/analyze", payload)
+    assert response.status_code == 503
+    assert response.json()["detail"] == "REPOSITORY_ROOTS_NOT_CONFIGURED"

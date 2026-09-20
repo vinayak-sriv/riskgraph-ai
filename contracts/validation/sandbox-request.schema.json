@@ -9,6 +9,15 @@
       "title": "Sandbox Revision",
       "type": "string"
     },
+    "language": {
+      "default": "java",
+      "enum": [
+        "java",
+        "python"
+      ],
+      "title": "Language",
+      "type": "string"
+    },
     "expected_commit": {
       "anyOf": [
         {

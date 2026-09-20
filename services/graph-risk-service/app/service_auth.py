@@ -16,5 +16,9 @@ def require_service_token(
         raise HTTPException(
             status_code=503, detail="Internal service authentication is not configured"
         )
-    if supplied is None or not hmac.compare_digest(supplied, expected):
+    # Compare bytes: hmac.compare_digest on str raises TypeError for a
+    # non-ASCII header, turning a 401 into a 500 with a traceback.
+    if supplied is None or not hmac.compare_digest(
+        supplied.encode("utf-8"), expected.encode("utf-8")
+    ):
         raise HTTPException(status_code=401, detail="Invalid internal service credential")
