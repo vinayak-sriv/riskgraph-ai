@@ -329,6 +329,7 @@ export function useAnalysis() {
       return true;
     } catch (reason) {
       if (request.id === requestId.current) {
+        setOffline(false);
         setError(
           `Source analysis failed. The previous result remains visible. ${
             reason instanceof Error ? reason.message : "Please try again."
