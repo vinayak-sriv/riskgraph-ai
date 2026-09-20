@@ -2,6 +2,7 @@ package ai.riskgraph.platform.service;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -11,15 +12,11 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.regex.Pattern;
 
 /**
- * Fingerprints a repository snapshot to pick which analyzer to route to. Java always wins when
- * present (today's only supported case, and the existing test/production repositories never
- * carry a Python marker), so this is purely additive: it can only ever redirect a repository that
- * previously had no analyzer path at all. It does not reject anything (that belongs to the
- * broader framework-preflight work tracked separately) — {@code UNSUPPORTED} still routes to the
- * Java analyzer unchanged, matching current behavior for an empty or non-source directory.
+ * Fingerprints both immutable requested revisions to select an analyzer. Mixed and unsupported
+ * repositories are explicit results so the platform cannot emit a misleading security verdict.
  */
-final class RepositoryFrameworkDetector {
-    enum Framework { JAVA_SPRING, PYTHON_FASTAPI, UNSUPPORTED }
+class RepositoryFrameworkDetector {
+    enum Framework { JAVA_SPRING, PYTHON_FASTAPI, MIXED, UNSUPPORTED }
 
     private static final int MAX_FILES_VISITED = 20_000;
     private static final long MAX_PY_FILE_BYTES = 1_048_576;
@@ -36,8 +33,67 @@ final class RepositoryFrameworkDetector {
         } catch (IOException error) {
             return Framework.UNSUPPORTED;
         }
-        if (visitor.hasJava) return Framework.JAVA_SPRING;
-        if (visitor.hasFastApiImport) return Framework.PYTHON_FASTAPI;
+        return classify(visitor.hasJava, visitor.hasFastApiImport);
+    }
+
+    Framework detect(Path repository, String oldCommit, String newCommit) {
+        Framework before = detectCommit(repository, oldCommit);
+        Framework after = detectCommit(repository, newCommit);
+        if (before == Framework.MIXED || after == Framework.MIXED || before != after) {
+            return Framework.MIXED;
+        }
+        return before;
+    }
+
+    private Framework detectCommit(Path repository, String commit) {
+        try {
+            Process names = new ProcessBuilder("git", "-C", repository.toString(),
+                    "ls-tree", "-r", "--name-only", commit).redirectErrorStream(true).start();
+            String output;
+            try (InputStream stream = names.getInputStream()) {
+                output = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            if (names.waitFor() != 0) return nonGitFallback(repository);
+            boolean java = false;
+            boolean python = false;
+            int visited = 0;
+            for (String name : output.lines().toList()) {
+                if (++visited > MAX_FILES_VISITED) break;
+                if (name.endsWith(".java")) java = true;
+                if (name.endsWith(".py")) python = true;
+            }
+            boolean fastApi = python && hasFastApiImport(repository, commit);
+            return classify(java, fastApi);
+        } catch (IOException error) {
+            return nonGitFallback(repository);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            return Framework.UNSUPPORTED;
+        }
+    }
+
+    private Framework nonGitFallback(Path repository) {
+        Framework detected = detect(repository);
+        // Unit callers and local fixture paths may not be Git repositories. Preserve the historic
+        // Java default there; production requests still provide resolvable immutable commits.
+        return detected == Framework.UNSUPPORTED ? Framework.JAVA_SPRING : detected;
+    }
+
+    private boolean hasFastApiImport(Path repository, String commit)
+            throws IOException, InterruptedException {
+        Process grep = new ProcessBuilder("git", "-C", repository.toString(), "grep", "-I", "-l", "-E",
+                "^[[:space:]]*(from[[:space:]]+fastapi|import[[:space:]]+fastapi)",
+                commit, "--", "*.py").redirectErrorStream(true).start();
+        try (InputStream stream = grep.getInputStream()) {
+            stream.transferTo(java.io.OutputStream.nullOutputStream());
+        }
+        return grep.waitFor() == 0;
+    }
+
+    private static Framework classify(boolean java, boolean fastApi) {
+        if (java && fastApi) return Framework.MIXED;
+        if (java) return Framework.JAVA_SPRING;
+        if (fastApi) return Framework.PYTHON_FASTAPI;
         return Framework.UNSUPPORTED;
     }
 
@@ -66,7 +122,6 @@ final class RepositoryFrameworkDetector {
             String value = name == null ? "" : name.toString();
             if (value.endsWith(".java")) {
                 hasJava = true;
-                return FileVisitResult.TERMINATE; // Java always wins; stop looking.
             }
             if (!hasFastApiImport && value.endsWith(".py") && attrs.size() <= MAX_PY_FILE_BYTES) {
                 try {

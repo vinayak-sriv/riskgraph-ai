@@ -1,6 +1,12 @@
 package ai.riskgraph.platform.service;
 
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.HexFormat;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.context.annotation.Profile;
@@ -39,7 +45,7 @@ public class NotificationOutboxWriter {
         String occurredAt = Instant.now().toString();
 
         ObjectNode decision = mapper.createObjectNode();
-        decision.put("schema_version", "1.0.0");
+        decision.put("schema_version", "1.1.0");
         decision.put("scan_id", scanExternalId);
         decision.put("repository", provenance.path("repository_identity").asString());
         decision.put("old_commit", provenance.path("old_commit").asString());
@@ -47,17 +53,24 @@ public class NotificationOutboxWriter {
         decision.put("final_verdict", verdict);
         decision.put("risk_before", result.at("/risk_result/risk_before").asInt());
         decision.put("risk_after", result.at("/risk_result/risk_after").asInt());
+        decision.put("risk_delta", result.at("/risk_result/risk_delta").asInt());
+        decision.put("risk_category", result.at("/risk_result/category_after").asString("MEDIUM"));
+        decision.put("confidence", result.at("/quality/confidence").asString("LOW"));
         decision.put("validation_status", result.path("validation_status").asString("NOT_RUN"));
+        var fingerprints = stableFindingFingerprints(result, provenance.path("repository_identity").asString());
+        var fingerprintArray = decision.putArray("finding_fingerprints");
+        fingerprints.forEach(fingerprintArray::add);
         decision.put("decided_at", occurredAt);
         contracts.validate("notifications/final-decision.schema.json", decision);
 
         // Stable across redeliveries of the same decision; a re-save with an
         // unchanged verdict is a no-op insert, a verdict change is a new event.
-        String dedupKey = scanExternalId + ":" + verdict;
+        String dedupKey = "decision:" + digest(provenance.path("new_commit").asString() + "\n"
+                + verdict + "\n" + String.join("\n", fingerprints));
         String eventId = UUID.randomUUID().toString();
 
         ObjectNode event = mapper.createObjectNode();
-        event.put("schema_version", "1.0.0");
+        event.put("schema_version", "1.1.0");
         event.put("event_id", eventId);
         event.put("event_type", "final-decision");
         event.put("occurred_at", occurredAt);
@@ -70,5 +83,24 @@ public class NotificationOutboxWriter {
                 VALUES (?::uuid, ?, ?, ?, ?::jsonb)
                 ON CONFLICT (dedup_key) DO NOTHING
                 """, eventId, scanId, dedupKey, verdict, event.toString());
+    }
+
+    private static List<String> stableFindingFingerprints(JsonNode result, String repository) {
+        List<String> fingerprints = new ArrayList<>();
+        for (JsonNode finding : result.path("findings")) {
+            fingerprints.add(digest(repository + "\n" + finding.path("route_id").asString()
+                    + "\n" + finding.path("resource").asString()));
+        }
+        if (fingerprints.isEmpty()) fingerprints.add(digest(repository + "\nno-finding"));
+        return fingerprints.stream().sorted().distinct().toList();
+    }
+
+    private static String digest(String value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 unavailable", error);
+        }
     }
 }

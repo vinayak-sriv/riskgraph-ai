@@ -38,9 +38,9 @@ scope and acceptance criteria are tracked in [Pending updates](pending-updates.m
 
 | Track | Status | Outcome | Promotion gate |
 |---|---|---|---|
-| Python framework preflight | Complete | Detect Spring Boot, FastAPI, mixed, and unsupported repositories before analysis | Unsupported frameworks produce an explicit notice and no ALLOW/BLOCK verdict; partial coverage forces REVIEW |
-| Python web analyzer | Planned after the Java release | Add Python 3 FastAPI analysis behind the existing analyzer boundary and unchanged IR | Four MVP scenarios, provenance, confidence/coverage, clean CI, and pinned public FastAPI evaluation pass |
-| Notification manager | Complete: outbox delivery, permission recheck, dedup-by-fingerprint, per-user rate limits, and delivery/read audit trail shipped (#50); dashboard notification center with preferences and unsubscribe-all shipped (#67). Per-repository unsubscribe scope (vs. global) is the only open item | Notify authorized repository members through in-app and email channels for REVIEW/BLOCK decisions | Permission recheck, user preferences, certainty-aware templates, outbox/retry, deduplication, rate limits, audit records, and unsubscribe controls pass |
+| Python framework preflight | Implemented, gate pending | Detect Spring Boot, FastAPI, mixed, and unsupported repositories from both requested commits | Unsupported/mixed frameworks produce an explicit notice and no ALLOW/BLOCK verdict; independent Week 12 review remains required |
+| Python web analyzer | Experimental; not promoted | Evaluate Python 3 FastAPI analysis behind the existing analyzer boundary and unchanged IR | Router-prefix stitching, cross-file resolution, pinned public evaluation, and the Week 12 gate pass |
+| Notification manager | In progress; post-MVP | Notify authorized repository members through in-app and email channels for REVIEW/BLOCK decisions | Delivery-time permission checks and commit/finding dedup are implemented; per-repository controls, PR identity, recovery integration tests, and the Week 12 gate remain open |
 | Additional channels/frameworks | Future | Add browser/mobile push and separately evaluated Django/Flask adapters | Each channel passes consent/privacy review; each framework has its own deterministic extraction and evaluation evidence |
 
 ## Phase Gates

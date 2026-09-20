@@ -32,7 +32,8 @@ public class NotificationService {
     }
 
     public record Notification(Long id, String repository, String verdict, Integer riskBefore,
-            Integer riskAfter, String scanId, Instant createdAt, Instant readAt) { }
+            Integer riskAfter, String scanId, String validationStatus, String confidence,
+            Instant createdAt, Instant readAt) { }
 
     public record Page(List<Notification> items, Long nextCursor) { }
 
@@ -48,15 +49,18 @@ public class NotificationService {
                        o.payload->'decision'->>'final_verdict' AS verdict,
                        (o.payload->'decision'->>'risk_before')::int AS risk_before,
                        (o.payload->'decision'->>'risk_after')::int AS risk_after,
-                       o.payload->'decision'->>'scan_id' AS scan_id
+                       o.payload->'decision'->>'scan_id' AS scan_id,
+                       o.payload->'decision'->>'validation_status' AS validation_status,
+                       o.payload->'decision'->>'confidence' AS confidence
                 FROM notification_deliveries d
                 JOIN notification_outbox o ON o.event_id = d.event_id
-                WHERE d.user_id = ? AND d.channel = ? AND d.id < ?
+                WHERE d.user_id = ? AND d.channel = ? AND d.status='SENT' AND d.id < ?
                 ORDER BY d.id DESC
                 LIMIT ?
                 """, (row, i) -> new Notification(row.getLong("id"), row.getString("repository"),
                         row.getString("verdict"), (Integer) row.getObject("risk_before"),
                         (Integer) row.getObject("risk_after"), row.getString("scan_id"),
+                        row.getString("validation_status"), row.getString("confidence"),
                         row.getTimestamp("created_at").toInstant(),
                         row.getTimestamp("read_at") == null ? null : row.getTimestamp("read_at").toInstant()),
                 userId, IN_APP, before, limit + 1);
@@ -67,7 +71,7 @@ public class NotificationService {
 
     public int unreadCount(Long userId) {
         Integer count = db.queryForObject(
-                "SELECT count(*) FROM notification_deliveries WHERE user_id=? AND channel=? AND read_at IS NULL",
+                "SELECT count(*) FROM notification_deliveries WHERE user_id=? AND channel=? AND status='SENT' AND read_at IS NULL",
                 Integer.class, userId, IN_APP);
         return count == null ? 0 : count;
     }

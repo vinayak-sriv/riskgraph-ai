@@ -72,6 +72,27 @@ class SourceScanServiceTest {
         verifyNoInteractions(client);
     }
 
+    @Test void unsupportedCommittedFrameworkProducesNoVerdictOrAnalyzerCall() throws Exception {
+        java.nio.file.Files.writeString(root.resolve("script.py"), "print('hello')\n");
+        runGit("init");
+        runGit("config", "user.email", "test@riskgraph.local");
+        runGit("config", "user.name", "RiskGraph Test");
+        runGit("add", "script.py");
+        runGit("commit", "-m", "plain python");
+        String commit = runGit("rev-parse", "HEAD").trim();
+        var client = mock(AnalysisClient.class);
+        var service = new SourceScanService(client, new ContractValidator(), mapper,
+                "analyzer", "graph", "python", root.toString(), new MemoryScanStore(),
+                new FindingEnrichmentService(client, new ContractValidator(), mapper),
+                new SourceValidationService(client, new ContractValidator(), mapper));
+
+        PipelineException failure = catchThrowableOfType(PipelineException.class,
+                () -> service.analyze(root.toString(), commit, commit));
+
+        assertThat(failure.code).isEqualTo("UNSUPPORTED_FRAMEWORK");
+        verifyNoInteractions(client);
+    }
+
     @Test void rejectsMalformedEnvelopeAndDisallowedPaths() {
         var client = mock(AnalysisClient.class);
         when(client.post(any(), any(), any())).thenReturn(mapper.createObjectNode());
@@ -324,6 +345,16 @@ class SourceScanServiceTest {
                 "/contracts/ir/examples/analysis-envelope.json"));
         ((ObjectNode) envelope.path("provenance")).put("repository_path", root.toRealPath().toString());
         return envelope;
+    }
+
+    private String runGit(String... arguments) throws Exception {
+        String[] command = new String[arguments.length + 1];
+        command[0] = "git";
+        System.arraycopy(arguments, 0, command, 1, arguments.length);
+        Process process = new ProcessBuilder(command).directory(root.toFile()).redirectErrorStream(true).start();
+        String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(process.waitFor()).as(output).isZero();
+        return output;
     }
 
     private ObjectNode envelopeWithRows(String revision, int rowCount) throws Exception {

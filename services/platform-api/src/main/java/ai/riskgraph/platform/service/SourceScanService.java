@@ -102,16 +102,22 @@ public class SourceScanService {
     private JsonNode analyzeResolved(Path path, String oldCommit, String newCommit) {
         ObjectNode request = mapper.createObjectNode().put("repository_path", path.toString())
             .put("old_commit", oldCommit).put("new_commit", newCommit);
-        // Additive only: Java is the unconditional default (today's only behavior), and a
-        // positively detected FastAPI repository is the sole case that redirects elsewhere.
-        String targetAnalyzerUrl = analyzerUrl;
-        if (frameworks.detect(path) == RepositoryFrameworkDetector.Framework.PYTHON_FASTAPI) {
-            if (pythonAnalyzerUrl.isBlank()) {
-                throw new PipelineException("PYTHON_ANALYZER_NOT_CONFIGURED", 503,
-                    "This repository looks like a Python/FastAPI project, but the Python analyzer is not configured");
+        // Detect both immutable revisions; current working-tree contents must not affect routing.
+        RepositoryFrameworkDetector.Framework framework = frameworks.detect(path, oldCommit, newCommit);
+        String targetAnalyzerUrl = switch (framework) {
+            case JAVA_SPRING -> analyzerUrl;
+            case PYTHON_FASTAPI -> {
+                if (pythonAnalyzerUrl.isBlank()) {
+                    throw new PipelineException("PYTHON_ANALYZER_NOT_CONFIGURED", 503,
+                        "This repository looks like a Python/FastAPI project, but the Python analyzer is not configured");
+                }
+                yield pythonAnalyzerUrl;
             }
-            targetAnalyzerUrl = pythonAnalyzerUrl;
-        }
+            case MIXED -> throw new PipelineException("UNSUPPORTED_FRAMEWORK", 422,
+                    "Mixed Java/Python repositories are not supported");
+            case UNSUPPORTED -> throw new PipelineException("UNSUPPORTED_FRAMEWORK", 422,
+                    "No supported Spring Boot or FastAPI framework was found at the requested commits");
+        };
         JsonNode envelope = client.post(targetAnalyzerUrl, "/analyze", request);
         contracts.validate("ir/analysis-envelope.schema.json", envelope);
         if (!envelope.at("/provenance/old_commit").asString().equals(oldCommit.toLowerCase())

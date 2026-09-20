@@ -58,8 +58,9 @@ samples/generated/
 pytest-cache-files-*/
 .release-test-*/
 
-# Release/presentation artifacts (kept out of git; publish as release assets)
-artifacts/
+# Release artifacts stay local except the submission presentation source.
+artifacts/*
+!artifacts/RiskGraph-AI-Release-Candidate-2026-09-13.pptx
 
 # Local generated archives
 /apps/dashboard.zip

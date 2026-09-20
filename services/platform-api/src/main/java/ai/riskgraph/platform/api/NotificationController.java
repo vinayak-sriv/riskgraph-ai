@@ -67,7 +67,7 @@ public class NotificationController {
 
     private static NotificationItem toItem(NotificationService.Notification n) {
         return new NotificationItem(n.id(), n.repository(), n.verdict(), n.riskBefore(),
-                n.riskAfter(), n.scanId(), n.createdAt(), n.readAt());
+                n.riskAfter(), n.scanId(), n.validationStatus(), n.confidence(), n.createdAt(), n.readAt());
     }
 
     private static PreferencesResponse toResponse(NotificationService.Preferences prefs) {
@@ -77,7 +77,8 @@ public class NotificationController {
     }
 
     public record NotificationItem(Long id, String repository, String verdict, Integer risk_before,
-            Integer risk_after, String scan_id, Instant created_at, Instant read_at) { }
+            Integer risk_after, String scan_id, String validation_status, String confidence,
+            Instant created_at, Instant read_at) { }
     public record NotificationPage(List<NotificationItem> items, Long next_cursor, int unread_count) { }
     public record ChannelPreferenceItem(String channel, boolean enabled, String min_severity) { }
     public record PreferencesResponse(List<ChannelPreferenceItem> channels, boolean unsubscribed_all) { }

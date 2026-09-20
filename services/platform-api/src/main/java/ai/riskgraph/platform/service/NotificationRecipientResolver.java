@@ -38,5 +38,22 @@ public class NotificationRecipientResolver {
                 scanId, verdict, repository);
     }
 
+    public boolean isEligible(Long scanId, String repository, String verdict, Long userId, String channel) {
+        Boolean eligible = db.queryForObject("""
+                SELECT EXISTS(
+                    SELECT 1 FROM scan_memberships m
+                    JOIN users u ON u.id=m.user_id AND u.enabled
+                    LEFT JOIN notification_preferences p ON p.user_id=u.id AND p.channel=?
+                    WHERE m.scan_id=? AND u.id=?
+                      AND COALESCE(p.enabled, ?='IN_APP')
+                      AND (COALESCE(p.min_severity, 'REVIEW') <> 'BLOCK' OR ?='BLOCK')
+                      AND NOT EXISTS (
+                          SELECT 1 FROM notification_unsubscribes s
+                          WHERE s.user_id=u.id AND s.scope IN ('*', ?))
+                )
+                """, Boolean.class, channel, scanId, userId, channel, verdict, repository);
+        return Boolean.TRUE.equals(eligible);
+    }
+
     public record Recipient(Long userId, String channel) { }
 }

@@ -36,4 +36,18 @@ class NotificationRecipientResolverTest {
         verify(db).query(anyString(), any(RowMapper.class), args.capture());
         assertThat(args.getValue()).containsExactly(7L, "BLOCK", "demo/riskgraph-sample");
     }
+
+    @Test
+    void deliveryEligibilityRechecksMembershipPreferencesAndUnsubscribes() {
+        JdbcTemplate db = mock(JdbcTemplate.class);
+        when(db.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Boolean.class),
+                any(Object[].class))).thenReturn(false);
+
+        var resolver = new NotificationRecipientResolver(db);
+
+        assertThat(resolver.isEligible(7L, "demo/repo", "BLOCK", 42L, "EMAIL")).isFalse();
+        ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+        verify(db).queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Boolean.class), args.capture());
+        assertThat(args.getValue()).containsExactly("EMAIL", 7L, 42L, "EMAIL", "BLOCK", "demo/repo");
+    }
 }
