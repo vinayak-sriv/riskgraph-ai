@@ -188,7 +188,6 @@ public class SpringEndpointExtractor {
                 SensitivityPolicy.Classification classification = sensitivityPolicy.classify(
                         primaryPath.resource(), primaryPath.repository() != null);
                 SourceLocation location = sourceLocation(snapshot, method);
-                String callConfidence = confidenceEvaluator.callConfidence(resolution);
 
                 addDiagnostics(diagnostics, location, authenticatedByAnnotation, annotationRole, resolution);
                 if (classification.defaulted() && primaryPath.repository() != null) {
@@ -204,12 +203,26 @@ public class SpringEndpointExtractor {
                     diagnostics.add(new Diagnostic("WARNING", "COMPLEX_AUTHORIZATION",
                         "Authorization cannot be fully represented by a single canonical role", location.path()));
                 }
-                emitRouteEndpoints(type, method, classMapping, methodMapping, authenticatedByAnnotation,
-                        annotationRole, filterSecurityPresent, simpleAuthorization, resolution, callConfidence,
-                        primaryPath, classification, location, httpMethods, diagnostics, endpoints);
+                emitRouteEndpoints(type, method,
+                        new AuthorizedMapping(classMapping, methodMapping, authenticatedByAnnotation,
+                                annotationRole, simpleAuthorization),
+                        filterSecurityPresent, resolution, primaryPath, classification, location,
+                        httpMethods, diagnostics, endpoints);
             }
         }
         return new ModelExtraction(List.copyOf(endpoints), controllers);
+    }
+
+    // Bundles the mapping + authorization facts extractModel already resolved for one
+    // controller method, so emitRouteEndpoints below can take one parameter for them
+    // instead of five (Checkstyle's ParameterNumber limit is 12).
+    private record AuthorizedMapping(
+            SpringMappingResolver.Result classMapping,
+            SpringMappingResolver.Result methodMapping,
+            boolean authenticatedByAnnotation,
+            String annotationRole,
+            boolean simpleAuthorization
+    ) {
     }
 
     // Split out of extractModel to stay under Checkstyle's MethodLength limit; this is
@@ -217,14 +230,9 @@ public class SpringEndpointExtractor {
     private void emitRouteEndpoints(
             CtType<?> type,
             CtMethod<?> method,
-            SpringMappingResolver.Result classMapping,
-            SpringMappingResolver.Result methodMapping,
-            boolean authenticatedByAnnotation,
-            String annotationRole,
+            AuthorizedMapping mapping,
             boolean filterSecurityPresent,
-            boolean simpleAuthorization,
             DependencyPathResolver.Result resolution,
-            String callConfidence,
             DependencyPath primaryPath,
             SensitivityPolicy.Classification classification,
             SourceLocation location,
@@ -232,8 +240,12 @@ public class SpringEndpointExtractor {
             List<Diagnostic> diagnostics,
             List<EndpointEvidence> endpoints
     ) {
-        for (String classPath : classMapping.paths()) {
-            for (String methodPath : methodMapping.paths()) {
+        boolean authenticatedByAnnotation = mapping.authenticatedByAnnotation();
+        String annotationRole = mapping.annotationRole();
+        boolean simpleAuthorization = mapping.simpleAuthorization();
+        String callConfidence = confidenceEvaluator.callConfidence(resolution);
+        for (String classPath : mapping.classMapping().paths()) {
+            for (String methodPath : mapping.methodMapping().paths()) {
                 String route = normalizePath(classPath, methodPath);
                 boolean authenticated = authenticatedByAnnotation;
                 String requiredRole = authenticatedByAnnotation ? annotationRole : null;

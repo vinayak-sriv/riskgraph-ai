@@ -250,6 +250,13 @@ components:
           - protected
           - vulnerable
           title: Sandbox Revision
+        language:
+          type: string
+          enum:
+          - java
+          - python
+          title: Language
+          default: java
         expected_commit:
           anyOf:
           - type: string
