@@ -39,6 +39,9 @@ public class PlatformSecurity {
                 .requestMatchers(HttpMethod.DELETE, "/scan-jobs/**").hasAnyRole("ANALYST", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/analyses/**", "/scans/**").hasAnyRole("DEVELOPER", "ANALYST", "ADMIN")
                 .requestMatchers(HttpMethod.POST, "/analyses", "/analyses/**", "/scans").hasAnyRole("ANALYST", "ADMIN")
+                // Notifications are personal to every signed-in user, not gated by the
+                // analysis-access roles above.
+                .requestMatchers("/notifications/**").hasAnyRole("DEVELOPER", "ANALYST", "ADMIN")
                 .anyRequest().denyAll())
             .formLogin(form -> form.loginProcessingUrl("/auth/login")
                 .successHandler((request, response, authentication) -> {

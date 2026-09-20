@@ -13,6 +13,7 @@ import { Sidebar, ConnectionStatus } from "./components/WorkspaceLayout";
 import { AnalysisView } from "./components/AnalysisView";
 import { NewAnalysisPanel, SavedScansPanel } from "./components/AnalysisSetup";
 import { AccountPanel, GitHubConnectionCard } from "./components/AccountPanel";
+import { NotificationCenter } from "./components/NotificationCenter";
 import { formatLabel, type Theme, type WorkspaceView } from "./view-model";
 import { useAnalysis } from "./useAnalysis";
 import { platformUrl } from "./api";
@@ -263,6 +264,7 @@ export default function App() {
                 connection={github}
                 connectUrl={`${platformUrl}/auth/github/connect`}
               />
+              <NotificationCenter user={user} />
             </div>
           </section>
         )}
