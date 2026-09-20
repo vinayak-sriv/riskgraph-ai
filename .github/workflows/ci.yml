@@ -87,6 +87,11 @@ jobs:
       RISKGRAPH_AI_SERVICE_TOKEN: ci-ai-smoke-${{ github.run_id }}-${{ github.run_attempt }}
       RISKGRAPH_VALIDATION_PROBE_IMAGE: python:3.12.14-alpine3.24@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a
       POSTGRES_PASSWORD: ci-postgres-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+      # verify_mvp.py talks to platform-api over plain http://localhost:8080
+      # (see runtime-guide.md); the Secure cookie flag and the GitHub OAuth
+      # linkage gate are both production defaults that must be off here.
+      RISKGRAPH_SECURE_COOKIE: "false"
+      RISKGRAPH_REQUIRE_GITHUB_CONNECTION: "false"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0

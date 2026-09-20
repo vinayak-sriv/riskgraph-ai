@@ -41,6 +41,10 @@ jobs:
           SPRING_PROFILES_ACTIVE: local
           RISKGRAPH_BOOTSTRAP_PASSWORD_FILE: ${{ github.workspace }}/engine/tmp/local-auth/admin.password
           RISKGRAPH_REQUIRE_GITHUB_CONNECTION: 'false'
+          # submit_event.py authenticates over plain http://localhost:8080 via
+          # PlatformSession's cookie-based login; the Secure cookie flag
+          # (production default) would never be sent back over HTTP.
+          RISKGRAPH_SECURE_COOKIE: 'false'
           # Ephemeral per-job credential; this is not a deployment secret.
           RISKGRAPH_ANALYZER_SERVICE_TOKEN: ci-analyzer-${{ github.run_id }}-${{ github.run_attempt }}
           RISKGRAPH_GRAPH_SERVICE_TOKEN: ci-graph-${{ github.run_id }}-${{ github.run_attempt }}

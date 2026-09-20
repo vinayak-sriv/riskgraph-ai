@@ -35,7 +35,8 @@ public class AnalysisClient {
                 .contentType(MediaType.APPLICATION_JSON).body(body.toString()).exchange((request, response) -> {
                     if (!response.getStatusCode().is2xxSuccessful()) {
                         throw new PipelineException("DEPENDENCY_REJECTED", 502,
-                            "Analysis dependency rejected the request (HTTP " + response.getStatusCode().value() + ")");
+                            "Analysis dependency rejected the request (HTTP " + response.getStatusCode().value()
+                                + "): " + errorDetail(response));
                     }
                     byte[] bytes = response.getBody().readNBytes(maxResponseBytes + 1);
                     if (bytes.length > maxResponseBytes) {
@@ -53,6 +54,18 @@ public class AnalysisClient {
             }
             throw new PipelineException(timeout ? "DEPENDENCY_TIMEOUT" : "DEPENDENCY_UNAVAILABLE",
                 timeout ? 504 : 503, "Analysis dependency " + (timeout ? "timed out" : "is unavailable"));
+        }
+    }
+
+    /** Raw (truncated) response body text, for diagnosability. Deliberately not JSON-parsed:
+     * a FastAPI validation error's "detail" is a list, not a string, and every downstream
+     * service has its own error shape, so the raw body is the one format that always renders. */
+    private String errorDetail(org.springframework.http.client.ClientHttpResponse response) {
+        try {
+            byte[] bytes = response.getBody().readNBytes(4096);
+            return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException error) {
+            return "(no error detail available: " + error.getMessage() + ")";
         }
     }
 

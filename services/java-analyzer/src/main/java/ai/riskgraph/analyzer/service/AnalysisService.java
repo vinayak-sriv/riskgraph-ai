@@ -247,7 +247,7 @@ public class AnalysisService {
             int exitCode = process.waitFor();
             if (exitCode != 0 || Files.size(output) == 0 || Files.size(output) > 32L * 1024 * 1024) {
                 throw new AnalysisException("ANALYZER_WORKER_FAILED",
-                        "Isolated analyzer worker failed or returned an invalid result");
+                        "Isolated analyzer worker failed (exit=" + exitCode + "): " + workerLogTail(log));
             }
             return mapper.readValue(output.toFile(), AnalysisResponse.class);
         } catch (InterruptedException error) {
@@ -255,7 +255,8 @@ public class AnalysisService {
             throw new AnalysisException("ANALYSIS_INTERRUPTED", "Isolated analysis was interrupted");
         } catch (IOException | RuntimeException error) {
             if (error instanceof AnalysisException analysisException) throw analysisException;
-            throw new AnalysisException("ANALYZER_WORKER_FAILED", "Unable to run isolated analyzer worker");
+            throw new AnalysisException("ANALYZER_WORKER_FAILED", "Unable to run isolated analyzer worker: "
+                    + error.getClass().getSimpleName() + ": " + error.getMessage());
         } finally {
             if (process != null && process.isAlive()) {
                 process.descendants().forEach(handle -> handle.destroyForcibly());
@@ -263,6 +264,18 @@ public class AnalysisService {
             }
             cleanupWorkerArtifact(output, "output");
             cleanupWorkerArtifact(log, "log");
+        }
+    }
+
+    /** Best-effort tail of the worker's redirected stdout/stderr, for the failure message. */
+    private String workerLogTail(Path log) {
+        try {
+            byte[] bytes = Files.readAllBytes(log);
+            String text = new String(bytes, StandardCharsets.UTF_8);
+            int max = 4000;
+            return text.length() > max ? "..." + text.substring(text.length() - max) : text;
+        } catch (IOException error) {
+            return "(worker log unavailable: " + error.getMessage() + ")";
         }
     }
 
