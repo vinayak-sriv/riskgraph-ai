@@ -38,7 +38,7 @@ scope and acceptance criteria are tracked in [Pending updates](pending-updates.m
 
 | Track | Status | Outcome | Promotion gate |
 |---|---|---|---|
-| Python framework preflight | Planned after Gate D | Detect Spring Boot, FastAPI, mixed, and unsupported repositories before analysis | Unsupported frameworks produce an explicit notice and no ALLOW/BLOCK verdict; partial coverage forces REVIEW |
+| Python framework preflight | Complete | Detect Spring Boot, FastAPI, mixed, and unsupported repositories before analysis | Unsupported frameworks produce an explicit notice and no ALLOW/BLOCK verdict; partial coverage forces REVIEW |
 | Python web analyzer | Planned after the Java release | Add Python 3 FastAPI analysis behind the existing analyzer boundary and unchanged IR | Four MVP scenarios, provenance, confidence/coverage, clean CI, and pinned public FastAPI evaluation pass |
 | Notification manager | Planned after the Java release | Notify authorized repository members through in-app and email channels for REVIEW/BLOCK decisions | Permission recheck, user preferences, certainty-aware templates, outbox/retry, deduplication, rate limits, audit records, and unsubscribe controls pass |
 | Additional channels/frameworks | Future | Add browser/mobile push and separately evaluated Django/Flask adapters | Each channel passes consent/privacy review; each framework has its own deterministic extraction and evaluation evidence |
@@ -59,10 +59,10 @@ evaluation metrics, stable fingerprints, performance limits, and OSS evidence ex
 
 The conditional Python proof of concept may begin only after Gate D passes.
 
-Week 13 work that does not depend on Gate D may proceed while Week 12 review is
-pending. See [Week 13 progress](week-13-progress.md) for the implemented subset and
-the exact remaining gate. See [Week 14 progress](week-14-progress.md) for the
-completed engineering deliverables and clean-install procedure.
+Week 13-15 engineering work proceeded while the Week 12 external review was
+pending; that review is now recorded (see
+[Release readiness](release-readiness.md) and the
+[fresh-clone rehearsal record](evidence/release-rehearsal-2026-09-17.md)).
 
 The post-MVP plan deliberately does not claim support for every Python repository.
 FastAPI is the first framework target; Django and Flask remain separate future
