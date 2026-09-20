@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 WEIGHTS = dict(

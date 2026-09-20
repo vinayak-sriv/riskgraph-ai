@@ -64,7 +64,7 @@ export function GraphComparison({
   const [copied, setCopied] = useState(false);
   const [pathIndex, setPathIndex] = useState(0);
   const [fullScreen, setFullScreen] = useState(false);
-  const [syncViews, setSyncViews] = useState(true);
+  const [syncViews, setSyncViews] = useState(false);
   const [sharedViewport, setSharedViewport] = useState<Viewport | undefined>();
   const fullScreenButton = useRef<HTMLButtonElement>(null);
   const graphStage = useRef<HTMLElement>(null);
