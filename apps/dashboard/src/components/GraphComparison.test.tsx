@@ -55,6 +55,15 @@ it("groups graph controls and exposes the attack path as an ordered sequence", (
   expect(within(path).getByRole("button", { name: "Customer" })).toBeVisible();
 });
 
+it("keeps the before/after graph views independently zoomable by default", () => {
+  render(
+    <GraphComparison analysis={analysis} theme="dark" onNotify={vi.fn()} />,
+  );
+  expect(
+    screen.getByRole("button", { name: "Synchronize graph views" }),
+  ).toHaveAttribute("aria-pressed", "false");
+});
+
 it("inspects both revisions without marking the before graph as a new attack path", () => {
   render(
     <GraphComparison analysis={analysis} theme="dark" onNotify={vi.fn()} />,

@@ -214,6 +214,7 @@ export default function App() {
             sourceAccessEnabled={canRead}
             githubConnectionRequired={githubConnectionRequired}
             loading={loading}
+            operation={operation}
             requestError={offline ? null : error}
             onRun={runSource}
             onSuccess={showAnalysis}

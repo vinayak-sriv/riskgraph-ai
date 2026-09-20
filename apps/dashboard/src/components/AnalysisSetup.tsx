@@ -6,6 +6,7 @@ import {
   GitCompareArrows,
   History,
   LockKeyhole,
+  RefreshCw,
   Search,
   ShieldCheck,
   Terminal,
@@ -22,6 +23,7 @@ export function NewAnalysisPanel({
   sourceAccessEnabled,
   githubConnectionRequired,
   loading,
+  operation,
   requestError,
   onRun,
   onSuccess,
@@ -31,6 +33,7 @@ export function NewAnalysisPanel({
   sourceAccessEnabled: boolean;
   githubConnectionRequired: boolean;
   loading: boolean;
+  operation: string;
   requestError: string | null;
   onRun: (input: SourceInput) => Promise<boolean | undefined>;
   onSuccess: () => void;
@@ -97,10 +100,12 @@ export function NewAnalysisPanel({
           className="analysis-form surface analysis-form-refined"
           onSubmit={(event) => {
             event.preventDefault();
-            if (canRun && formValid)
-              void onRun(input).then((success) => {
-                if (success) onSuccess();
-              });
+            if (canRun && formValid) {
+              // Switch to the analysis page immediately so the run and its
+              // progress animation are visible there, not behind this form.
+              onSuccess();
+              void onRun(input);
+            }
           }}
         >
           <div className="form-intro">
@@ -116,6 +121,17 @@ export function NewAnalysisPanel({
               </p>
             </div>
           </div>
+          {loading && (
+            <div className="state-banner state-refreshing" role="status">
+              <RefreshCw className="spin" size={16} />
+              <div>
+                <strong>{operation}…</strong>
+                <span>
+                  Evidence graphs are being built from the requested revisions.
+                </span>
+              </div>
+            </div>
+          )}
           <label className="repository-input">
             Repository path
             <input
