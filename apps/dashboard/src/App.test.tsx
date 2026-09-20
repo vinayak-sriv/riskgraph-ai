@@ -128,6 +128,42 @@ it("sends immutable source input and shows failure honestly", async () => {
   expect(new Headers(call![1]!.headers).get("X-CSRF-TOKEN")).toBe("test-csrf");
 });
 
+it("shows a loading indicator while a source analysis runs", async () => {
+  let resolvePost: () => void = () => {};
+  const fetcher = vi.fn(async (url: string, options?: RequestInit) => {
+    if (options?.method === "POST" && url.endsWith("/scans")) {
+      return new Promise((resolve) => {
+        resolvePost = () =>
+          resolve({
+            ok: true,
+            json: async () => fixtures["authorization-removal"],
+          });
+      });
+    }
+    return {
+      ok: true,
+      json: async () => authResult(url) ?? fixtures["authorization-removal"],
+    };
+  });
+  vi.stubGlobal("fetch", fetcher);
+  render(<App />);
+  await openView("New analysis");
+  fillSource();
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Run Analysis" })).toBeEnabled(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Run Analysis" }));
+  expect(
+    await screen.findByText("Submitting source analysis…"),
+  ).toBeInTheDocument();
+  resolvePost();
+  await waitFor(() =>
+    expect(
+      screen.queryByText("Submitting source analysis…"),
+    ).not.toBeInTheDocument(),
+  );
+});
+
 it("keeps source mutation controls disabled for Developers", async () => {
   vi.stubGlobal(
     "fetch",
@@ -558,10 +594,48 @@ it("refreshes the displayed source revisions instead of unsaved form edits", asy
       screen.getByRole("button", { name: "Refresh analysis" }),
     ).toBeEnabled(),
   );
+  vi.stubGlobal(
+    "confirm",
+    vi.fn(() => true),
+  );
   fireEvent.change(screen.getByLabelText("Demo scenario"), {
     target: { value: "authorization-removal" },
   });
   await screen.findByText("Spring Boot demo");
+});
+
+it("keeps the current repository result when switching to a demo scenario is declined", async () => {
+  const fetcher = vi.fn(async (url: string, options?: RequestInit) => ({
+    ok: true,
+    json: async () =>
+      authResult(url) ??
+      (options?.method === "POST" ? sourceResult : fixtures["safe-change"]),
+  }));
+  vi.stubGlobal("fetch", fetcher);
+  render(<App />);
+  await openView("New analysis");
+  fillSource();
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Run Analysis" })).toBeEnabled(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Run Analysis" }));
+  await screen.findByText("Repository analysis");
+  const demoRequestsBefore = fetcher.mock.calls.filter(([url]) =>
+    url.includes("/demo/scenarios/"),
+  ).length;
+  vi.stubGlobal(
+    "confirm",
+    vi.fn(() => false),
+  );
+  fireEvent.change(screen.getByLabelText("Demo scenario"), {
+    target: { value: "safe-change" },
+  });
+  expect(screen.getByText("Repository analysis")).toBeInTheDocument();
+  expect(screen.queryByText("Spring Boot demo")).not.toBeInTheDocument();
+  expect(
+    fetcher.mock.calls.filter(([url]) => url.includes("/demo/scenarios/"))
+      .length,
+  ).toBe(demoRequestsBefore);
 });
 
 it("marks retained evidence stale when a source refresh fails", async () => {
