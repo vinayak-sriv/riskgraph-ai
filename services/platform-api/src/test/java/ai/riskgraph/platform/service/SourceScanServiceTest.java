@@ -9,6 +9,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.test.util.ReflectionTestUtils;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -70,6 +71,32 @@ class SourceScanServiceTest {
         assertThatThrownBy(() -> service.analyze(root.toString(), "a".repeat(40), "b".repeat(40)))
             .hasMessageContaining("Python analyzer is not configured");
         verifyNoInteractions(client);
+    }
+
+    @Test void explicitJavaSelectionSupportsTrustedSelfAnalysisOfAMixedRepository() throws Exception {
+        java.nio.file.Files.writeString(root.resolve("App.java"), "class App {}\n");
+        java.nio.file.Files.writeString(root.resolve("main.py"), "from fastapi import FastAPI\n");
+        runGit("init");
+        runGit("config", "user.email", "test@riskgraph.local");
+        runGit("config", "user.name", "RiskGraph Test");
+        runGit("add", "App.java", "main.py");
+        runGit("commit", "-m", "mixed fixture");
+        String commit = runGit("rev-parse", "HEAD").trim();
+        var client = mock(AnalysisClient.class);
+        ObjectNode envelope = envelopeForRoot();
+        ((ObjectNode) envelope.path("provenance")).put("old_commit", commit).put("new_commit", commit);
+        when(client.post(eq("analyzer"), eq("/analyze"), any())).thenReturn(envelope);
+        when(client.post(eq("graph"), eq("/analysis"), any())).thenThrow(
+                new PipelineException("DEPENDENCY_UNAVAILABLE", 503, "reached the graph step"));
+        var service = new SourceScanService(client, new ContractValidator(), mapper,
+                "analyzer", "graph", "python", root.toString(), new MemoryScanStore(),
+                new FindingEnrichmentService(client, new ContractValidator(), mapper),
+                new SourceValidationService(client, new ContractValidator(), mapper));
+        ReflectionTestUtils.setField(service, "configuredFramework", "JAVA_SPRING");
+
+        assertThatThrownBy(() -> service.analyze(root.toString(), commit, commit))
+                .hasMessage("reached the graph step");
+        verify(client, never()).post(eq("python"), any(), any());
     }
 
     @Test void unsupportedCommittedFrameworkProducesNoVerdictOrAnalyzerCall() throws Exception {

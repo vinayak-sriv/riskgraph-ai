@@ -168,7 +168,9 @@ export function NotificationCenter({ user }: { user: Account | null }) {
                   </span>
                 )}
                 <span className="notification-risk">
-                  {item.validation_status === "CONFIRMED" ? "Docker-confirmed" : "Possible"}
+                  {item.validation_status === "CONFIRMED"
+                    ? "Docker-confirmed"
+                    : "Possible"}
                   {item.confidence ? ` · ${item.confidence} confidence` : ""}
                 </span>
               </div>
