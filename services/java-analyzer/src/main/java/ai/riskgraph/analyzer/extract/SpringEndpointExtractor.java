@@ -118,9 +118,10 @@ public class SpringEndpointExtractor {
         ExecutableResolver executableResolver = new ExecutableResolver(model.getAllTypes());
         // One traversal answers both questions. getElements materializes every
         // CtMethod in the model, so doing it twice doubled the cost for nothing.
-        List<CtMethod<?>> securityFilterChains = model.getElements(new TypeFilter<>(CtMethod.class))
-                .stream().filter(this::isSecurityFilterChainMethod)
-                .map(method -> (CtMethod<?>) method).toList();
+        List<CtMethod<?>> allMethods = model.getElements(new TypeFilter<>(CtMethod.class));
+        List<CtMethod<?>> securityFilterChains = allMethods.stream()
+                .filter(this::isSecurityFilterChainMethod)
+                .toList();
         boolean filterSecurityPresent = !securityFilterChains.isEmpty();
         boolean filterSecurityChanged = securityFilterChains.stream()
                 .anyMatch(method -> changedSurface.intersects(snapshot, method, changedRanges));
