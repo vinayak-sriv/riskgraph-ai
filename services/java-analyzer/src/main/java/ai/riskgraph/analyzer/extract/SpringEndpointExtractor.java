@@ -204,38 +204,63 @@ public class SpringEndpointExtractor {
                     diagnostics.add(new Diagnostic("WARNING", "COMPLEX_AUTHORIZATION",
                         "Authorization cannot be fully represented by a single canonical role", location.path()));
                 }
-                for (String classPath : classMapping.paths()) {
-                    for (String methodPath : methodMapping.paths()) {
-                        String route = normalizePath(classPath, methodPath);
-                        boolean authenticated = authenticatedByAnnotation;
-                        String requiredRole = authenticatedByAnnotation ? annotationRole : null;
-                        boolean unresolvedFilter = !authenticatedByAnnotation
-                                && filterSecurityPresent;
-                        String authorizationConfidence = !simpleAuthorization || unresolvedFilter
-                                || resolution.serviceAuthorizationAmbiguous() ? "LOW" : "HIGH";
-                        if (unresolvedFilter) {
-                            diagnostics.add(new Diagnostic("WARNING", "UNRESOLVED_ROUTE_AUTHORIZATION",
-                                    "SecurityFilterChain does not prove authorization for " + route, location.path()));
-                        }
-                        ExtractionConfidence confidence = new ExtractionConfidence(
-                                "HIGH", authorizationConfidence, callConfidence,
-                                confidenceEvaluator.minimum("HIGH", authorizationConfidence, callConfidence));
-                        for (String httpMethod : httpMethods) {
-                            EndpointIr endpoint = new EndpointIr(
-                                    route, httpMethod, type.getSimpleName(), authenticated,
-                                    requiredRole, primaryPath.service(), primaryPath.repository(), primaryPath.resource(),
-                                    classification.sensitivity());
-                            endpoints.add(new EndpointEvidence(
-                                    endpoint, location, type.getQualifiedName(), method.getSignature(), resolution.paths(),
-                                    new SensitivityEvidence(classification.sensitivity(), classification.source(),
-                                            classification.matchedRule()),
-                                    confidence));
-                        }
-                    }
-                }
+                emitRouteEndpoints(type, method, classMapping, methodMapping, authenticatedByAnnotation,
+                        annotationRole, filterSecurityPresent, simpleAuthorization, resolution, callConfidence,
+                        primaryPath, classification, location, httpMethods, diagnostics, endpoints);
             }
         }
         return new ModelExtraction(List.copyOf(endpoints), controllers);
+    }
+
+    // Split out of extractModel to stay under Checkstyle's MethodLength limit; this is
+    // the leaf that turns one resolved (controller, method) pair into its route(s).
+    private void emitRouteEndpoints(
+            CtType<?> type,
+            CtMethod<?> method,
+            SpringMappingResolver.Result classMapping,
+            SpringMappingResolver.Result methodMapping,
+            boolean authenticatedByAnnotation,
+            String annotationRole,
+            boolean filterSecurityPresent,
+            boolean simpleAuthorization,
+            DependencyPathResolver.Result resolution,
+            String callConfidence,
+            DependencyPath primaryPath,
+            SensitivityPolicy.Classification classification,
+            SourceLocation location,
+            List<String> httpMethods,
+            List<Diagnostic> diagnostics,
+            List<EndpointEvidence> endpoints
+    ) {
+        for (String classPath : classMapping.paths()) {
+            for (String methodPath : methodMapping.paths()) {
+                String route = normalizePath(classPath, methodPath);
+                boolean authenticated = authenticatedByAnnotation;
+                String requiredRole = authenticatedByAnnotation ? annotationRole : null;
+                boolean unresolvedFilter = !authenticatedByAnnotation
+                        && filterSecurityPresent;
+                String authorizationConfidence = !simpleAuthorization || unresolvedFilter
+                        || resolution.serviceAuthorizationAmbiguous() ? "LOW" : "HIGH";
+                if (unresolvedFilter) {
+                    diagnostics.add(new Diagnostic("WARNING", "UNRESOLVED_ROUTE_AUTHORIZATION",
+                            "SecurityFilterChain does not prove authorization for " + route, location.path()));
+                }
+                ExtractionConfidence confidence = new ExtractionConfidence(
+                        "HIGH", authorizationConfidence, callConfidence,
+                        confidenceEvaluator.minimum("HIGH", authorizationConfidence, callConfidence));
+                for (String httpMethod : httpMethods) {
+                    EndpointIr endpoint = new EndpointIr(
+                            route, httpMethod, type.getSimpleName(), authenticated,
+                            requiredRole, primaryPath.service(), primaryPath.repository(), primaryPath.resource(),
+                            classification.sensitivity());
+                    endpoints.add(new EndpointEvidence(
+                            endpoint, location, type.getQualifiedName(), method.getSignature(), resolution.paths(),
+                            new SensitivityEvidence(classification.sensitivity(), classification.source(),
+                                    classification.matchedRule()),
+                            confidence));
+                }
+            }
+        }
     }
 
     private List<Path> modelInputRoots(
