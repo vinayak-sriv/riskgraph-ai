@@ -40,7 +40,7 @@ scope and acceptance criteria are tracked in [Pending updates](pending-updates.m
 |---|---|---|---|
 | Python framework preflight | Complete | Detect Spring Boot, FastAPI, mixed, and unsupported repositories before analysis | Unsupported frameworks produce an explicit notice and no ALLOW/BLOCK verdict; partial coverage forces REVIEW |
 | Python web analyzer | Planned after the Java release | Add Python 3 FastAPI analysis behind the existing analyzer boundary and unchanged IR | Four MVP scenarios, provenance, confidence/coverage, clean CI, and pinned public FastAPI evaluation pass |
-| Notification manager | Planned after the Java release | Notify authorized repository members through in-app and email channels for REVIEW/BLOCK decisions | Permission recheck, user preferences, certainty-aware templates, outbox/retry, deduplication, rate limits, audit records, and unsubscribe controls pass |
+| Notification manager | In progress: outbox delivery shipped (#50); permission recheck, preferences, dedup-by-fingerprint, audit trail, and unsubscribe controls still open | Notify authorized repository members through in-app and email channels for REVIEW/BLOCK decisions | Permission recheck, user preferences, certainty-aware templates, outbox/retry, deduplication, rate limits, audit records, and unsubscribe controls pass |
 | Additional channels/frameworks | Future | Add browser/mobile push and separately evaluated Django/Flask adapters | Each channel passes consent/privacy review; each framework has its own deterministic extraction and evaluation evidence |
 
 ## Phase Gates
