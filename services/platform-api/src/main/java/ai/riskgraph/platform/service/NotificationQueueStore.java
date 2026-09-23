@@ -34,11 +34,16 @@ public class NotificationQueueStore {
             JsonNode decision = event.payload().path("decision");
             var targets = recipients.resolve(event.scanId(), decision.path("repository").asString(),
                     decision.path("final_verdict").asString());
+            var deliveryBatch = new java.util.ArrayList<Object[]>(targets.size());
             for (var target : targets) {
-                db.update("""
-                        INSERT INTO notification_deliveries(event_id,user_id,channel)
-                        VALUES (?,?,?) ON CONFLICT (event_id,user_id,channel) DO NOTHING
-                        """, event.eventId(), target.userId(), target.channel());
+                deliveryBatch.add(new Object[] {event.eventId(), target.userId(), target.channel()});
+            }
+            if (!deliveryBatch.isEmpty()) {
+                db.batchUpdate("""
+                                INSERT INTO notification_deliveries(event_id,user_id,channel)
+                                VALUES (?,?,?) ON CONFLICT (event_id,user_id,channel) DO NOTHING
+                                """,
+                        deliveryBatch);
             }
             db.update("UPDATE notification_outbox SET status='DELIVERED', updated_at=now() WHERE event_id=?",
                     event.eventId());
@@ -48,22 +53,30 @@ public class NotificationQueueStore {
     @Transactional
     public List<Delivery> claimDueDeliveries() {
         List<Delivery> due = db.query("""
+                WITH candidates AS (
+                    SELECT d.id
+                    FROM notification_deliveries d
+                    JOIN users u ON u.id = d.user_id
+                    WHERE (d.status='PENDING'
+                           OR (d.status='PROCESSING' AND d.next_attempt_at <= now()))
+                      AND d.next_attempt_at <= now()
+                    ORDER BY d.next_attempt_at, d.id
+                    LIMIT ? FOR UPDATE OF d SKIP LOCKED
+                ), claimed AS (
+                    UPDATE notification_deliveries d
+                    SET status='PROCESSING', next_attempt_at=now() + interval '5 minutes',
+                        updated_at=now()
+                    FROM candidates c
+                    WHERE d.id = c.id
+                    RETURNING d.id, d.event_id, d.attempts, d.user_id, d.channel
+                )
                 SELECT d.id, d.attempts, d.user_id, d.channel, o.scan_id,
                        o.payload::text AS payload, u.email
-                FROM notification_deliveries d
+                FROM claimed d
                 JOIN notification_outbox o ON o.event_id = d.event_id
                 JOIN users u ON u.id = d.user_id
-                WHERE (d.status='PENDING' OR (d.status='PROCESSING' AND d.next_attempt_at <= now()))
-                  AND d.next_attempt_at <= now()
-                ORDER BY d.next_attempt_at, d.id LIMIT ? FOR UPDATE SKIP LOCKED
+                ORDER BY d.id
                 """, this::mapDelivery, BATCH_SIZE);
-        for (Delivery delivery : due) {
-            db.update("""
-                    UPDATE notification_deliveries
-                    SET status='PROCESSING', next_attempt_at=now() + interval '5 minutes', updated_at=now()
-                    WHERE id=?
-                    """, delivery.id());
-        }
         return List.copyOf(due);
     }
 

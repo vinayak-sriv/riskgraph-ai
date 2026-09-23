@@ -80,14 +80,15 @@ public class NotificationService {
     public boolean markRead(Long id, Long userId) {
         return db.update("""
                 UPDATE notification_deliveries SET read_at = now()
-                WHERE id = ? AND user_id = ? AND read_at IS NULL
-                """, id, userId) > 0;
+                WHERE id = ? AND user_id = ? AND channel = ?
+                  AND status = 'SENT' AND read_at IS NULL
+                """, id, userId, IN_APP) > 0;
     }
 
     public void markAllRead(Long userId) {
         db.update("""
                 UPDATE notification_deliveries SET read_at = now()
-                WHERE user_id = ? AND channel = ? AND read_at IS NULL
+                WHERE user_id = ? AND channel = ? AND status = 'SENT' AND read_at IS NULL
                 """, userId, IN_APP);
     }
 

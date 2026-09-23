@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,8 +37,11 @@ class NotificationQueueStoreTest {
         List<NotificationQueueStore.Delivery> claimed = store.claimDueDeliveries();
 
         assertThat(claimed).singleElement().extracting(NotificationQueueStore.Delivery::id).isEqualTo(4L);
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
-        verify(db).update(anyString(), args.capture());
-        assertThat(args.getValue()).containsExactly(4L);
+        verify(db).query(sql.capture(), any(RowMapper.class), args.capture());
+        assertThat(sql.getValue()).contains("FOR UPDATE OF d SKIP LOCKED", "UPDATE notification_deliveries");
+        assertThat(args.getValue()).containsExactly(20);
+        verify(db, never()).update(anyString(), any(Object[].class));
     }
 }
