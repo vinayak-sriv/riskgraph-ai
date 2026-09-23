@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import ai.riskgraph.platform.client.GraphRiskClient;
+import ai.riskgraph.platform.client.AnalysisClient;
 import ai.riskgraph.platform.service.ScanStore;
 import tools.jackson.databind.json.JsonMapper;
 import static org.assertj.core.api.Assertions.*;
@@ -30,7 +30,7 @@ class PlatformSecurityTest {
     @LocalServerPort int port;
     @Autowired AccountService accounts;
     @Autowired ScanStore scans;
-    @MockitoBean GraphRiskClient graphRiskClient;
+    @MockitoBean AnalysisClient analysisClient;
     final JsonMapper mapper = JsonMapper.builder().build();
     final String password = "Only-for-local-tests-42";
 
@@ -46,7 +46,7 @@ class PlatformSecurityTest {
         accounts.create("unlinked", "Unlinked analyst", AccountService.Role.ANALYST, password);
     }
     @BeforeEach void graphRiskResponse() {
-        when(graphRiskClient.analyze(any())).thenReturn(mapper.createObjectNode()
+        when(analysisClient.post(any(), any(), any())).thenReturn(mapper.createObjectNode()
             .put("verdict", "ALLOW").put("risk_before", 0).put("risk_after", 0));
     }
     HttpClient client() { return HttpClient.newBuilder().cookieHandler(new CookieManager()).build(); }

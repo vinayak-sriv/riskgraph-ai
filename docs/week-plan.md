@@ -1,8 +1,8 @@
 # RiskGraph AI Delivery Plan
 
 > **Current week: 12**
-> Weeks 1–11 are complete. Week 12 external evidence and the post-0.4.1 platform
-> rerun exist, but independent human review remains open.
+> Weeks 1–11 are complete. Week 12 external evidence, the post-0.4.1 platform
+> rerun, and attributable human source review exist; independent release sign-off remains open.
 
 ## Delivery Principle
 
@@ -25,7 +25,7 @@ tests, and demo procedure must all work from a clean checkout.
 | 9 | Complete | Add Ollama-backed structured explanations and HTTP-test proposals behind a swappable interface | Schema-constrained output, deterministic degraded mode, and provider backpressure are tested |
 | 10 | Complete | Execute the proposed authorization test only inside a hardened Docker sandbox and combine evidence into the decision engine | Docker-only validation and deterministic final policy pass in the Linux container exercise |
 | 11 | Complete | Analyze pull requests through GitHub and publish Checks, SARIF, fingerprints, and concise evidence | PR #18 publishes a schema-valid evidence artifact, neutral Check, SARIF, summary, and exact head identity |
-| 12 | Current | Measure accuracy, false positives, performance, and extraction coverage; freeze the demo build | Synthetic metrics and two pinned OSS cases pass the post-0.4.1 rerun; independent human review remains pending |
+| 12 | Current | Measure accuracy, false positives, performance, and extraction coverage; freeze the demo build | Synthetic metrics, two pinned OSS cases, and attributable human source review exist; independent release sign-off remains pending |
 | 13 | Engineering complete (gate-limited) | Polish graph visualization and generate permanent regression tests from confirmed findings | The dashboard exposes immutable validation provenance and permanent regressions verify confirmation integrity; Python parsing remains blocked on the Week 12 gate |
 | 14 | Engineering complete (gate-limited) | Reliability buffer, report/paper, architecture diagrams, and recorded demo | The expanded clean-install gate, recovery procedure, report draft, architecture diagrams, and reproducible recording are implemented; independent review still blocks roadmap advancement |
 | 15 | Engineering complete (gate-limited) | Release documentation, deployment packaging, security review, and presentation rehearsal | The public README was reproduced from a fresh clone; main CI passed verification, packaging, and the isolated Linux container smoke test |
@@ -39,8 +39,8 @@ scope and acceptance criteria are tracked in [Pending updates](pending-updates.m
 | Track | Status | Outcome | Promotion gate |
 |---|---|---|---|
 | Python framework preflight | Implemented, gate pending | Detect Spring Boot, FastAPI, mixed, and unsupported repositories from both requested commits | Unsupported/mixed frameworks produce an explicit notice and no ALLOW/BLOCK verdict; independent Week 12 review remains required |
-| Python web analyzer | Experimental; not promoted | Evaluate Python 3 FastAPI analysis behind the existing analyzer boundary and unchanged IR | Router-prefix stitching, cross-file resolution, pinned public evaluation, and the Week 12 gate pass |
-| Notification manager | In progress; post-MVP | Notify authorized repository members through in-app and email channels for REVIEW/BLOCK decisions | Delivery-time permission checks and commit/finding dedup are implemented; per-repository controls, PR identity, recovery integration tests, and the Week 12 gate remain open |
+| Python web analyzer | Experimental; not promoted | Evaluate Python 3 FastAPI analysis behind the existing analyzer boundary and unchanged IR | Explicit-import prefix stitching, modern dependencies, unambiguous named cross-file calls, parity, current pinned public evaluation, and commit-bound Python Docker validation are implemented; independent labels, mixed-module coverage, type-aware dispatch, and the Week 12 gate remain open |
+| Notification manager | In progress; post-MVP | Notify authorized repository members through in-app and email channels for REVIEW/BLOCK decisions | Live permission checks, verified-email gating, per-repository unsubscribe, retries, dedup, and PR links are implemented; optional resolution notices, admin recipient presets, recovery integration tests, and the Week 12 gate remain open |
 | Additional channels/frameworks | Future | Add browser/mobile push and separately evaluated Django/Flask adapters | Each channel passes consent/privacy review; each framework has its own deterministic extraction and evaluation evidence |
 
 ## Phase Gates
@@ -60,7 +60,8 @@ evaluation metrics, stable fingerprints, performance limits, and OSS evidence ex
 The conditional Python proof of concept may begin only after Gate D passes.
 
 Week 13-15 engineering work proceeded while the Week 12 external review was
-pending; that review is now recorded (see
+pending; an attributable project review is now recorded, while independent release
+sign-off remains open (see
 [Release readiness](release-readiness.md) and the
 [fresh-clone rehearsal record](evidence/release-rehearsal-2026-09-17.md)).
 

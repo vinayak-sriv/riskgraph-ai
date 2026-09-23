@@ -15,10 +15,12 @@ import os
 import subprocess
 from datetime import UTC, datetime
 
-from .extractor import extract_endpoints
+from .extractor import build_dependency_alias_catalog, extract_endpoints
+from .resolver import build_function_catalog
+from .routing import resolve_router_prefixes
 
 SCHEMA_VERSION = "1.1.0"
-ANALYZER_VERSION = "0.2.0-batch4"
+ANALYZER_VERSION = "0.3.0-batch5"
 CONFIG_HASH = hashlib.sha256(ANALYZER_VERSION.encode()).hexdigest()
 
 _STATUS_MAP = {"A": "ADD", "M": "MODIFY", "D": "DELETE"}
@@ -39,8 +41,9 @@ def build_envelope(repository_path: str, old_commit: str, new_commit: str) -> di
             "message": (
                 "Handler -> service/repository -> resource resolution matches a handler's own "
                 "direct calls by naming convention (*_repository/*_service objects, SQLAlchemy "
-                "query/get/add/select calls on session-like objects); it does not follow calls "
-                "into other services or files."
+                "query/get/add/select calls on session-like objects). Router mount prefixes are "
+                "resolved across explicit imports; dynamic router factories and cross-file "
+                "service calls remain unresolved."
             ),
             "path": None,
         }
@@ -122,15 +125,23 @@ def _extract_side(
 ) -> list[dict]:
     path_key = "old_path" if side == "old" else "new_path"
     evidence = []
+    sources = _all_python_sources(repository_path, commit)
+    prefixes = resolve_router_prefixes(sources)
+    functions = build_function_catalog(sources)
+    dependency_aliases = build_dependency_alias_catalog(sources)
     for entry in changed_files:
         path = entry[path_key]
         if path is None:
             continue
-        source = _read_file_at_commit(repository_path, commit, path)
+        source = sources.get(path)
+        if source is None:
+            source = _read_file_at_commit(repository_path, commit, path)
         if source is None:
             continue
         try:
-            evidence.extend(extract_endpoints(source, path))
+            evidence.extend(extract_endpoints(
+                source, path, prefixes.get(path), functions, dependency_aliases
+            ))
         except Exception as exc:  # noqa: BLE001 -- one bad file must not fail the whole scan
             diagnostics.append(
                 {
@@ -143,6 +154,26 @@ def _extract_side(
     return evidence
 
 
+def _all_python_sources(repository_path: str, commit: str) -> dict[str, str]:
+    """Read tracked Python files at a commit without checking it out."""
+    try:
+        listing = subprocess.run(  # noqa: S603
+            _git_command(repository_path, "ls-tree", "-r", "--name-only", commit),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return {}
+    sources: dict[str, str] = {}
+    for path in (value for value in listing.stdout.splitlines() if value.endswith(".py")):
+        source = _read_file_at_commit(repository_path, commit, path)
+        if source is not None:
+            sources[path] = source
+    return sources
+
+
 def _read_file_at_commit(repository_path: str, commit: str, path: str) -> str | None:
     """Non-mutating file-at-commit read via `git show`, matching the diff
     command below -- never checks out the commit, so it's safe to call
@@ -153,7 +184,7 @@ def _read_file_at_commit(repository_path: str, commit: str, path: str) -> str | 
         # 40-hex SHA. `git` resolves from PATH because its location differs per
         # platform and the container image pins the binary.
         result = subprocess.run(  # noqa: S603
-            ["git", "-C", repository_path, "show", f"{commit}:{path}"],  # noqa: S607
+            _git_command(repository_path, "show", f"{commit}:{path}"),
             capture_output=True,
             text=True,
             timeout=30,
@@ -171,9 +202,7 @@ def _changed_python_files(
         # S603/S607: see _read_file_at_commit -- same argv-list, allowlisted-path
         # and validated-SHA guarantees.
         result = subprocess.run(  # noqa: S603
-            [  # noqa: S607
-                "git",
-                "-C",
+            _git_command(
                 repository_path,
                 "diff",
                 "--name-status",
@@ -181,7 +210,7 @@ def _changed_python_files(
                 new_commit,
                 "--",
                 "*.py",
-            ],
+            ),
             capture_output=True,
             text=True,
             timeout=30,
@@ -207,3 +236,20 @@ def _changed_python_files(
             }
         )
     return changed
+
+
+def _git_command(repository_path: str, *arguments: str) -> list[str]:
+    """Trust only the already allowlisted repository for bind-mounted scans.
+
+    Docker Desktop presents Windows bind mounts with an owner that differs from
+    the non-root analyzer user. A command-local safe.directory avoids mutable
+    global Git configuration while keeping every other repository untrusted.
+    """
+    return [
+        "git",
+        "-c",
+        f"safe.directory={repository_path}",
+        "-C",
+        repository_path,
+        *arguments,
+    ]

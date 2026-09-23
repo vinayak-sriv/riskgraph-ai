@@ -71,8 +71,21 @@ class NotificationServiceTest {
         NotificationService.Preferences prefs = service.preferences(1L);
 
         assertThat(prefs.unsubscribedAll()).isFalse();
+        assertThat(prefs.unsubscribedRepositories()).isEmpty();
         assertThat(prefs.channels()).containsExactly(
                 new NotificationService.ChannelPreference("IN_APP", true, "REVIEW"),
                 new NotificationService.ChannelPreference("EMAIL", false, "REVIEW"));
+    }
+
+    @Test
+    void repositoryUnsubscribeIsScopedToTheSignedInUser() {
+        JdbcTemplate db = mock(JdbcTemplate.class);
+        var service = new NotificationService(db);
+
+        service.setRepositoryUnsubscribed(7L, "org/repository", true);
+
+        ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+        verify(db).update(anyString(), args.capture());
+        assertThat(args.getValue()).containsExactly(7L, "org/repository");
     }
 }

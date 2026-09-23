@@ -91,6 +91,7 @@ def main():
             [
                 "docker",
                 "compose",
+                *(["--env-file", str(ROOT / ".env")] if (ROOT / ".env").exists() else []),
                 "-f",
                 "infrastructure/docker-compose.yml",
                 "-f",

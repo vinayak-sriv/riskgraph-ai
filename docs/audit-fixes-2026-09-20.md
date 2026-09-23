@@ -151,7 +151,9 @@ PyYAML was `6.0.3` in CI and `6.0.2` in two containers — the library that pars
 
 ## Not done, deliberately
 
-**`GraphRiskClient` was not deleted.** The review recommends removing it in favour of `AnalysisClient`, which can already do the job. That is a behavioural change to the demo path, and with no ability to compile or run the Java tests here I would be shipping it unverified. It is a clean follow-up once the Maven build is confirmed green.
+**`GraphRiskClient` was deleted.** The dynamic demo path now uses the shared
+`AnalysisClient` for `/analysis`, removing duplicate HTTP/error/response-limit logic.
+The platform Maven suite verifies the replacement.
 
 **`AuthorizationResolver` was left in place.** It is 100 lines of `SecurityFilterChain` parsing with no callers, so `http.requestMatchers(...).authenticated()` is still invisible to the IR. Wiring it in changes extraction semantics and needs the Java test suite; deleting it discards work you may want. It needs a decision from you rather than a guess from me.
 

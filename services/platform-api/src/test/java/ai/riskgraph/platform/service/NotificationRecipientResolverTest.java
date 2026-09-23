@@ -33,7 +33,9 @@ class NotificationRecipientResolverTest {
         assertThat(recipients).containsExactly(new NotificationRecipientResolver.Recipient(42L, "IN_APP"));
 
         ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
-        verify(db).query(anyString(), any(RowMapper.class), args.capture());
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(db).query(sql.capture(), any(RowMapper.class), args.capture());
+        assertThat(sql.getValue()).contains("u.email_verified", "notification_unsubscribes");
         assertThat(args.getValue()).containsExactly(7L, "BLOCK", "demo/riskgraph-sample");
     }
 
@@ -48,6 +50,6 @@ class NotificationRecipientResolverTest {
         assertThat(resolver.isEligible(7L, "demo/repo", "BLOCK", 42L, "EMAIL")).isFalse();
         ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
         verify(db).queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Boolean.class), args.capture());
-        assertThat(args.getValue()).containsExactly("EMAIL", 7L, 42L, "EMAIL", "BLOCK", "demo/repo");
+        assertThat(args.getValue()).containsExactly("EMAIL", 7L, 42L, "EMAIL", "EMAIL", "BLOCK", "demo/repo");
     }
 }

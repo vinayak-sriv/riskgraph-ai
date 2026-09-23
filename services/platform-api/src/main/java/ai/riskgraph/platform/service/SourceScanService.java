@@ -87,6 +87,11 @@ public class SourceScanService {
     }
 
     public JsonNode analyze(String repositoryPath, String oldCommit, String newCommit) {
+        return analyze(repositoryPath, oldCommit, newCommit, null, null);
+    }
+
+    public JsonNode analyze(String repositoryPath, String oldCommit, String newCommit,
+            Integer pullRequestNumber, String pullRequestUrl) {
         Path path;
         try { path = Path.of(repositoryPath).toRealPath(); }
         catch (Exception ex) { throw new PipelineException("REPOSITORY_NOT_FOUND", 400, "Repository path does not exist"); }
@@ -97,12 +102,15 @@ public class SourceScanService {
         if (!allowed) throw new PipelineException("REPOSITORY_NOT_ALLOWED", 403, "Repository is outside the allowlist");
         if (!oldCommit.matches("[0-9a-fA-F]{40}") || !newCommit.matches("[0-9a-fA-F]{40}"))
             throw new PipelineException("INVALID_COMMIT", 400, "Use full immutable commit SHAs");
-        String requestKey = digest(path + "\n" + oldCommit.toLowerCase() + "\n" + newCommit.toLowerCase());
+        String requestKey = digest(path + "\n" + oldCommit.toLowerCase() + "\n" + newCommit.toLowerCase()
+                + "\n" + pullRequestNumber + "\n" + pullRequestUrl);
         return singleFlight(scanFlights, requestKey,
-                () -> analyzeResolved(path, oldCommit.toLowerCase(), newCommit.toLowerCase()));
+                () -> analyzeResolved(path, oldCommit.toLowerCase(), newCommit.toLowerCase(),
+                        pullRequestNumber, pullRequestUrl));
     }
 
-    private JsonNode analyzeResolved(Path path, String oldCommit, String newCommit) {
+    private JsonNode analyzeResolved(Path path, String oldCommit, String newCommit,
+            Integer pullRequestNumber, String pullRequestUrl) {
         ObjectNode request = mapper.createObjectNode().put("repository_path", path.toString())
             .put("old_commit", oldCommit).put("new_commit", newCommit);
         // Detect both immutable revisions; current working-tree contents must not affect routing.
@@ -143,6 +151,11 @@ public class SourceScanService {
         incomplete |= result.at("/quality/incomplete").asBoolean()
                 || !graphConfidence.equals("HIGH");
         result.put("schema_version", "1.2.0").put("scenario", "local-source");
+        result.put("analyzer_language",
+                framework == RepositoryFrameworkDetector.Framework.PYTHON_FASTAPI ? "python" : "java");
+        if (pullRequestNumber != null && pullRequestUrl != null) {
+            result.putObject("pull_request").put("number", pullRequestNumber).put("url", pullRequestUrl);
+        }
         result.set("provenance", envelope.path("provenance"));
         result.set("coverage", envelope.path("coverage"));
         ArrayNode diagnostics = (ArrayNode) envelope.path("diagnostics").deepCopy();

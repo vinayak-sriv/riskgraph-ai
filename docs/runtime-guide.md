@@ -38,8 +38,8 @@ authored source with a fixed POM. The validation override uses a dedicated priva
 Docker-in-Docker daemon; application containers never receive the host Docker socket.
 
 ```powershell
-docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile app ps
-docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile app logs --tail 50
+docker compose --env-file .env -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile app ps
+docker compose --env-file .env -p riskgraph-mvp -f infrastructure/docker-compose.yml --profile app logs --tail 50
 ```
 
 ## Environment variables
@@ -205,7 +205,7 @@ overlay:
 
 ```powershell
 python tools/dev/build_sandboxes.py
-docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app up -d --build
+docker compose --env-file .env -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml --profile app up -d --build
 ```
 
 The overlay does not mount `/var/run/docker.sock`. It starts a dedicated Docker daemon
@@ -231,8 +231,8 @@ bundle). This tests real schema-constrained integration; explanation quality is 
 benchmarked. A larger model needs more memory and should be evaluated separately.
 
 ```powershell
-docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml -f infrastructure/docker-compose.ollama.yml --profile app --profile ollama up -d --build
-docker compose -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.ollama.yml --profile ollama exec -T ollama ollama pull qwen2.5:0.5b
+docker compose --env-file .env -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.validation.yml -f infrastructure/docker-compose.ollama.yml --profile app --profile ollama up -d --build
+docker compose --env-file .env -p riskgraph-mvp -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.ollama.yml --profile ollama exec -T ollama ollama pull qwen2.5:0.5b
 ```
 
 If `OLLAMA_MODEL` is set in your environment, clear it or select an installed model.

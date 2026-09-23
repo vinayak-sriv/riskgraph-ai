@@ -563,6 +563,22 @@
     "analyzer_version": {
       "type": "string"
     },
+    "analyzer_language": {
+      "type": "string",
+      "enum": ["java", "python"]
+    },
+    "pull_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "url"],
+      "properties": {
+        "number": { "type": "integer", "minimum": 1 },
+        "url": {
+          "type": "string",
+          "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[1-9][0-9]*$"
+        }
+      }
+    },
     "analyzer_config_hash": {
       "type": "string"
     },

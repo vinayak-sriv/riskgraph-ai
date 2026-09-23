@@ -1,14 +1,18 @@
 # External FastAPI human-review packet
 
+> The current analyzer was rerun through the live Compose stack on 2026-09-23.
+> Both pinned cases matched every reviewed endpoint/authentication oracle row and
+> remained fail-closed at `REVIEW`. Independent label approval is still pending.
+
 This is the same human-review gate `datasets/external-spring/HUMAN_REVIEW.md` used for the
 Java/Spring evaluation, ported for Track A batch 6 (docs/pending-updates.md: "pin licensed
 public FastAPI repositories and immutable commits; record framework/version, source hashes,
 reviewer attribution, coverage, diagnostics, runtime, and deterministic results").
 
-`tools/evaluation/external_fastapi.py --prepare-only` has been run and confirms both cases'
-pinned commits, source files, and license file hash-match what's recorded in `manifest.json`.
-It has **not** run the full pipeline (that needs the live platform-api/graph-risk/python-analyzer
-stack) and this packet does **not** claim that an AI review is a human review.
+`tools/evaluation/external_fastapi.py --compose` has been run and confirms both cases'
+pinned commits, source files, license hashes, deterministic repeated results, and endpoint/auth
+oracles through the live platform, graph, and Python analyzer stack. This packet does **not**
+claim that an AI review is a human review.
 
 ## Reviewer procedure
 
@@ -50,16 +54,11 @@ matching the existing `datasets/external-spring/observed-results-*.json` convent
 - Old commit: `afc55bdf910ad53f80a00c105e3e7370b9be6323`
 - New commit: `e13d120fd1e09fe7383223fbec90076ed2ae4e87`
 - Expected label: `NEGATIVE`
-- Expected oracle: 12 unique (method, path) routes across items.py/users.py, all unauthenticated
-  per the current heuristic (see limitation below)
-- Limitation to verify: this repository exclusively uses FastAPI's `Annotated[Type,
-  Depends(...)]` parameter idiom and decorator-level `dependencies=[Depends(...)]`, neither of
-  which `extractor.py:_has_depends_param` recognizes (it only checks a parameter's *default*
-  value). Every route in both pinned revisions is reported as unauthenticated regardless of its
-  real protection (e.g. `read_users`/`create_user`/`update_user` actually require
-  `get_current_active_superuser`). This is a real, repo-wide extraction-scope gap -- confirm it
-  reads the same way independently before accepting it as an accurate limitation rather than a
-  tool defect.
+- Expected oracle: 12 unique (method, path) routes across items.py/users.py; 11 have
+  deterministic authentication evidence and `POST /open` is intentionally public.
+- Limitation to verify: `CurrentUser` aliases and decorator-level superuser dependencies are
+  recognized, but the analyzer does not infer a role hierarchy from dependency bodies. Dynamic
+  router prefixes and type-based method dispatch remain outside the deterministic subset.
 
 ## Case 2 — full-stack-fastapi-template, login.py (+ users.py, same commit)
 
@@ -67,9 +66,9 @@ matching the existing `datasets/external-spring/observed-results-*.json` convent
 - Old commit: `1e08434ca9f5ef0e8e68cd2340e35aba737e1b8c`
 - New commit: `11fe2a00ed1300c7545c4935e4b791a71be02e03`
 - Expected label: `NEGATIVE`
-- Expected oracle: 14 unique (method, path) routes across login.py/users.py, all unauthenticated
-  per the current heuristic
-- Limitation to verify: same Annotated/decorator-dependency gap as case 1. `users.py` is included
-  here (rather than only `login.py`) because the pinned commit's real diff touches it too; the
-  analyzer scopes extraction to every changed `.py` file in the commit, not to a hand-picked
-  subset, so both files' evidence appears in this case's `source_evidence`.
+- Expected oracle: 14 unique (method, path) routes across login.py/users.py; login,
+  password-recovery/reset, and `POST /open` routes are public, while `test-token`, the
+  recovery HTML route, and protected user-management routes have authentication evidence.
+- Limitation to verify: roles remain unknown even for the superuser dependency. `users.py` is
+  included because the pinned commit's real diff touches it too; extraction covers every
+  changed `.py` file in the commit rather than a hand-picked subset.

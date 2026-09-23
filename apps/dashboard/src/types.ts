@@ -106,6 +106,7 @@ export type ExtractionCoverage = {
 export type AnalysisResult = {
   schema_version?: string;
   analyzer_version?: string;
+  analyzer_language?: "java" | "python";
   analyzer_config_hash?: string;
   analysis_id?: string;
   mode?: string;
@@ -119,6 +120,7 @@ export type AnalysisResult = {
   findings?: Finding[];
   coverage?: ExtractionCoverage;
   quality?: { confidence: string; coverage_ratio: number; incomplete: boolean };
+  pull_request?: { number: number; url: string };
   provenance?: {
     repository_identity: string;
     repository_path: string;

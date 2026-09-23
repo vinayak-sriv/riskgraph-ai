@@ -146,7 +146,11 @@ def create():
 def write_compose_manifest(result):
     manifest = json.loads(json.dumps(result))
     for name, pair in manifest["scenarios"].items():
-        pair["repository_path"] = "/analysis-repositories/mvp-v2/" + name
+        pair["repository_path"] = (
+            "/analysis-repositories/mvp-v2-python/authorization-removal"
+            if name == "authorization-removal-python"
+            else "/analysis-repositories/mvp-v2/" + name
+        )
     (OUTPUT / "manifest.compose.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n"
     )

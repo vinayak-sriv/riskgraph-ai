@@ -122,7 +122,7 @@ def assess(case, scan):
     assert scan["risk_result"]["risk_delta"] == 0
     assert scan["final_verdict"] == "REVIEW", "Incomplete extraction must remain reviewable"
     assert scan["quality"]["confidence"] == "LOW"
-    assert scan["quality"]["coverage_ratio"] == 0.0
+    assert scan["quality"]["coverage_ratio"] == case["expected_coverage_ratio"]
     if case["expected_diagnostic"]:
         assert case["expected_diagnostic"] in {d["code"] for d in scan["diagnostics"]}
     return dict(

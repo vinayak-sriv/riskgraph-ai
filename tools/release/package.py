@@ -12,6 +12,7 @@ EXCLUDED_DIRECTORIES = {
     ".git",
     ".gradle",
     ".idea",
+    ".mypy_cache",
     ".pytest_cache",
     ".review-logic-pytest",
     ".ruff_cache",
@@ -35,7 +36,12 @@ EXCLUDED_PATH_PREFIXES = {
     ("samples", "generated"),
 }
 EXCLUDED_DIRECTORY_PREFIXES = ("pytest-cache-files-", ".chart-data-")
-EXCLUDED_ANY_DIRECTORY_PREFIXES = (".test-", ".release-test-", *EXCLUDED_DIRECTORY_PREFIXES)
+EXCLUDED_ANY_DIRECTORY_PREFIXES = (
+    ".test-",
+    ".release-test-",
+    ".venv-",
+    *EXCLUDED_DIRECTORY_PREFIXES,
+)
 
 
 def excluded_path(parts: tuple[str, ...]) -> bool:

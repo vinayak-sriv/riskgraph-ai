@@ -48,6 +48,9 @@ public class NotificationOutboxWriter {
         decision.put("schema_version", "1.1.0");
         decision.put("scan_id", scanExternalId);
         decision.put("repository", provenance.path("repository_identity").asString());
+        if (result.path("pull_request").isObject()) {
+            decision.set("pull_request", result.path("pull_request").deepCopy());
+        }
         decision.put("old_commit", provenance.path("old_commit").asString());
         decision.put("new_commit", provenance.path("new_commit").asString());
         decision.put("final_verdict", verdict);

@@ -113,6 +113,8 @@ public class NotificationDispatcher {
         int delta = decision.path("risk_delta").asInt(after - before);
         String confidence = decision.path("confidence").asString("LOW");
         String head = decision.path("new_commit").asString();
+        String evidenceUrl = decision.at("/pull_request/url").asString();
+        if (evidenceUrl.isBlank()) evidenceUrl = dashboardOrigin + "/#/scans/" + scanId;
         var message = new SimpleMailMessage();
         message.setFrom(fromAddress);
         message.setTo(delivery.email());
@@ -123,10 +125,10 @@ public class NotificationDispatcher {
                 Risk: %d -> %d (delta %+d). Extraction confidence: %s.
                 Validation: %s. Head commit: %s.
                 Never included here: source, credentials or response bodies —
-                review the evidence in the dashboard:
-                %s/#/scans/%s
+                review the protected evidence:
+                %s
                 """.formatted(certainty, verdict, repository, before, after, delta, confidence,
-                        validation, head, dashboardOrigin, scanId));
+                        validation, head, evidenceUrl));
         return message;
     }
 

@@ -120,6 +120,24 @@ it("retains Admin account creation and updates the account list", async () => {
     role: "ANALYST",
     password: "test-password-only",
   });
+
+  fireEvent.change(screen.getByLabelText("Account username"), {
+    target: { value: "analyst" },
+  });
+  fireEvent.change(screen.getByLabelText("Notification email"), {
+    target: { value: "analyst@example.com" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Save notification email" }),
+  );
+  await screen.findByText("Notification email updated.");
+  const emailUpdate = fetcher.mock.calls.find(([url]) =>
+    url.endsWith("/admin/users/analyst/email"),
+  );
+  expect(JSON.parse(emailUpdate![1]!.body as string)).toEqual({
+    email: "analyst@example.com",
+    verified: true,
+  });
 });
 
 it("describes missing installation credentials without claiming OAuth is unimplemented", () => {

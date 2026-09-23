@@ -1,7 +1,7 @@
 package ai.riskgraph.platform;
 
 import ai.riskgraph.platform.api.DemoScenarioController;
-import ai.riskgraph.platform.client.GraphRiskClient;
+import ai.riskgraph.platform.client.AnalysisClient;
 import ai.riskgraph.platform.config.ClientConfig;
 import ai.riskgraph.platform.service.DemoScenarioService;
 import org.junit.jupiter.api.Test;
@@ -25,12 +25,12 @@ class PlatformPipelineContextTest {
             assertThat(context).hasNotFailed();
             assertThat(context).hasSingleBean(DemoScenarioController.class);
             assertThat(context).hasSingleBean(DemoScenarioService.class);
-            assertThat(context).hasSingleBean(GraphRiskClient.class);
+            assertThat(context).hasSingleBean(AnalysisClient.class);
         });
     }
 
     @Configuration(proxyBeanMethods = false)
-    @Import({ClientConfig.class, GraphRiskClient.class, DemoScenarioService.class, DemoScenarioController.class})
+    @Import({ClientConfig.class, AnalysisClient.class, DemoScenarioService.class, DemoScenarioController.class})
     static class TestConfiguration {
         @Bean
         ObjectMapper objectMapper() {

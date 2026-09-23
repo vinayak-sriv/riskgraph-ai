@@ -81,7 +81,8 @@ def main():
         "new-public-sensitive-endpoint": ([], [public]),
         "sensitive-resource-exposure": ([catalog], [public]),
     }
-    for name, request in manifest["scenarios"].items():
+    for name in expected:
+        request = manifest["scenarios"][name]
         started = time.perf_counter()
         result = call("/analyses", request)
         runtime = time.perf_counter() - started
@@ -149,6 +150,36 @@ def main():
             (output / "validated.json").write_text(
                 json.dumps(validated, indent=2) + "\n", encoding="utf-8", newline="\n"
             )
+    if args.validation and "authorization-removal-python" in manifest["scenarios"]:
+        name = "authorization-removal-python"
+        request = manifest["scenarios"][name]
+        started = time.perf_counter()
+        result = call("/analyses", request)
+        assert result["analyzer_language"] == "python"
+        assert result["final_verdict"] == "BLOCK"
+        assert (result["risk_result"]["risk_before"], result["risk_result"]["risk_after"]) == (
+            18,
+            87,
+        )
+        validated = call(f"/analyses/{result['scan_id']}/validation", {})
+        assert validated["validation_status"] == "CONFIRMED", validated.get("validation")
+        assert validated["validation"]["source_commit"] == request["new_commit"]
+        assert validated["validation"]["cleanup_complete"] is True
+        Draft202012Validator(schema, registry=registry).validate(validated)
+        summary[name] = {
+            "risk_before": 18,
+            "risk_after": 87,
+            "verdict": "BLOCK",
+            "new_paths": len(result["graph_delta"]["new_paths"]),
+            "runtime_seconds": time.perf_counter() - started,
+            "source_locations": sum(len(v) for v in result["source_evidence"].values()),
+            "confidence": result["quality"]["confidence"],
+            "ai_status": result.get("ai", {}).get("status", "NOT_RUN"),
+            "validation_status": "CONFIRMED",
+        }
+        (output / "python-validated.json").write_text(
+            json.dumps(validated, indent=2) + "\n", encoding="utf-8", newline="\n"
+        )
     metrics = dict(
         scope="Four authored real Git pairs; seven source-located IR rows, not external accuracy",
         expected_rows=extraction_count,

@@ -1,16 +1,14 @@
 """FastAPI route/handler/auth-dependency extraction from Python AST.
 
 Track A batch 3 extracts route decorators (HTTP method + path), the handler
-function, and whether the handler takes a FastAPI `Depends(...)` parameter
-(authentication evidence). Batch 4 adds handler -> service/repository ->
+function, and FastAPI dependency evidence from defaults, `Annotated` aliases,
+router configuration, and route decorators. Batch 4 adds handler -> service/repository ->
 resource resolution via resolver.py (see its module docstring for the exact
 heuristic scope) and sensitivity classification via sensitivity_policy.py.
 
-# ponytail: router-prefix stitching (`app.include_router(router,
-# prefix="/api")` across files) is still not resolved, so a route mounted
-# under a prefix is reported with its bare in-file path only. Upgrade path:
-# build a cross-file include_router graph if batch 5/6 evaluation shows
-# prefixed routes are common in the pinned repos.
+Repository-wide callers may provide resolved mount prefixes for each router.
+The extractor also handles prefixes and dependency lists declared directly on
+an ``APIRouter`` or route decorator.
 """
 
 import ast
@@ -29,37 +27,48 @@ def _get_policy() -> SensitivityPolicy:
     return SensitivityPolicy()
 
 
-def extract_endpoints(source: str, file_path: str) -> list[dict]:
+def extract_endpoints(
+    source: str,
+    file_path: str,
+    router_prefixes: dict[str, list[str]] | None = None,
+    function_catalog: dict[str, list[FunctionDef]] | None = None,
+    dependency_aliases: dict[str, list[ast.Call] | None] | None = None,
+) -> list[dict]:
     try:
         tree = ast.parse(source, filename=file_path)
     except SyntaxError:
         return []
 
-    router_names = _router_variable_names(tree)
+    router_configs = _router_configs(tree)
     policy = _get_policy()
     findings = []
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         for decorator in node.decorator_list:
-            route = _match_route_decorator(decorator, router_names)
+            route = _match_route_decorator(decorator, set(router_configs))
             if route is None:
                 continue
-            method, path = route
-            authenticated, authorization_confidence = _authorization(node)
-            resolution = resolve_dependencies(node)
-            findings.append(
-                _evidence(
-                    node,
-                    file_path,
-                    method,
-                    path,
-                    authenticated,
-                    authorization_confidence,
-                    resolution,
-                    policy,
-                )
+            method, path, router_name = route
+            config = router_configs[router_name]
+            authenticated, authorization_confidence = _authorization(
+                node, decorator, config.dependencies, dependency_aliases or {}
             )
+            resolution = resolve_dependencies(node, function_catalog)
+            prefixes = (router_prefixes or {}).get(router_name, [config.prefix])
+            for prefix in prefixes:
+                findings.append(
+                    _evidence(
+                        node,
+                        file_path,
+                        method,
+                        _join_route(prefix, path),
+                        authenticated,
+                        authorization_confidence,
+                        resolution,
+                        policy,
+                    )
+                )
     return findings
 
 
@@ -122,9 +131,15 @@ def _evidence(
     }
 
 
-def _router_variable_names(tree: ast.Module) -> set[str]:
-    """Names bound to `FastAPI()`/`APIRouter()`, e.g. `app = FastAPI()`."""
-    names = set()
+class _RouterConfig:
+    def __init__(self, prefix: str = "", dependencies: list[ast.Call] | None = None) -> None:
+        self.prefix = prefix
+        self.dependencies = dependencies or []
+
+
+def _router_configs(tree: ast.Module) -> dict[str, _RouterConfig]:
+    """Names and static configuration bound to FastAPI/APIRouter objects."""
+    configs: dict[str, _RouterConfig] = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
             callee = node.value.func
@@ -132,15 +147,19 @@ def _router_variable_names(tree: ast.Module) -> set[str]:
                 callee.id if isinstance(callee, ast.Name) else getattr(callee, "attr", None)
             )
             if callee_name in {"FastAPI", "APIRouter"}:
+                prefix = _string_keyword(node.value, "prefix") or ""
+                dependencies = _keyword_depends_calls(node.value, "dependencies")
                 for target in node.targets:
                     if isinstance(target, ast.Name):
-                        names.add(target.id)
+                        configs[target.id] = _RouterConfig(prefix, dependencies)
     # A file that only imports a shared `app`/`router` (no local assignment)
     # still needs to match the conventional names, or nothing is found.
-    return names or {"app", "router"}
+    return configs or {"app": _RouterConfig(), "router": _RouterConfig()}
 
 
-def _match_route_decorator(decorator: ast.expr, router_names: set[str]) -> tuple[str, str] | None:
+def _match_route_decorator(
+    decorator: ast.expr, router_names: set[str]
+) -> tuple[str, str, str] | None:
     if not isinstance(decorator, ast.Call) or not isinstance(decorator.func, ast.Attribute):
         return None
     attr = decorator.func
@@ -160,7 +179,33 @@ def _match_route_decorator(decorator: ast.expr, router_names: set[str]) -> tuple
     # a 502 over a single unconventional route.
     if not path.startswith("/"):
         path = "/" + path
-    return method.upper(), path
+    return method.upper(), path, attr.value.id
+
+
+def _join_route(prefix: str, path: str) -> str:
+    normalized_prefix = "/" + prefix.strip("/") if prefix.strip("/") else ""
+    if path == "/":
+        return normalized_prefix + "/" if normalized_prefix else "/"
+    return normalized_prefix + "/" + path.lstrip("/")
+
+
+def _string_keyword(call: ast.Call, name: str) -> str | None:
+    for keyword in call.keywords:
+        if keyword.arg == name and isinstance(keyword.value, ast.Constant):
+            return keyword.value.value if isinstance(keyword.value.value, str) else None
+    return None
+
+
+def _keyword_depends_calls(call: ast.Call, name: str) -> list[ast.Call]:
+    for keyword in call.keywords:
+        if keyword.arg != name:
+            continue
+        return [
+            child
+            for child in ast.walk(keyword.value)
+            if isinstance(child, ast.Call) and _callee_name(child.func) in {"Depends", "Security"}
+        ]
+    return []
 
 
 # Substrings that mark a dependency as an authentication/authorization check.
@@ -180,6 +225,8 @@ _AUTH_DEPENDENCY_HINTS = (
     "oauth",
     "bearer",
     "require",
+    "active_user",
+    "superuser",
 )
 
 
@@ -222,7 +269,12 @@ def _dependency_name(call: ast.Call) -> str:
     return ""
 
 
-def _authorization(node: FunctionDef) -> tuple[bool, str]:
+def _authorization(
+    node: FunctionDef,
+    route_decorator: ast.Call,
+    router_dependencies: list[ast.Call],
+    dependency_aliases: dict[str, list[ast.Call] | None],
+) -> tuple[bool, str]:
     """Return (authenticated, authorization_confidence).
 
     A bare `Depends(...)` is not evidence of authentication: `Depends(get_db)`
@@ -231,12 +283,54 @@ def _authorization(node: FunctionDef) -> tuple[bool, str]:
     An unrecognised dependency is therefore reported unauthenticated at LOW
     confidence, so the verdict escalates rather than trusting the guess.
     """
-    names = [_dependency_name(call).lower() for call in _depends_calls(node)]
+    calls = [
+        *_depends_calls(node),
+        *_keyword_depends_calls(route_decorator, "dependencies"),
+        *router_dependencies,
+    ]
+    ambiguous_alias = False
+    for argument in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]:
+        if isinstance(argument.annotation, ast.Name):
+            alias = dependency_aliases.get(argument.annotation.id, [])
+            if alias is None:
+                ambiguous_alias = True
+            else:
+                calls.extend(alias)
+    names = [_dependency_name(call).lower() for call in calls]
     if not names:
-        return False, "HIGH"
+        return False, "LOW" if ambiguous_alias else "HIGH"
     if any(hint in name for name in names for hint in _AUTH_DEPENDENCY_HINTS):
         return True, "MEDIUM"
     return False, "LOW"
+
+
+def build_dependency_alias_catalog(
+    sources: dict[str, str],
+) -> dict[str, list[ast.Call] | None]:
+    """Collect named ``Annotated[..., Depends(...)]`` aliases across files."""
+    aliases: dict[str, list[ast.Call] | None] = {}
+    for path, source in sources.items():
+        try:
+            tree = ast.parse(source, filename=path)
+        except SyntaxError:
+            continue
+        for node in tree.body:
+            name: str | None = None
+            value: ast.expr | None = None
+            if isinstance(node, ast.Assign) and len(node.targets) == 1 \
+                    and isinstance(node.targets[0], ast.Name):
+                name, value = node.targets[0].id, node.value
+            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                name, value = node.target.id, node.value
+            if name is None or value is None:
+                continue
+            calls = [
+                child for child in ast.walk(value)
+                if isinstance(child, ast.Call) and _callee_name(child.func) in {"Depends", "Security"}
+            ]
+            if calls:
+                aliases[name] = calls if name not in aliases else None
+    return aliases
 
 
 def _signature(node: FunctionDef) -> str:

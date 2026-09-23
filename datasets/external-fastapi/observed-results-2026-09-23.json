@@ -1,7 +1,4 @@
 {
-  "analyzer_version": "0.2.0-batch4",
-  "historical": true,
-  "superseded_reason": "Authentication oracle changed in analyzer 0.3.0-batch5; rerun required",
   "scope": "Two pinned external FastAPI changes on the same upstream repository; static extraction only; no execution or exploit validation",
   "label_status": "PROVISIONAL",
   "review_type": "AI_SOURCE_REVIEW",
@@ -33,7 +30,7 @@
       "diagnostic_codes": [
         "PYTHON_RESOLUTION_IS_HEURISTIC"
       ],
-      "mean_runtime_seconds": 5.702
+      "mean_runtime_seconds": 10.018
     },
     "full-stack-fastapi-template-login": {
       "matched_endpoint_auth_rows": 28,
@@ -57,7 +54,7 @@
       "diagnostic_codes": [
         "PYTHON_RESOLUTION_IS_HEURISTIC"
       ],
-      "mean_runtime_seconds": 2.347
+      "mean_runtime_seconds": 7.118
     }
   }
 }

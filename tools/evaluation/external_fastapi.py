@@ -10,10 +10,9 @@ files, never execute the target repository).
 # ponytail: assess() hard-asserts the endpoint/method/path/authentication oracle (verified
 # by reading the pinned diff by hand), that identical before/after evidence yields zero
 # graph/risk delta and a non-BLOCK verdict, and quality.confidence/coverage_ratio against
-# expected_confidence/expected_coverage_ratio in the manifest -- those two were confirmed by
-# an actual run (see datasets/external-fastapi/observed-results-2026-09-19.json) rather than
-# derived by hand, since they come from graph-risk-service's own aggregation over the
-# envelope, not from this script's own extraction logic.
+# expected_confidence/expected_coverage_ratio in the manifest. The checked-in 2026-09-19
+# result is explicitly historical because analyzer 0.3 changed the authentication oracle;
+# a current full-pipeline snapshot must replace it before promotion.
 """
 
 import argparse

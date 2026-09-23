@@ -1,6 +1,6 @@
 package ai.riskgraph.platform.service;
 
-import ai.riskgraph.platform.client.GraphRiskClient;
+import ai.riskgraph.platform.client.AnalysisClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -13,14 +13,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DemoScenarioServiceTest {
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
-    private final RecordingGraphRiskClient graphRiskClient = new RecordingGraphRiskClient();
-    private final DemoScenarioService service = new DemoScenarioService(graphRiskClient, objectMapper, true);
+    private final RecordingAnalysisClient analysisClient = new RecordingAnalysisClient();
+    private final DemoScenarioService service = new DemoScenarioService(
+            analysisClient, objectMapper, "http://localhost", true);
 
     @Test
     void sendsCanonicalAuthorizationRemovalFixturesToGraphService() {
         JsonNode result = service.analyzeAuthorizationRemoval();
 
-        JsonNode request = graphRiskClient.request;
+        JsonNode request = analysisClient.request;
         assertThat(request.path("before").size()).isEqualTo(1);
         assertThat(request.path("after").size()).isEqualTo(1);
         assertThat(request.at("/before/0/authentication").asBoolean()).isTrue();
@@ -32,17 +33,17 @@ class DemoScenarioServiceTest {
 
     @Test
     void deployedModeReadsPrecomputedResultWithoutCallingGraphService() {
-        var precomputed = new DemoScenarioService(graphRiskClient, objectMapper, false)
+        var precomputed = new DemoScenarioService(analysisClient, objectMapper, "http://localhost", false)
                 .analyzeScenario("safe-change");
 
         assertThat(precomputed.path("scenario").asString()).isEqualTo("safe-change");
         assertThat(precomputed.path("mode").asString()).isEqualTo("OFFLINE_FIXTURE");
-        assertThat(graphRiskClient.request).isNull();
+        assertThat(analysisClient.request).isNull();
     }
 
     @Test
     void localDynamicModeHasABoundedRequestRate() {
-        var bounded = new DemoScenarioService(graphRiskClient, objectMapper, true);
+        var bounded = new DemoScenarioService(analysisClient, objectMapper, "http://localhost", true);
         ReflectionTestUtils.setField(bounded, "maxDynamicRequestsPerMinute", 1);
 
         bounded.analyzeScenario("safe-change");
@@ -52,15 +53,15 @@ class DemoScenarioServiceTest {
                         error -> assertThat(error.code).isEqualTo("DEMO_RATE_LIMIT"));
     }
 
-    private final class RecordingGraphRiskClient extends GraphRiskClient {
+    private final class RecordingAnalysisClient extends AnalysisClient {
         private JsonNode request;
 
-        private RecordingGraphRiskClient() {
-            super(RestClient.builder(), objectMapper, "http://localhost");
+        private RecordingAnalysisClient() {
+            super(RestClient.builder(), objectMapper);
         }
 
         @Override
-        public JsonNode analyze(JsonNode request) {
+        public JsonNode post(String baseUrl, String route, JsonNode request) {
             this.request = request;
             return objectMapper.createObjectNode().put("verdict", "BLOCK");
         }

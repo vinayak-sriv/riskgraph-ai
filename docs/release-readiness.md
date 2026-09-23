@@ -1,21 +1,25 @@
 # Release readiness gates
 
-The roadmap is at Week 12. Weeks 8–11 have reproducible local and GitHub evidence;
-Week 12 remains open until an independent reviewer records attributable labels.
+The roadmap is at Week 12. Weeks 8–11 have reproducible local and GitHub evidence.
+Attributable human source review is recorded, but the repository does not establish
+that the reviewer is independent of the project; independent release sign-off remains open.
 
-Latest release-candidate evidence (2026-09-17): the public setup and all 18 automated
+Latest release-candidate evidence (2026-09-23): the public setup and all 18 automated
 release checks passed from a fresh clone with a new Python environment. All four
 source-backed demo scenarios passed with their expected risk deltas and verdicts;
-the isolated Docker authorization probe was confirmed; and both pinned external
-Spring cases passed source/license integrity and repeatability checks. The nested
+the isolated Java and Python Docker authorization probes were confirmed; both pinned
+Spring and both pinned FastAPI cases passed source/license integrity, oracle, and
+repeatability checks; and a live schema-constrained Ollama response passed with the
+CPU-safe `qwen2.5:0.5b` model. The nested
 validation daemon now loads trusted images from an ignored archive and does not need
 registry access. See the
 [fresh-clone rehearsal record](evidence/release-rehearsal-2026-09-17.md).
-Independent external labels are now recorded: both pinned external Spring cases
+Human-reviewed external labels are now recorded: both pinned external Spring cases
 (spring-petclinic, gs-rest-service) carry a human-attributed NEGATIVE label,
 reviewer Vinayak, dated 2026-09-18 (see
-[HUMAN_REVIEW.md](../datasets/external-spring/HUMAN_REVIEW.md)), released as
-`v0.x.0`. The final post-review package/evidence bundle remains open.
+[HUMAN_REVIEW.md](../datasets/external-spring/HUMAN_REVIEW.md)). The prepared candidate
+version is `v1.0.0-rc.1`. Independent sign-off, a clean committed evidence rebuild,
+and the final `v1.0.0` tag remain open.
 
 - [x] Versioned canonical IR and deterministic graph/risk fixture tests
 - [x] Source allowlist, immutable commits, Spoon extraction and provenance
@@ -50,7 +54,10 @@ reviewer Vinayak, dated 2026-09-18 (see
 - [x] Platform user authentication and Developer/Analyst/Admin authorization on implemented APIs
 - [x] MVP validation is deliberately limited to registered authored Docker targets;
       arbitrary reviewed-target adapters are deferred post-MVP
-- [x] Human review of provisional labels and release approval (`v0.x.0`, 2026-09-18)
+- [x] Attributable human review of provisional labels (`v1.0.0-rc.1` candidate, 2026-09-18)
+- [x] Local candidate source archive, evidence bundle, SHA-256 manifests, and demo recording
+- [ ] Independent release sign-off by a reviewer outside the project
+- [ ] Clean committed evidence rebuild and final `v1.0.0` tag
 
 ## Planned after the MVP release
 

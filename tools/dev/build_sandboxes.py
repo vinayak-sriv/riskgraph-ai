@@ -3,6 +3,7 @@ Never invokes build scripts from an arbitrary analyzed repository.
 """
 
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -43,6 +44,26 @@ def file_sha256(path: Path) -> str:
         for chunk in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def register_python_sandbox(pair: dict) -> None:
+    """Add the trusted Python pair to the source-validation registry."""
+    registry_dir = ROOT / "samples/generated/mvp-v2"
+    targets = (
+        (registry_dir / "manifest.json", pair["repository_path"]),
+        (
+            registry_dir / "manifest.compose.json",
+            "/analysis-repositories/mvp-v2-python/authorization-removal",
+        ),
+    )
+    for path, repository_path in targets:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        manifest["scenarios"]["authorization-removal-python"] = {
+            "repository_path": repository_path,
+            "old_commit": pair["old_commit"],
+            "new_commit": pair["new_commit"],
+        }
+        path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 def archive_validation_images(docker: list[str], probe_image: str) -> Path:
@@ -143,6 +164,7 @@ def main():
                 check=True,
             )
     py_pair = create_python()["scenarios"]["authorization-removal"]
+    register_python_sandbox(py_pair)
     py_repo = Path(py_pair["repository_path"])
     py_handler_by_revision = {"protected": HANDLER_PROTECTED, "vulnerable": HANDLER_VULNERABLE}
     for revision, commit in [

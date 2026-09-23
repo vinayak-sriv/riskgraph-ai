@@ -1,6 +1,10 @@
 import ast
 
-from python_analyzer_app.resolver import confidence_minimum, resolve_dependencies
+from python_analyzer_app.resolver import (
+    build_function_catalog,
+    confidence_minimum,
+    resolve_dependencies,
+)
 
 
 def _handler(source: str) -> ast.FunctionDef:
@@ -79,3 +83,32 @@ def test_confidence_minimum_orders_low_below_medium_below_high():
     assert confidence_minimum("HIGH", "MEDIUM", "LOW") == "LOW"
     assert confidence_minimum("HIGH", "MEDIUM") == "MEDIUM"
     assert confidence_minimum("HIGH", "HIGH") == "HIGH"
+
+
+def test_follows_unambiguous_named_function_into_another_file():
+    sources = {
+        "routes.py": "def route(db):\n    return load_customer(db)\n",
+        "repository.py": "def load_customer(db):\n    return db.query(Customer).first()\n",
+    }
+    catalog = build_function_catalog(sources)
+
+    resolution = resolve_dependencies(catalog["route"][0], catalog)
+
+    assert resolution.confidence == "HIGH"
+    assert resolution.primary.repository == "Customer"
+    assert resolution.primary.resource == "Customer"
+
+
+def test_duplicate_function_names_are_ambiguous_instead_of_guessed():
+    sources = {
+        "routes.py": "def route():\n    return load()\n",
+        "one.py": "def load():\n    return user_repository.all()\n",
+        "two.py": "def load():\n    return audit_repository.all()\n",
+    }
+    catalog = build_function_catalog(sources)
+
+    resolution = resolve_dependencies(catalog["route"][0], catalog)
+
+    assert resolution.ambiguous
+    assert resolution.paths == []
+    assert resolution.confidence == "LOW"

@@ -8,6 +8,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import ai.riskgraph.platform.service.PipelineException;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
@@ -50,5 +53,10 @@ public class AccountController {
     @PostMapping("/admin/users") public AccountService.Profile create(@RequestBody NewAccount request) {
         return accounts.create(request.username(), request.name(), request.role(), request.password());
     }
+    @PutMapping("/admin/users/{username}/email") public void setVerifiedEmail(
+        @PathVariable String username, @Valid @RequestBody NotificationEmail request) {
+        accounts.setVerifiedEmail(username, request.email(), request.verified());
+    }
     public record NewAccount(String username, String name, AccountService.Role role, String password) {}
+    public record NotificationEmail(@NotBlank @Email String email, boolean verified) {}
 }
