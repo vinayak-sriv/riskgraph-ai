@@ -56,7 +56,7 @@ class NotificationServiceTest {
 
         ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
         verify(db).update(anyString(), args.capture());
-        assertThat(args.getValue()).containsExactly(5L, 1L);
+        assertThat(args.getValue()).containsExactly(5L, 1L, "IN_APP");
     }
 
     @Test
