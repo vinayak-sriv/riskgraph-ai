@@ -1,7 +1,9 @@
 import json
 import subprocess
 from pathlib import Path
+from unittest.mock import Mock
 
+import python_analyzer_app.envelope as envelope_module
 from jsonschema import Draft202012Validator
 from python_analyzer_app.envelope import build_envelope
 from referencing import Registry, Resource
@@ -100,3 +102,81 @@ def test_real_repo_extracts_routes_and_new_auth_dependency(tmp_path):
 
     codes = {diagnostic["code"] for diagnostic in envelope["diagnostics"]}
     assert "PYTHON_RESOLUTION_IS_HEURISTIC" in codes
+
+
+def test_extract_side_skips_absent_paths_and_contains_file_failures(monkeypatch):
+    monkeypatch.setattr(
+        envelope_module,
+        "_all_python_sources",
+        lambda *_: {"bad.py": "from fastapi import FastAPI"},
+    )
+    monkeypatch.setattr(envelope_module, "_read_file_at_commit", lambda *_: None)
+    monkeypatch.setattr(
+        envelope_module, "extract_endpoints", Mock(side_effect=ValueError("invalid route"))
+    )
+    diagnostics = []
+
+    evidence = envelope_module._extract_side(
+        "/repo",
+        "a" * 40,
+        [
+            {"old_path": None},
+            {"old_path": "missing.py"},
+            {"old_path": "bad.py"},
+        ],
+        side="old",
+        diagnostics=diagnostics,
+    )
+
+    assert evidence == []
+    assert diagnostics[0]["code"] == "PYTHON_EXTRACTION_FAILED"
+    assert diagnostics[0]["path"] == "bad.py"
+
+
+def test_git_read_helpers_fail_closed(monkeypatch):
+    monkeypatch.setattr(
+        envelope_module.subprocess, "run", Mock(side_effect=OSError("git unavailable"))
+    )
+
+    assert envelope_module._all_python_sources("/repo", "a" * 40) == {}
+    assert envelope_module._read_file_at_commit("/repo", "a" * 40, "main.py") is None
+
+
+def test_all_python_sources_omits_unreadable_files(monkeypatch):
+    listing = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout="good.py\nmissing.py\nREADME.md\n", stderr=""
+    )
+    monkeypatch.setattr(envelope_module.subprocess, "run", Mock(return_value=listing))
+    monkeypatch.setattr(
+        envelope_module,
+        "_read_file_at_commit",
+        lambda _repo, _commit, path: "print('ok')" if path == "good.py" else None,
+    )
+
+    assert envelope_module._all_python_sources("/repo", "a" * 40) == {"good.py": "print('ok')"}
+
+
+def test_changed_files_handles_blank_rename_and_unknown_status(monkeypatch):
+    diff = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout="\nR100\told.py\tnew.py\nX\tother.py\n", stderr=""
+    )
+    monkeypatch.setattr(envelope_module.subprocess, "run", Mock(return_value=diff))
+
+    changed = envelope_module._changed_python_files("/repo", "a" * 40, "b" * 40)
+
+    assert changed == [
+        {
+            "status": "MODIFY",
+            "old_path": "old.py",
+            "new_path": "new.py",
+            "old_ranges": [],
+            "new_ranges": [],
+        },
+        {
+            "status": "MODIFY",
+            "old_path": "other.py",
+            "new_path": "other.py",
+            "old_ranges": [],
+            "new_ranges": [],
+        },
+    ]

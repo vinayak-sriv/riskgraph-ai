@@ -253,3 +253,62 @@ def ambiguous(value: Current):
 
     assert endpoint["endpoint"]["authentication"] is False
     assert endpoint["extraction_confidence"]["authorization"] == "LOW"
+
+
+def test_non_route_or_malformed_decorators_are_ignored():
+    source = """
+from fastapi import APIRouter
+
+app = APIRouter(prefix=123)
+
+@app.get
+def undecorated_call(): ...
+
+@app.head("/head")
+def unsupported_method(): ...
+
+@other.get("/other")
+def unknown_router(): ...
+
+@app.get()
+def missing_path(): ...
+
+@app.get(123)
+def non_string_path(): ...
+
+@app.get("/valid")
+async def valid_route(): ...
+"""
+
+    endpoints = extract_endpoints(source, "routes.py")
+
+    assert [entry["endpoint"]["endpoint"] for entry in endpoints] == ["/valid"]
+
+
+def test_nested_and_empty_dependencies_are_handled_safely():
+    source = """
+from fastapi import APIRouter, Depends, Security
+
+router = APIRouter()
+
+@router.get(
+    "/secure",
+    dependencies=[Depends(), Depends(factory()), Security(auth.permission)],
+)
+def secure_route(): ...
+"""
+
+    endpoint = extract_endpoints(source, "routes.py")[0]
+
+    assert endpoint["endpoint"]["authentication"] is True
+
+
+def test_alias_catalog_accepts_annotated_assignments_and_skips_bad_source():
+    aliases = build_dependency_alias_catalog(
+        {
+            "bad.py": "def broken(:",
+            "dependencies.py": "CurrentUser: object = Security(require_user)",
+        }
+    )
+
+    assert list(aliases) == ["CurrentUser"]
