@@ -317,16 +317,21 @@ def build_dependency_alias_catalog(
         for node in tree.body:
             name: str | None = None
             value: ast.expr | None = None
-            if isinstance(node, ast.Assign) and len(node.targets) == 1 \
-                    and isinstance(node.targets[0], ast.Name):
+            if (
+                isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+            ):
                 name, value = node.targets[0].id, node.value
             elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
                 name, value = node.target.id, node.value
             if name is None or value is None:
                 continue
             calls = [
-                child for child in ast.walk(value)
-                if isinstance(child, ast.Call) and _callee_name(child.func) in {"Depends", "Security"}
+                child
+                for child in ast.walk(value)
+                if isinstance(child, ast.Call)
+                and _callee_name(child.func) in {"Depends", "Security"}
             ]
             if calls:
                 aliases[name] = calls if name not in aliases else None

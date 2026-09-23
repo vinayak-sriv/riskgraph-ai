@@ -61,6 +61,7 @@ def main():
                 "--check",
                 "services/graph-risk-service",
                 "services/ai-validation-service",
+                "services/python-analyzer",
                 "tests",
                 "tools",
                 "datasets/risk-corpus/tools",

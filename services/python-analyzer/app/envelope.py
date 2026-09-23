@@ -139,9 +139,9 @@ def _extract_side(
         if source is None:
             continue
         try:
-            evidence.extend(extract_endpoints(
-                source, path, prefixes.get(path), functions, dependency_aliases
-            ))
+            evidence.extend(
+                extract_endpoints(source, path, prefixes.get(path), functions, dependency_aliases)
+            )
         except Exception as exc:  # noqa: BLE001 -- one bad file must not fail the whole scan
             diagnostics.append(
                 {
