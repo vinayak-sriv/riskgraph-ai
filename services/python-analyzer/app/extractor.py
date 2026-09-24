@@ -34,11 +34,14 @@ def extract_endpoints(
     router_prefixes: dict[str, list[str]] | None = None,
     function_catalog: dict[str, list[FunctionDef]] | None = None,
     dependency_aliases: dict[str, list[ast.Call] | None] | None = None,
+    parsed_tree: ast.Module | None = None,
 ) -> list[dict]:
-    try:
-        tree = ast.parse(source, filename=file_path)
-    except SyntaxError:
-        return []
+    tree = parsed_tree
+    if tree is None:
+        try:
+            tree = ast.parse(source, filename=file_path)
+        except SyntaxError:
+            return []
 
     router_configs = _router_configs(tree)
     policy = _get_policy()
@@ -308,14 +311,18 @@ def _authorization(
 
 def build_dependency_alias_catalog(
     sources: dict[str, str],
+    parsed_trees: dict[str, ast.Module] | None = None,
 ) -> dict[str, list[ast.Call] | None]:
     """Collect named ``Annotated[..., Depends(...)]`` aliases across files."""
     aliases: dict[str, list[ast.Call] | None] = {}
-    for path, source in sources.items():
-        try:
-            tree = ast.parse(source, filename=path)
-        except SyntaxError:
-            continue
+    trees: dict[str, ast.Module] = {} if parsed_trees is None else parsed_trees
+    if parsed_trees is None:
+        for path, source in sources.items():
+            try:
+                trees[path] = ast.parse(source, filename=path)
+            except SyntaxError:
+                continue
+    for tree in trees.values():
         for node in tree.body:
             name: str | None = None
             value: ast.expr | None = None

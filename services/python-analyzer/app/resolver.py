@@ -104,14 +104,18 @@ def resolve_dependencies(
 
 def build_function_catalog(
     sources: dict[str, str],
+    parsed_trees: dict[str, ast.Module] | None = None,
 ) -> dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]]:
     """Index top-level named functions; duplicate names remain ambiguous."""
     catalog: dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]] = {}
-    for path, source in sources.items():
-        try:
-            tree = ast.parse(source, filename=path)
-        except SyntaxError:
-            continue
+    trees: dict[str, ast.Module] = {} if parsed_trees is None else parsed_trees
+    if parsed_trees is None:
+        for path, source in sources.items():
+            try:
+                trees[path] = ast.parse(source, filename=path)
+            except SyntaxError:
+                continue
+    for tree in trees.values():
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 catalog.setdefault(node.name, []).append(node)

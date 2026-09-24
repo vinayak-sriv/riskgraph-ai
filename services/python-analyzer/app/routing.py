@@ -18,14 +18,18 @@ class RouterKey:
     name: str
 
 
-def resolve_router_prefixes(sources: dict[str, str]) -> dict[str, dict[str, list[str]]]:
-    trees: dict[str, ast.Module] = {}
+def resolve_router_prefixes(
+    sources: dict[str, str], parsed_trees: dict[str, ast.Module] | None = None
+) -> dict[str, dict[str, list[str]]]:
+    trees: dict[str, ast.Module] = {} if parsed_trees is None else parsed_trees
     modules: dict[str, str] = {}
-    for path, source in sources.items():
-        try:
-            trees[path] = ast.parse(source, filename=path)
-        except SyntaxError:
-            continue
+    if parsed_trees is None:
+        for path, source in sources.items():
+            try:
+                trees[path] = ast.parse(source, filename=path)
+            except SyntaxError:
+                continue
+    for path in trees:
         modules[_module_name(path)] = path
 
     routers: dict[RouterKey, tuple[str, bool]] = {}

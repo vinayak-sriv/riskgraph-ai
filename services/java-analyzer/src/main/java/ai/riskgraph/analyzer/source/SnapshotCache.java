@@ -253,8 +253,9 @@ public class SnapshotCache {
     private long walkSize(Path path) throws IOException {
         try (var paths = Files.walk(path)) {
             long total = 0;
-            for (Path value : paths.filter(item -> Files.isRegularFile(
-                    item, LinkOption.NOFOLLOW_LINKS)).toList()) total += Files.size(value);
+            var files = paths.filter(item -> Files.isRegularFile(
+                    item, LinkOption.NOFOLLOW_LINKS)).iterator();
+            while (files.hasNext()) total += Files.size(files.next());
             return total;
         }
     }
