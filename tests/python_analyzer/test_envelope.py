@@ -180,3 +180,35 @@ def test_changed_files_handles_blank_rename_and_unknown_status(monkeypatch):
             "new_ranges": [],
         },
     ]
+
+
+def test_extract_side_parses_each_repository_file_once(monkeypatch):
+    sources = {
+        "routes.py": (
+            "from fastapi import FastAPI\n"
+            "app = FastAPI()\n"
+            '@app.get("/items")\n'
+            "def items(): return []\n"
+        ),
+        "helpers.py": "def helper(): return None\n",
+    }
+    monkeypatch.setattr(envelope_module, "_all_python_sources", lambda *_: sources)
+    real_parse = envelope_module.ast.parse
+    parsed: list[str] = []
+
+    def counted_parse(source, *, filename):
+        parsed.append(filename)
+        return real_parse(source, filename=filename)
+
+    monkeypatch.setattr(envelope_module.ast, "parse", counted_parse)
+
+    evidence = envelope_module._extract_side(
+        "/repo",
+        "a" * 40,
+        [{"new_path": "routes.py"}],
+        side="new",
+        diagnostics=[],
+    )
+
+    assert parsed == ["routes.py", "helpers.py"]
+    assert evidence[0]["endpoint"]["endpoint"] == "/items"

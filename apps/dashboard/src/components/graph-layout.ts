@@ -5,6 +5,7 @@ import type {
 } from "./graph-layout.worker";
 
 let nextRequestId = 1;
+const LAYOUT_TIMEOUT_MS = 10_000;
 
 function fallbackPositions(graph: SecurityGraph) {
   const columns = Math.max(1, Math.ceil(Math.sqrt(graph.nodes.length)));
@@ -60,6 +61,11 @@ export function requestGraphLayout(
   graph: SecurityGraph,
   signal: AbortSignal,
 ): Promise<Map<string, { x: number; y: number }>> {
+  if (signal.aborted) {
+    return Promise.reject(
+      signal.reason ?? new DOMException("Graph layout cancelled", "AbortError"),
+    );
+  }
   if (typeof Worker === "undefined") {
     return Promise.resolve(fallbackPositions(graph));
   }
@@ -70,12 +76,19 @@ export function requestGraphLayout(
   const request: GraphLayoutRequest = { requestId, graph };
 
   return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      pending.delete(requestId);
+      signal.removeEventListener("abort", onAbort);
+      resolve(fallbackPositions(graph));
+    }, LAYOUT_TIMEOUT_MS);
     const onAbort = () => {
+      window.clearTimeout(timeout);
       pending.delete(requestId);
       reject(new DOMException("Graph layout cancelled", "AbortError"));
     };
     signal.addEventListener("abort", onAbort, { once: true });
     pending.set(requestId, (response) => {
+      window.clearTimeout(timeout);
       signal.removeEventListener("abort", onAbort);
       if (signal.aborted) return;
       resolve(

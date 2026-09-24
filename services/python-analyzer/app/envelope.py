@@ -10,6 +10,7 @@ the rest of the pipeline (graph/risk, decision, dashboard) running unchanged
 on the result.
 """
 
+import ast
 import hashlib
 import os
 import subprocess
@@ -126,9 +127,10 @@ def _extract_side(
     path_key = "old_path" if side == "old" else "new_path"
     evidence = []
     sources = _all_python_sources(repository_path, commit)
-    prefixes = resolve_router_prefixes(sources)
-    functions = build_function_catalog(sources)
-    dependency_aliases = build_dependency_alias_catalog(sources)
+    trees = _parse_python_sources(sources)
+    prefixes = resolve_router_prefixes(sources, trees)
+    functions = build_function_catalog(sources, trees)
+    dependency_aliases = build_dependency_alias_catalog(sources, trees)
     for entry in changed_files:
         path = entry[path_key]
         if path is None:
@@ -140,7 +142,14 @@ def _extract_side(
             continue
         try:
             evidence.extend(
-                extract_endpoints(source, path, prefixes.get(path), functions, dependency_aliases)
+                extract_endpoints(
+                    source,
+                    path,
+                    prefixes.get(path),
+                    functions,
+                    dependency_aliases,
+                    trees.get(path),
+                )
             )
         except Exception as exc:  # noqa: BLE001 -- one bad file must not fail the whole scan
             diagnostics.append(
@@ -152,6 +161,17 @@ def _extract_side(
                 }
             )
     return evidence
+
+
+def _parse_python_sources(sources: dict[str, str]) -> dict[str, ast.Module]:
+    """Parse each repository file once for all extraction passes."""
+    trees: dict[str, ast.Module] = {}
+    for path, source in sources.items():
+        try:
+            trees[path] = ast.parse(source, filename=path)
+        except SyntaxError:
+            continue
+    return trees
 
 
 def _all_python_sources(repository_path: str, commit: str) -> dict[str, str]:

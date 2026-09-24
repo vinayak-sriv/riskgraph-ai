@@ -129,10 +129,9 @@ def anonymous_sensitive_paths(
     graph: SecurityGraph,
     endpoints: list[EndpointIr],
 ) -> dict[tuple[str, ...], PathEvidence]:
-    nx_graph = nx.DiGraph()
-    nx_graph.add_nodes_from(node.id for node in graph.nodes)
-    for edge in graph.edges:
-        nx_graph.add_edge(edge.source_id, edge.target_id, relationship=edge.relationship)
+    edge_relationships = {
+        (edge.source_id, edge.target_id): edge.relationship for edge in graph.edges
+    }
 
     paths: dict[tuple[str, ...], PathEvidence] = {}
     # Each row is a resolved call/resource path. BFS on its route-context nodes
@@ -158,11 +157,12 @@ def anonymous_sensitive_paths(
         route_graph = nx.DiGraph()
         route_graph.add_nodes_from(node_chain)
         for source, destination in zip(node_chain, node_chain[1:], strict=False):
-            if nx_graph.has_edge(source, destination):
+            relationship = edge_relationships.get((source, destination))
+            if relationship is not None:
                 route_graph.add_edge(
                     source,
                     destination,
-                    relationship=nx_graph.edges[source, destination]["relationship"],
+                    relationship=relationship,
                 )
         try:
             node_path = nx.shortest_path(route_graph, ANONYMOUS_NODE_ID, target)
