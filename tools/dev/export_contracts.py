@@ -61,6 +61,22 @@ def main():
         "validation_status",
     ):
         properties[name] = {"type": "string"}
+    properties["analyzer_language"] = {
+        "type": "string",
+        "enum": ["java", "python"],
+    }
+    properties["pull_request"] = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["number", "url"],
+        "properties": {
+            "number": {"type": "integer", "minimum": 1},
+            "url": {
+                "type": "string",
+                "pattern": r"^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[1-9][0-9]*$",
+            },
+        },
+    }
     json.loads((ROOT / "contracts/ir/analysis-envelope.schema.json").read_text())
     # Preserve analyzer metadata without mixing it into canonical endpoint records.
     for name in ("provenance", "coverage", "diagnostics"):
@@ -173,6 +189,11 @@ def main():
             **{
                 k: {"type": "string", "pattern": "^[0-9a-fA-F]{40}$"}
                 for k in ("old_commit", "new_commit")
+            },
+            "pull_request_number": {"type": "integer", "minimum": 1},
+            "pull_request_url": {
+                "type": "string",
+                "pattern": r"^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[1-9][0-9]*$",
             },
         },
     }

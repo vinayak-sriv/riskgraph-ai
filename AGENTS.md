@@ -200,7 +200,7 @@ override, trigger validation), `Admin` (configure rules, manage users/repos).
 Codex should treat this as the current source of truth for "what phase are we in."
 Update the **CURRENT WEEK** marker below each week during your mentor check-in.
 
-> **CURRENT WEEK: 12**  ← Weeks 1–11 are complete; Week 12 independent review is pending
+> **CURRENT WEEK: 12**  ← Attributable human source review is recorded; independent release sign-off is pending
 
 | Wk | Focus | Deliverable |
 |---|---|---|
@@ -241,10 +241,12 @@ separate values: risk estimates impact; confidence reports extraction reliabilit
    ALLOW/BLOCK verdict. Partial or ambiguous FastAPI extraction lowers
    confidence and forces REVIEW — an unrecognised `Depends(...)` is reported
    unauthenticated at LOW confidence rather than assumed authenticated.
-   Still outstanding before promotion from experimental to supported:
-   router-prefix stitching across files, cross-file call resolution, and
-   evaluation on the pinned public FastAPI repositories. Django and Flask
-   require later, separate adapters.
+   Explicit-import router prefixes, modern/decorator dependencies, unambiguous
+   named cross-file calls, four-scenario parity, and a pinned public evaluation
+   harness and current live Docker evaluation are implemented. Still outstanding
+   before promotion: independently reviewed FastAPI labels, mixed-module partial
+   coverage, and type-aware attribute/service dispatch. Django and Flask require
+   later, separate adapters.
 2. **Notification manager.** Consume final platform decision events independently of
    the source language. Notify only verified RiskGraph users whose repository access
    is rechecked at delivery time. Start with in-app and email notifications for REVIEW
@@ -254,6 +256,10 @@ separate values: risk estimates impact; confidence reports extraction reliabilit
    bounded retries, rate limits, delivery/audit records, and unsubscribe controls.
    Messages must distinguish possible from Docker-confirmed findings, link to protected
    evidence, and never include raw source, credentials, or sensitive response bodies.
+   The transactional outbox, in-app/email delivery, live access checks, verified-email
+   gate, per-repository unsubscribe, retries, audit rows, deduplication, and read state
+   are implemented. Optional resolution notices, administrator recipient
+   presets, and full PostgreSQL/provider recovery tests remain before promotion.
 
 Detailed sequencing and acceptance criteria are maintained in
 `docs/pending-updates.md`.

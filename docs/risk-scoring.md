@@ -11,6 +11,23 @@ Risk = 0.25 * Reachability
      + 0.10 * Exploitability
 ```
 
+## Research grounding
+
+The six-factor deterministic structure (rather than one opaque score) follows
+established risk-scoring literature; the weights and thresholds above remain
+this project's own calibration, not derived from any cited source. Full
+citations: [literature-mapping.md](literature-mapping.md#6-multi-factor-deterministic-risk-scoring).
+
+- Decomposing risk into weighted sub-factors combined into named severity
+  bands (LOW/MODERATE/MEDIUM/HIGH/CRITICAL) follows the structure of the
+  OWASP Risk Rating Methodology (Likelihood x Impact factors -> severity).
+- Modeling "Exploitability" as its own explicit factor, separate from raw
+  severity, follows the Exploit Prediction Scoring System (EPSS; Jacobs et
+  al., 2021).
+- Aggregating multiple factors through a reachability graph, rather than
+  scoring each finding in isolation, follows Homer et al. (2013) and the
+  foundational attack-graph model of Sheyner et al. (2002).
+
 Categories:
 - `0-20 LOW`
 - `21-40 MODERATE`

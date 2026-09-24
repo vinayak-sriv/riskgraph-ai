@@ -75,6 +75,16 @@ public class AccountService implements UserDetailsService, ApplicationRunner {
         return profile;
     }
 
+    public void setVerifiedEmail(String username, String email, boolean verified) {
+        Profile profile = profile(username);
+        if (db == null)
+            throw new PipelineException("EMAIL_CONFIGURATION_UNAVAILABLE", 409,
+                "Verified notification email requires PostgreSQL");
+        String normalized = email.strip().toLowerCase(java.util.Locale.ROOT);
+        db.update("UPDATE users SET email=?,email_verified=?,updated_at=now() WHERE username=? AND enabled",
+            normalized, verified, profile.username());
+    }
+
     private Account find(String username) {
         if (db == null) return local.get(username);
         var rows = db.query("SELECT username,name,role,password_hash FROM users WHERE username=? AND enabled",

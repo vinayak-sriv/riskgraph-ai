@@ -65,26 +65,40 @@ public class NotificationController {
         return toResponse(notifications.preferences(userId));
     }
 
+    @PutMapping("/notifications/preferences/repository")
+    public RepositoryPreference setRepositoryUnsubscribed(
+            @Valid @RequestBody RepositoryPreferenceUpdate update,
+            Authentication authentication) {
+        notifications.setRepositoryUnsubscribed(notifications.userId(authentication.getName()),
+                update.repository(), update.unsubscribed());
+        return new RepositoryPreference(update.repository(), update.unsubscribed());
+    }
+
     private static NotificationItem toItem(NotificationService.Notification n) {
         return new NotificationItem(n.id(), n.repository(), n.verdict(), n.riskBefore(),
-                n.riskAfter(), n.scanId(), n.validationStatus(), n.confidence(), n.createdAt(), n.readAt());
+                n.riskAfter(), n.scanId(), n.validationStatus(), n.confidence(),
+                n.pullRequestNumber(), n.pullRequestUrl(), n.createdAt(), n.readAt());
     }
 
     private static PreferencesResponse toResponse(NotificationService.Preferences prefs) {
         return new PreferencesResponse(prefs.channels().stream()
                 .map(c -> new ChannelPreferenceItem(c.channel(), c.enabled(), c.minSeverity())).toList(),
-                prefs.unsubscribedAll());
+                prefs.unsubscribedAll(), prefs.unsubscribedRepositories());
     }
 
     public record NotificationItem(Long id, String repository, String verdict, Integer risk_before,
             Integer risk_after, String scan_id, String validation_status, String confidence,
+            Integer pull_request_number, String pull_request_url,
             Instant created_at, Instant read_at) { }
     public record NotificationPage(List<NotificationItem> items, Long next_cursor, int unread_count) { }
     public record ChannelPreferenceItem(String channel, boolean enabled, String min_severity) { }
-    public record PreferencesResponse(List<ChannelPreferenceItem> channels, boolean unsubscribed_all) { }
+    public record PreferencesResponse(List<ChannelPreferenceItem> channels, boolean unsubscribed_all,
+            List<String> unsubscribed_repositories) { }
     public record PreferenceUpdate(
             @NotBlank @Pattern(regexp = "IN_APP|EMAIL") String channel,
             boolean enabled,
             @NotBlank @Pattern(regexp = "REVIEW|BLOCK") String min_severity) { }
     public record UnsubscribeUpdate(boolean unsubscribed) { }
+    public record RepositoryPreferenceUpdate(@NotBlank String repository, boolean unsubscribed) { }
+    public record RepositoryPreference(String repository, boolean unsubscribed) { }
 }

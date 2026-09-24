@@ -28,6 +28,8 @@ def test_release_archive_is_clean_and_byte_deterministic():
             "apps/ui/dist/app.js": b"generated\n",
             "coverage/report.json": b"generated\n",
             ".ruff_cache/cache": b"generated\n",
+            ".mypy_cache/cache": b"generated\n",
+            ".venv-python-analyzer/lib/module.py": b"generated\n",
             ".test-tmp/output.json": b"generated\n",
             ".review-logic-pytest/result.json": b"generated\n",
             "pytest-cache-files-abc/cache": b"generated\n",

@@ -25,6 +25,18 @@
     "schema_version": { "type": "string", "const": "1.1.0" },
     "scan_id": { "type": "string", "minLength": 1 },
     "repository": { "type": "string", "minLength": 1 },
+    "pull_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "url"],
+      "properties": {
+        "number": { "type": "integer", "minimum": 1 },
+        "url": {
+          "type": "string",
+          "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[1-9][0-9]*$"
+        }
+      }
+    },
     "old_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "new_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "final_verdict": { "type": "string", "enum": ["ALLOW", "REVIEW", "BLOCK"] },

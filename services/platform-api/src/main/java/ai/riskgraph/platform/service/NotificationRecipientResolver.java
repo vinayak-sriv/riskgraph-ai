@@ -30,6 +30,8 @@ public class NotificationRecipientResolver {
                 LEFT JOIN notification_preferences p ON p.user_id = u.id AND p.channel = channel.name
                 WHERE m.scan_id = ?
                   AND COALESCE(p.enabled, channel.name = 'IN_APP')
+                  AND (channel.name <> 'EMAIL'
+                       OR (u.email IS NOT NULL AND u.email_verified))
                   AND (COALESCE(p.min_severity, 'REVIEW') <> 'BLOCK' OR ? = 'BLOCK')
                   AND NOT EXISTS (
                       SELECT 1 FROM notification_unsubscribes s
@@ -46,12 +48,13 @@ public class NotificationRecipientResolver {
                     LEFT JOIN notification_preferences p ON p.user_id=u.id AND p.channel=?
                     WHERE m.scan_id=? AND u.id=?
                       AND COALESCE(p.enabled, ?='IN_APP')
+                      AND (? <> 'EMAIL' OR (u.email IS NOT NULL AND u.email_verified))
                       AND (COALESCE(p.min_severity, 'REVIEW') <> 'BLOCK' OR ?='BLOCK')
                       AND NOT EXISTS (
                           SELECT 1 FROM notification_unsubscribes s
                           WHERE s.user_id=u.id AND s.scope IN ('*', ?))
                 )
-                """, Boolean.class, channel, scanId, userId, channel, verdict, repository);
+                """, Boolean.class, channel, scanId, userId, channel, channel, verdict, repository);
         return Boolean.TRUE.equals(eligible);
     }
 

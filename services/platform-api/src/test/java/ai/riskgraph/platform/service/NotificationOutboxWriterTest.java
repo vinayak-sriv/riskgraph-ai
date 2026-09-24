@@ -40,6 +40,9 @@ class NotificationOutboxWriterTest {
         JsonNode event = mapper.readTree((String) params[4]);
         assertThat(event.path("event_type").asString()).isEqualTo("final-decision");
         assertThat(event.path("decision").path("final_verdict").asString()).isEqualTo("BLOCK");
+        assertThat(event.at("/decision/pull_request/number").asInt()).isEqualTo(69);
+        assertThat(event.at("/decision/pull_request/url").asString())
+                .isEqualTo("https://github.com/demo/riskgraph-sample/pull/69");
         assertThat(event.at("/decision/finding_fingerprints/0").asString()).hasSize(64);
     }
 
@@ -48,6 +51,9 @@ class NotificationOutboxWriterTest {
         result.put("scan_id", "scan-abc");
         result.put("final_verdict", verdict);
         result.put("validation_status", "NOT_RUN");
+        result.putObject("pull_request")
+                .put("number", 69)
+                .put("url", "https://github.com/demo/riskgraph-sample/pull/69");
         ObjectNode provenance = result.putObject("provenance");
         provenance.put("repository_identity", "demo/riskgraph-sample");
         provenance.put("old_commit", "0f6e8614047bd74cf6223b4d8a858d2ed2824f8a");

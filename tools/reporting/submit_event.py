@@ -16,7 +16,15 @@ def request_for(event, repository_path):
     old, new = pr["base"]["sha"], pr["head"]["sha"]
     if not all(re.fullmatch("[0-9a-f]{40}", value) for value in (old, new)):
         raise ValueError("Event must contain immutable base/head SHAs")
-    return dict(repository_path=str(repository_path.resolve()), old_commit=old, new_commit=new)
+    repository = event["repository"]["full_name"]
+    number = int(event.get("number", pr.get("number")))
+    return dict(
+        repository_path=str(repository_path.resolve()),
+        old_commit=old,
+        new_commit=new,
+        pull_request_number=number,
+        pull_request_url=f"https://github.com/{repository}/pull/{number}",
+    )
 
 
 def main():

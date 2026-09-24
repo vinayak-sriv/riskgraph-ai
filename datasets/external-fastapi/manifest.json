@@ -29,23 +29,23 @@
       ],
       "source_review": "Automated review: the pinned diff (upstream PR #711) renames a local variable (`statment` -> `count_statement`) in items.py and users.py. No route decorator, HTTP method, path, dependency, or ORM/repository call is added, removed, or changed in either file.",
       "expected_changed_endpoints": [
-        { "method": "GET", "endpoint": "/", "authentication": false, "required_role": null },
-        { "method": "GET", "endpoint": "/{id}", "authentication": false, "required_role": null },
-        { "method": "POST", "endpoint": "/", "authentication": false, "required_role": null },
-        { "method": "PUT", "endpoint": "/{id}", "authentication": false, "required_role": null },
-        { "method": "DELETE", "endpoint": "/{id}", "authentication": false, "required_role": null },
-        { "method": "PATCH", "endpoint": "/me", "authentication": false, "required_role": null },
-        { "method": "PATCH", "endpoint": "/me/password", "authentication": false, "required_role": null },
-        { "method": "GET", "endpoint": "/me", "authentication": false, "required_role": null },
+        { "method": "GET", "endpoint": "/", "authentication": true, "required_role": null },
+        { "method": "GET", "endpoint": "/{id}", "authentication": true, "required_role": null },
+        { "method": "POST", "endpoint": "/", "authentication": true, "required_role": null },
+        { "method": "PUT", "endpoint": "/{id}", "authentication": true, "required_role": null },
+        { "method": "DELETE", "endpoint": "/{id}", "authentication": true, "required_role": null },
+        { "method": "PATCH", "endpoint": "/me", "authentication": true, "required_role": null },
+        { "method": "PATCH", "endpoint": "/me/password", "authentication": true, "required_role": null },
+        { "method": "GET", "endpoint": "/me", "authentication": true, "required_role": null },
         { "method": "POST", "endpoint": "/open", "authentication": false, "required_role": null },
-        { "method": "GET", "endpoint": "/{user_id}", "authentication": false, "required_role": null },
-        { "method": "PATCH", "endpoint": "/{user_id}", "authentication": false, "required_role": null },
-        { "method": "DELETE", "endpoint": "/{user_id}", "authentication": false, "required_role": null }
+        { "method": "GET", "endpoint": "/{user_id}", "authentication": true, "required_role": null },
+        { "method": "PATCH", "endpoint": "/{user_id}", "authentication": true, "required_role": null },
+        { "method": "DELETE", "endpoint": "/{user_id}", "authentication": true, "required_role": null }
       ],
       "expected_diagnostic": "PYTHON_RESOLUTION_IS_HEURISTIC",
       "expected_confidence": "LOW",
       "expected_coverage_ratio": 0.5714285714285714,
-      "known_limitation": "Every route in this repository is decorated with FastAPI's Annotated[Type, Depends(...)] dependency-injection idiom (parameter type aliases such as CurrentUser/SessionDep) or a decorator-level `dependencies=[Depends(...)]` kwarg. The current authentication heuristic (extractor.py:_has_depends_param) only recognizes a function-parameter *default* value of `Depends(...)`, so every route here is reported as unauthenticated regardless of its real protection. This is a known, accurate extraction-scope gap, not a resolution failure -- see extractor.py's module docstring."
+      "known_limitation": "Analyzer 0.3 resolves repository-wide Annotated dependency aliases and decorator dependencies. It still reports roles as null because FastAPI dependency bodies are not converted into a role hierarchy, and dynamic router prefixes/type-based service dispatch remain outside the current deterministic subset."
     },
     {
       "id": "full-stack-fastapi-template-login",
@@ -73,24 +73,24 @@
       "source_review": "Automated review: the pinned diff (upstream PR #417) rewrites HTTPException detail strings in login.py and users.py (\"username\" -> \"email\"/\"id\" wording), plus a matching test-string update in a test file outside this evaluation's source scope. No route decorator, HTTP method, path, dependency, or ORM/repository call is added, removed, or changed.",
       "expected_changed_endpoints": [
         { "method": "POST", "endpoint": "/login/access-token", "authentication": false, "required_role": null },
-        { "method": "POST", "endpoint": "/login/test-token", "authentication": false, "required_role": null },
+        { "method": "POST", "endpoint": "/login/test-token", "authentication": true, "required_role": null },
         { "method": "POST", "endpoint": "/password-recovery/{email}", "authentication": false, "required_role": null },
         { "method": "POST", "endpoint": "/reset-password/", "authentication": false, "required_role": null },
-        { "method": "POST", "endpoint": "/password-recovery-html-content/{email}", "authentication": false, "required_role": null },
-        { "method": "GET", "endpoint": "/", "authentication": false, "required_role": null },
-        { "method": "POST", "endpoint": "/", "authentication": false, "required_role": null },
-        { "method": "PATCH", "endpoint": "/me", "authentication": false, "required_role": null },
-        { "method": "PATCH", "endpoint": "/me/password", "authentication": false, "required_role": null },
-        { "method": "GET", "endpoint": "/me", "authentication": false, "required_role": null },
+        { "method": "POST", "endpoint": "/password-recovery-html-content/{email}", "authentication": true, "required_role": null },
+        { "method": "GET", "endpoint": "/", "authentication": true, "required_role": null },
+        { "method": "POST", "endpoint": "/", "authentication": true, "required_role": null },
+        { "method": "PATCH", "endpoint": "/me", "authentication": true, "required_role": null },
+        { "method": "PATCH", "endpoint": "/me/password", "authentication": true, "required_role": null },
+        { "method": "GET", "endpoint": "/me", "authentication": true, "required_role": null },
         { "method": "POST", "endpoint": "/open", "authentication": false, "required_role": null },
-        { "method": "GET", "endpoint": "/{user_id}", "authentication": false, "required_role": null },
-        { "method": "PATCH", "endpoint": "/{user_id}", "authentication": false, "required_role": null },
-        { "method": "DELETE", "endpoint": "/{user_id}", "authentication": false, "required_role": null }
+        { "method": "GET", "endpoint": "/{user_id}", "authentication": true, "required_role": null },
+        { "method": "PATCH", "endpoint": "/{user_id}", "authentication": true, "required_role": null },
+        { "method": "DELETE", "endpoint": "/{user_id}", "authentication": true, "required_role": null }
       ],
       "expected_diagnostic": "PYTHON_RESOLUTION_IS_HEURISTIC",
       "expected_confidence": "LOW",
       "expected_coverage_ratio": 0.21428571428571427,
-      "known_limitation": "Same Annotated[Type, Depends(...)]/decorator-dependency scope gap as the items/users case: every route in this repository is reported as unauthenticated. users.py is included here because the pinned commit (PR #417) also touches it -- the analyzer's git-diff scoping is per commit, not per hand-picked file, so its routes are re-emitted with the same evidence as the sibling case."
+      "known_limitation": "Analyzer 0.3 resolves the Annotated/decorator authentication evidence. Login, password recovery/reset, and open registration intentionally remain unauthenticated; roles and dynamic/type-based dispatch remain outside the current deterministic subset."
     }
   ]
 }

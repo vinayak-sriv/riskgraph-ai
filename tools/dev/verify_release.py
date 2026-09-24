@@ -61,6 +61,7 @@ def main():
                 "--check",
                 "services/graph-risk-service",
                 "services/ai-validation-service",
+                "services/python-analyzer",
                 "tests",
                 "tools",
                 "datasets/risk-corpus/tools",
@@ -91,6 +92,7 @@ def main():
             [
                 "docker",
                 "compose",
+                *(["--env-file", str(ROOT / ".env")] if (ROOT / ".env").exists() else []),
                 "-f",
                 "infrastructure/docker-compose.yml",
                 "-f",

@@ -57,6 +57,26 @@ class SourceValidationTest {
         assertThat(service.validateSource("test").path("validation_status").asString()).isEqualTo("ERROR");
     }
 
+    @Test void pythonScanSelectsTheCommitBoundPythonSandbox() throws Exception {
+        var client = mock(AnalysisClient.class);
+        var service = service(client);
+        ObjectNode scan = (ObjectNode) service.get("test");
+        scan.put("analyzer_language", "python");
+        var store = (MemoryScanStore) ReflectionTestUtils.getField(service, "store");
+        store.save(scan);
+        when(client.post(any(), eq("/validation/http"), any())).thenAnswer(call -> {
+            ObjectNode request = call.getArgument(2);
+            assertThat(request.path("language").asString()).isEqualTo("python");
+            return mapper.createObjectNode().put("status", "REJECTED").put("confirmed", false)
+                    .put("reason_code", "HTTP_AUTH_PROBE").put("sandbox_revision", "vulnerable")
+                    .put("cleanup_complete", true).put("actual_status", 403)
+                    .put("source_commit", "b".repeat(40));
+        });
+
+        assertThat(service.validateSource("test").path("validation_status").asString())
+                .isEqualTo("REJECTED");
+    }
+
     @Test void confirmedResultRequiresImmutableRuntimeProvenance() throws Exception {
         var client = mock(AnalysisClient.class);
         var validation = mapper.createObjectNode().put("status", "CONFIRMED").put("confirmed", true)

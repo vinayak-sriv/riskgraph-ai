@@ -31,7 +31,8 @@
           "required_role": null
         }
       ],
-      "expected_diagnostic": null,
+      "expected_coverage_ratio": 0.5,
+      "expected_diagnostic": "AMBIGUOUS_CALL_RESOLUTION",
       "review": {
         "reviewer": "Vinayak",
         "reviewed_at": "2026-09-18",
@@ -66,6 +67,7 @@
           "required_role": null
         }
       ],
+      "expected_coverage_ratio": 0.0,
       "expected_diagnostic": null,
       "review": {
         "reviewer": "Vinayak",

@@ -33,7 +33,7 @@ public class NotificationService {
 
     public record Notification(Long id, String repository, String verdict, Integer riskBefore,
             Integer riskAfter, String scanId, String validationStatus, String confidence,
-            Instant createdAt, Instant readAt) { }
+            Integer pullRequestNumber, String pullRequestUrl, Instant createdAt, Instant readAt) { }
 
     public record Page(List<Notification> items, Long nextCursor) { }
 
@@ -51,7 +51,9 @@ public class NotificationService {
                        (o.payload->'decision'->>'risk_after')::int AS risk_after,
                        o.payload->'decision'->>'scan_id' AS scan_id,
                        o.payload->'decision'->>'validation_status' AS validation_status,
-                       o.payload->'decision'->>'confidence' AS confidence
+                       o.payload->'decision'->>'confidence' AS confidence,
+                       (o.payload->'decision'->'pull_request'->>'number')::int AS pr_number,
+                       o.payload->'decision'->'pull_request'->>'url' AS pr_url
                 FROM notification_deliveries d
                 JOIN notification_outbox o ON o.event_id = d.event_id
                 WHERE d.user_id = ? AND d.channel = ? AND d.status='SENT' AND d.id < ?
@@ -61,6 +63,7 @@ public class NotificationService {
                         row.getString("verdict"), (Integer) row.getObject("risk_before"),
                         (Integer) row.getObject("risk_after"), row.getString("scan_id"),
                         row.getString("validation_status"), row.getString("confidence"),
+                        (Integer) row.getObject("pr_number"), row.getString("pr_url"),
                         row.getTimestamp("created_at").toInstant(),
                         row.getTimestamp("read_at") == null ? null : row.getTimestamp("read_at").toInstant()),
                 userId, IN_APP, before, limit + 1);
@@ -94,7 +97,8 @@ public class NotificationService {
 
     public record ChannelPreference(String channel, boolean enabled, String minSeverity) { }
 
-    public record Preferences(List<ChannelPreference> channels, boolean unsubscribedAll) { }
+    public record Preferences(List<ChannelPreference> channels, boolean unsubscribedAll,
+            List<String> unsubscribedRepositories) { }
 
     public Preferences preferences(Long userId) {
         Map<String, ChannelPreference> byChannel = new LinkedHashMap<>();
@@ -114,7 +118,11 @@ public class NotificationService {
         Boolean unsubscribedAll = db.queryForObject(
                 "SELECT EXISTS(SELECT 1 FROM notification_unsubscribes WHERE user_id=? AND scope='*')",
                 Boolean.class, userId);
-        return new Preferences(List.copyOf(byChannel.values()), Boolean.TRUE.equals(unsubscribedAll));
+        List<String> repositoryScopes = db.queryForList(
+                "SELECT scope FROM notification_unsubscribes WHERE user_id=? AND scope<>'*' ORDER BY scope",
+                String.class, userId);
+        return new Preferences(List.copyOf(byChannel.values()), Boolean.TRUE.equals(unsubscribedAll),
+                List.copyOf(repositoryScopes));
     }
 
     public void setPreference(Long userId, String channel, boolean enabled, String minSeverity) {
@@ -134,6 +142,19 @@ public class NotificationService {
                     userId);
         } else {
             db.update("DELETE FROM notification_unsubscribes WHERE user_id=? AND scope='*'", userId);
+        }
+    }
+
+    public void setRepositoryUnsubscribed(Long userId, String repository, boolean unsubscribed) {
+        if (repository == null || repository.isBlank() || repository.length() > 255
+                || "*".equals(repository))
+            throw new PipelineException("INVALID_REPOSITORY_SCOPE", 400,
+                    "Repository notification scope is invalid");
+        if (unsubscribed) {
+            db.update("INSERT INTO notification_unsubscribes(user_id, scope) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                    userId, repository);
+        } else {
+            db.update("DELETE FROM notification_unsubscribes WHERE user_id=? AND scope=?", userId, repository);
         }
     }
 }

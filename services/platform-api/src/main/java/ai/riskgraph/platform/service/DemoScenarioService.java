@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import ai.riskgraph.platform.client.GraphRiskClient;
+import ai.riskgraph.platform.client.AnalysisClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -15,7 +15,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class DemoScenarioService {
-    private final GraphRiskClient graphRiskClient;
+    private final AnalysisClient analysisClient;
+    private final String graphBaseUrl;
     private final ObjectMapper objectMapper;
     private final boolean dynamicEnabled;
     private final AtomicInteger activeDynamicRequests = new AtomicInteger();
@@ -25,9 +26,11 @@ public class DemoScenarioService {
     @Value("${RISKGRAPH_DYNAMIC_DEMO_REQUESTS_PER_MINUTE:30}")
     private int maxDynamicRequestsPerMinute = 30;
 
-    public DemoScenarioService(GraphRiskClient graphRiskClient, ObjectMapper objectMapper,
+    public DemoScenarioService(AnalysisClient analysisClient, ObjectMapper objectMapper,
+            @Value("${riskgraph.services.graph-risk-base-url}") String graphBaseUrl,
             @Value("${riskgraph.demo.dynamic-enabled:false}") boolean dynamicEnabled) {
-        this.graphRiskClient = graphRiskClient;
+        this.analysisClient = analysisClient;
+        this.graphBaseUrl = graphBaseUrl;
         this.objectMapper = objectMapper;
         this.dynamicEnabled = dynamicEnabled;
     }
@@ -73,7 +76,7 @@ public class DemoScenarioService {
             }
             default -> throw new IllegalStateException("Scenario allowlist changed during analysis");
         }
-        ObjectNode result = (ObjectNode) graphRiskClient.analyze(request);
+        ObjectNode result = (ObjectNode) analysisClient.post(graphBaseUrl, "/analysis", request);
         result.put("scenario", scenario).put("mode", "FIXTURE");
         result.put("pre_validation_verdict", result.path("verdict").asString());
         result.put("final_verdict", result.path("verdict").asString()).put("validation_status", "NOT_RUN");

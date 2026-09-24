@@ -12,6 +12,8 @@ export type NotificationItem = {
   scan_id: string | null;
   validation_status?: string | null;
   confidence?: string | null;
+  pull_request_number?: number | null;
+  pull_request_url?: string | null;
   created_at: string;
   read_at: string | null;
 };
@@ -27,7 +29,11 @@ type ChannelPreference = {
   enabled: boolean;
   min_severity: Severity;
 };
-type Preferences = { channels: ChannelPreference[]; unsubscribed_all: boolean };
+type Preferences = {
+  channels: ChannelPreference[];
+  unsubscribed_all: boolean;
+  unsubscribed_repositories?: string[];
+};
 
 export function NotificationCenter({ user }: { user: Account | null }) {
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -37,6 +43,9 @@ export function NotificationCenter({ user }: { user: Account | null }) {
   const [error, setError] = useState("");
   const [available, setAvailable] = useState(true);
   const [preferences, setPreferences] = useState<Preferences | null>(null);
+  const [mutedRepositories, setMutedRepositories] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   async function load(cursor?: number) {
     setLoading(true);
@@ -73,8 +82,10 @@ export function NotificationCenter({ user }: { user: Account | null }) {
       .then((response) => (response.ok ? response.json() : null))
       .then((value) => {
         const prefs = value as Partial<Preferences> | null;
-        if (prefs && Array.isArray(prefs.channels))
+        if (prefs && Array.isArray(prefs.channels)) {
           setPreferences(prefs as Preferences);
+          setMutedRepositories(new Set(prefs.unsubscribed_repositories ?? []));
+        }
       })
       .catch(() => {
         // Preferences are a secondary control surface; a failed fetch just
@@ -125,6 +136,30 @@ export function NotificationCenter({ user }: { user: Account | null }) {
     if (response.ok) setPreferences((await response.json()) as Preferences);
   }
 
+  async function muteRepository(repository: string) {
+    const response = await api("/notifications/preferences/repository", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repository, unsubscribed: true }),
+    });
+    if (response.ok)
+      setMutedRepositories((current) => new Set(current).add(repository));
+  }
+
+  async function unmuteRepository(repository: string) {
+    const response = await api("/notifications/preferences/repository", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repository, unsubscribed: false }),
+    });
+    if (response.ok)
+      setMutedRepositories((current) => {
+        const next = new Set(current);
+        next.delete(repository);
+        return next;
+      });
+  }
+
   if (!user || !available) return null;
 
   return (
@@ -173,6 +208,16 @@ export function NotificationCenter({ user }: { user: Account | null }) {
                     : "Possible"}
                   {item.confidence ? ` · ${item.confidence} confidence` : ""}
                 </span>
+                {item.pull_request_url && item.pull_request_number && (
+                  <a
+                    className="text-button"
+                    href={item.pull_request_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open PR #{item.pull_request_number}
+                  </a>
+                )}
               </div>
               {!item.read_at && (
                 <button
@@ -181,6 +226,24 @@ export function NotificationCenter({ user }: { user: Account | null }) {
                   onClick={() => void markRead(item.id)}
                 >
                   <Check size={14} /> Mark read
+                </button>
+              )}
+              {item.repository && !mutedRepositories.has(item.repository) && (
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => void muteRepository(item.repository!)}
+                >
+                  <BellOff size={14} /> Mute repository
+                </button>
+              )}
+              {item.repository && mutedRepositories.has(item.repository) && (
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => void unmuteRepository(item.repository!)}
+                >
+                  Repository muted · Unmute
                 </button>
               )}
             </li>

@@ -22,11 +22,9 @@ OWN direct calls by naming convention, in three families:
     attribute -- recorded as a service-only path (no repository), same as
     the Java resolver's fallback for services that never reach a repository.
 
-# ponytail: no same-file class/method recursion through service calls --
-# that needs resolving which class a `self.x_service` attribute was
-# constructed from (constructor annotations, FastAPI Depends() wiring),
-# which is real type-inference work. Add it if batch 6's evaluation shows
-# most repos route through an extra service layer this misses.
+Unambiguous direct calls to named functions are followed through a repository
+function catalog. Attribute/service method dispatch still needs type inference
+and therefore remains diagnostic-only.
 """
 
 from __future__ import annotations
@@ -58,9 +56,17 @@ class Resolution:
         return self.paths[0] if self.paths else DependencyPath(None, None, self.fallback_resource)
 
 
-def resolve_dependencies(handler: ast.FunctionDef | ast.AsyncFunctionDef) -> Resolution:
+def resolve_dependencies(
+    handler: ast.FunctionDef | ast.AsyncFunctionDef,
+    function_catalog: dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]] | None = None,
+    _seen: set[int] | None = None,
+) -> Resolution:
     paths: dict[tuple, DependencyPath] = {}
     ambiguous = False
+    seen = set() if _seen is None else _seen
+    if id(handler) in seen:
+        return Resolution([], True, "LOW", handler.name)
+    seen.add(id(handler))
 
     for call in _direct_calls(handler):
         base, method = _callee(call)
@@ -79,12 +85,37 @@ def resolve_dependencies(handler: ast.FunctionDef | ast.AsyncFunctionDef) -> Res
         elif base is not None and _looks_like(base, "service"):
             resource = _strip_suffix(base, "service")
             _record(paths, DependencyPath(base, None, resource))
+        elif isinstance(call.func, ast.Name) and function_catalog is not None:
+            targets = function_catalog.get(call.func.id, [])
+            if len(targets) == 1:
+                nested = resolve_dependencies(targets[0], function_catalog, seen.copy())
+                for path in nested.paths:
+                    _record(paths, path)
+                ambiguous = ambiguous or nested.ambiguous
+            elif len(targets) > 1:
+                ambiguous = True
 
     ordered = sorted(
         paths.values(), key=lambda p: (p.service or "", p.repository or "", p.resource)
     )
     confidence = _confidence(ordered, ambiguous)
     return Resolution(ordered, ambiguous, confidence, fallback_resource=handler.name)
+
+
+def build_function_catalog(
+    sources: dict[str, str],
+) -> dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]]:
+    """Index top-level named functions; duplicate names remain ambiguous."""
+    catalog: dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]] = {}
+    for path, source in sources.items():
+        try:
+            tree = ast.parse(source, filename=path)
+        except SyntaxError:
+            continue
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                catalog.setdefault(node.name, []).append(node)
+    return catalog
 
 
 def confidence_minimum(*values: str) -> str:

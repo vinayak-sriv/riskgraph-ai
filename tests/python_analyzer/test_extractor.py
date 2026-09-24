@@ -1,4 +1,7 @@
-from python_analyzer_app.extractor import extract_endpoints
+from python_analyzer_app.extractor import (
+    build_dependency_alias_catalog,
+    extract_endpoints,
+)
 
 SOURCE = """
 from fastapi import Depends, FastAPI
@@ -151,3 +154,161 @@ def test_annotated_dependency_is_recognised_as_authentication():
 
     assert endpoint["endpoint"]["authentication"] is True
     assert endpoint["extraction_confidence"]["authorization"] == "MEDIUM"
+
+
+def test_route_decorator_dependency_is_recognised_as_authentication():
+    source = """
+from fastapi import Depends, FastAPI
+
+app = FastAPI()
+
+@app.get("/admin", dependencies=[Depends(require_admin)])
+def admin_dashboard():
+    return {}
+"""
+
+    endpoint = extract_endpoints(source, "app/routes.py")[0]
+
+    assert endpoint["endpoint"]["authentication"] is True
+    assert endpoint["extraction_confidence"]["authorization"] == "MEDIUM"
+
+
+def test_router_prefix_and_dependency_are_applied_to_routes():
+    source = """
+from fastapi import APIRouter, Depends
+
+router = APIRouter(prefix="/accounts", dependencies=[Depends(get_current_user)])
+
+@router.get("/{account_id}")
+def account(account_id: str):
+    return {}
+"""
+
+    endpoint = extract_endpoints(source, "app/accounts.py")[0]
+
+    assert endpoint["endpoint"]["endpoint"] == "/accounts/{account_id}"
+    assert endpoint["endpoint"]["authentication"] is True
+
+
+def test_repository_mount_prefix_overrides_local_router_prefix():
+    source = """
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/local")
+
+@router.get("/items")
+def items():
+    return []
+"""
+
+    endpoint = extract_endpoints(
+        source, "app/items.py", router_prefixes={"router": ["/api/v1/local"]}
+    )[0]
+
+    assert endpoint["endpoint"]["endpoint"] == "/api/v1/local/items"
+
+
+def test_named_annotated_dependency_alias_is_resolved_across_files():
+    dependencies = """
+from typing import Annotated
+from fastapi import Depends
+CurrentUser = Annotated[User, Depends(get_current_active_user)]
+SessionDep = Annotated[Session, Depends(get_db)]
+"""
+    route = """
+from fastapi import APIRouter
+router = APIRouter()
+
+@router.get("/me")
+def read_me(current_user: CurrentUser, session: SessionDep):
+    return current_user
+"""
+    aliases = build_dependency_alias_catalog(
+        {"app/dependencies.py": dependencies, "app/routes.py": route}
+    )
+
+    endpoint = extract_endpoints(route, "app/routes.py", dependency_aliases=aliases)[0]
+
+    assert endpoint["endpoint"]["authentication"] is True
+    assert endpoint["extraction_confidence"]["authorization"] == "MEDIUM"
+
+
+def test_duplicate_dependency_alias_is_unauthenticated_at_low_confidence():
+    aliases = build_dependency_alias_catalog(
+        {
+            "one.py": "Current = Annotated[User, Depends(get_current_user)]",
+            "two.py": "Current = Annotated[Config, Depends(get_settings)]",
+        }
+    )
+    route = """
+from fastapi import APIRouter
+router = APIRouter()
+
+@router.get("/ambiguous")
+def ambiguous(value: Current):
+    return value
+"""
+
+    endpoint = extract_endpoints(route, "routes.py", dependency_aliases=aliases)[0]
+
+    assert endpoint["endpoint"]["authentication"] is False
+    assert endpoint["extraction_confidence"]["authorization"] == "LOW"
+
+
+def test_non_route_or_malformed_decorators_are_ignored():
+    source = """
+from fastapi import APIRouter
+
+app = APIRouter(prefix=123)
+
+@app.get
+def undecorated_call(): ...
+
+@app.head("/head")
+def unsupported_method(): ...
+
+@other.get("/other")
+def unknown_router(): ...
+
+@app.get()
+def missing_path(): ...
+
+@app.get(123)
+def non_string_path(): ...
+
+@app.get("/valid")
+async def valid_route(): ...
+"""
+
+    endpoints = extract_endpoints(source, "routes.py")
+
+    assert [entry["endpoint"]["endpoint"] for entry in endpoints] == ["/valid"]
+
+
+def test_nested_and_empty_dependencies_are_handled_safely():
+    source = """
+from fastapi import APIRouter, Depends, Security
+
+router = APIRouter()
+
+@router.get(
+    "/secure",
+    dependencies=[Depends(), Depends(factory()), Security(auth.permission)],
+)
+def secure_route(): ...
+"""
+
+    endpoint = extract_endpoints(source, "routes.py")[0]
+
+    assert endpoint["endpoint"]["authentication"] is True
+
+
+def test_alias_catalog_accepts_annotated_assignments_and_skips_bad_source():
+    aliases = build_dependency_alias_catalog(
+        {
+            "bad.py": "def broken(:",
+            "dependencies.py": "CurrentUser: object = Security(require_user)",
+        }
+    )
+
+    assert list(aliases) == ["CurrentUser"]

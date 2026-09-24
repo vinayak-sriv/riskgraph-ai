@@ -32,6 +32,8 @@ const item1: NotificationItem = {
   risk_before: 40,
   risk_after: 90,
   scan_id: "scan-1",
+  pull_request_number: 69,
+  pull_request_url: "https://github.com/org/repo-a/pull/69",
   created_at: "2026-09-01T00:00:00Z",
   read_at: null,
 };
@@ -62,6 +64,7 @@ const basePreferences = {
     { channel: "EMAIL", enabled: false, min_severity: "REVIEW" },
   ],
   unsubscribed_all: false,
+  unsubscribed_repositories: [],
 };
 
 it("renders nothing when signed out", () => {
@@ -140,6 +143,13 @@ it("loads notifications, paginates, marks one and all read, and manages preferen
         }),
       };
     }
+    if (url.endsWith("/notifications/preferences/repository")) {
+      const body = JSON.parse((options?.body as string) ?? "{}") as {
+        repository: string;
+        unsubscribed: boolean;
+      };
+      return { ok: body.repository === "org/repo-a" };
+    }
     throw new Error(`unexpected request: ${url}`);
   });
   vi.stubGlobal("fetch", fetcher);
@@ -148,6 +158,10 @@ it("loads notifications, paginates, marks one and all read, and manages preferen
 
   expect(await screen.findByText("org/repo-a")).toBeInTheDocument();
   expect(screen.getByText("Risk 40 → 90")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Open PR #69" })).toHaveAttribute(
+    "href",
+    "https://github.com/org/repo-a/pull/69",
+  );
   expect(screen.getByText("Unknown repository")).toBeInTheDocument();
   expect(screen.getByText("1")).toBeInTheDocument();
 
@@ -173,6 +187,19 @@ it("loads notifications, paginates, marks one and all read, and manages preferen
   );
   expect(screen.queryAllByRole("button", { name: /Mark read/ })).toHaveLength(
     0,
+  );
+
+  fireEvent.click(
+    screen.getAllByRole("button", { name: /Mute repository/ })[0],
+  );
+  const unmute = await screen.findByRole("button", {
+    name: /Repository muted.*Unmute/,
+  });
+  fireEvent.click(unmute);
+  await waitFor(() =>
+    expect(
+      screen.getAllByRole("button", { name: /Mute repository/ }).length,
+    ).toBeGreaterThan(0),
   );
 
   fireEvent.click(await screen.findByText("Manage notification preferences"));

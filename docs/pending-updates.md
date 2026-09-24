@@ -1,17 +1,16 @@
 # Pending post-MVP updates
 
-This document records approved roadmap additions. It does not describe features that
-are currently implemented or supported. The existing Java/Spring Boot MVP remains the
-release priority, and these tracks begin only after independent external review and
-the final Java release.
+This document records approved post-MVP tracks and their remaining promotion work.
+Both tracks now have experimental implementations, but neither is a supported release
+claim. The Java/Spring Boot MVP remains the release priority.
 
 ## Delivery order
 
-1. Close the Week 12 human-review gate and release the Java/Spring Boot MVP.
-2. Add language/framework preflight and explicit unsupported-framework results.
-3. Add the notification event, preference, and delivery foundation for existing
-   Spring Boot findings.
-4. Build and evaluate the FastAPI analyzer without changing the downstream IR.
+1. Obtain independent Week 12 release sign-off and release the Java/Spring Boot MVP.
+2. ~~Add language/framework preflight and explicit unsupported-framework results.~~
+3. ~~Add the notification event, preference, and delivery foundation for existing
+   Spring Boot findings.~~
+4. ~~Build and evaluate the FastAPI analyzer without changing the downstream IR.~~
 5. Promote FastAPI from experimental to supported only after its acceptance gate.
 6. Evaluate additional notification channels and Python frameworks separately.
 

@@ -4,6 +4,7 @@ import ai.riskgraph.platform.service.SourceScanService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Min;
 import org.springframework.web.bind.annotation.*;
 import tools.jackson.databind.JsonNode;
 import ai.riskgraph.platform.security.GithubConnectionGuard;
@@ -20,7 +21,8 @@ public class AnalysisController {
     @PostMapping("/analyses")
     public JsonNode analyze(@Valid @RequestBody Request request) {
         github.requireLinked();
-        JsonNode result = scans.analyze(request.repository_path(), request.old_commit(), request.new_commit());
+        JsonNode result = scans.analyze(request.repository_path(), request.old_commit(), request.new_commit(),
+                request.pull_request_number(), request.pull_request_url());
         access.claim(result.path("scan_id").asString());
         return result;
     }
@@ -44,7 +46,18 @@ public class AnalysisController {
     }
     public record Request(@NotBlank String repository_path,
         @NotBlank @Pattern(regexp="[0-9a-fA-F]{40}") String old_commit,
-        @NotBlank @Pattern(regexp="[0-9a-fA-F]{40}") String new_commit) {}
+        @NotBlank @Pattern(regexp="[0-9a-fA-F]{40}") String new_commit,
+        @Min(1) Integer pull_request_number,
+        @Pattern(regexp="https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[1-9][0-9]*")
+        String pull_request_url) {
+        @jakarta.validation.constraints.AssertTrue(message="Pull request number and URL must be supplied together and match")
+        public boolean isPullRequestComplete() {
+            if (pull_request_number == null || pull_request_url == null) {
+                return pull_request_number == null && pull_request_url == null;
+            }
+            return pull_request_url.endsWith("/pull/" + pull_request_number);
+        }
+    }
     public record AccessRequest(
         @NotBlank @Pattern(regexp="[a-z][a-z0-9_.-]{2,63}") String username,
         @jakarta.validation.constraints.NotNull ScanAccessService.Access access) {}

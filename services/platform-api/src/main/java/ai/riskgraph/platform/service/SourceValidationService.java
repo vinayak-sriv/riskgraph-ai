@@ -51,20 +51,15 @@ public class SourceValidationService {
     }
 
     public ValidationPatch validateSource(JsonNode result, String sandboxManifest, String aiUrl) {
-        JsonNode registered = registeredScenario(sandboxManifest);
-        if (!registered.path("new_commit").equals(result.at("/provenance/new_commit"))
-                || !registered.path("old_commit").equals(result.at("/provenance/old_commit"))
-                || !normalized(registered, "repository_path").equals(
-                        normalized(result.path("provenance"), "repository_path"))) {
-            throw new PipelineException("SANDBOX_NOT_REGISTERED", 400,
-                    "Scanned repository/commit pair has no registered sandbox");
-        }
+        JsonNode registered = registeredScenario(sandboxManifest, result);
         String commit = registered.path("new_commit").asString();
         if (result.path("findings").isEmpty()) {
             return new ValidationPatch(null, Map.of(),
                     notRunResult("NO_VALIDATABLE_FINDING"));
         }
-        return new ValidationPatch(null, findingValidations(result, commit, aiUrl), null);
+        String language = "python".equals(result.path("analyzer_language").asString())
+                ? "python" : "java";
+        return new ValidationPatch(null, findingValidations(result, commit, language, aiUrl), null);
     }
 
     public void apply(ObjectNode result, ValidationPatch patch) {
@@ -108,7 +103,8 @@ public class SourceValidationService {
         }
     }
 
-    private Map<String, JsonNode> findingValidations(JsonNode result, String commit, String aiUrl) {
+    private Map<String, JsonNode> findingValidations(JsonNode result, String commit,
+            String language, String aiUrl) {
         Map<String, JsonNode> routeResults = new HashMap<>();
         Map<String, JsonNode> findingResults = new HashMap<>();
         for (JsonNode value : result.path("findings")) {
@@ -118,18 +114,19 @@ public class SourceValidationService {
             String routeKey = method + " " + path;
             JsonNode validation = method.equals("GET") && path.equals("/admin/export")
                     ? routeResults.computeIfAbsent(routeKey,
-                            ignored -> runSourceValidation(commit, method, path, aiUrl)).deepCopy()
+                            ignored -> runSourceValidation(commit, method, path, language, aiUrl)).deepCopy()
                     : notRunResult("UNSUPPORTED_SOURCE_VALIDATION");
             findingResults.put(finding.path("finding_id").asString(), validation.deepCopy());
         }
         return Map.copyOf(findingResults);
     }
 
-    private JsonNode runSourceValidation(String commit, String method, String path, String aiUrl) {
+    private JsonNode runSourceValidation(String commit, String method, String path,
+            String language, String aiUrl) {
         try {
             JsonNode validation = client.post(aiUrl, "/validation/http", mapper.createObjectNode()
                     .put("sandbox_revision", "vulnerable").put("expected_commit", commit)
-                    .put("method", method).put("path", path));
+                    .put("language", language).put("method", method).put("path", path));
             contracts.validate("validation/sandbox-result.schema.json", validation);
             String status = validation.path("status").asString();
             // A confirmed exploit whose sandbox teardown didn't finish leaves the
@@ -158,13 +155,23 @@ public class SourceValidationService {
                 && SHA256_HEX.matcher(validation.path("response_sha256").asString()).matches();
     }
 
-    private JsonNode registeredScenario(String manifest) {
+    private JsonNode registeredScenario(String manifest, JsonNode result) {
         try {
-            return mapper.readTree(Files.readString(Path.of(manifest))).at("/scenarios/authorization-removal");
+            JsonNode scenarios = mapper.readTree(Files.readString(Path.of(manifest))).path("scenarios");
+            for (JsonNode candidate : scenarios) {
+                if (candidate.path("new_commit").equals(result.at("/provenance/new_commit"))
+                        && candidate.path("old_commit").equals(result.at("/provenance/old_commit"))
+                        && normalized(candidate, "repository_path").equals(
+                                normalized(result.path("provenance"), "repository_path"))) {
+                    return candidate;
+                }
+            }
         } catch (Exception error) {
             throw new PipelineException("SANDBOX_NOT_REGISTERED", 400,
                     "Build and register the authored source sandbox first");
         }
+        throw new PipelineException("SANDBOX_NOT_REGISTERED", 400,
+                "Scanned repository/commit pair has no registered sandbox");
     }
 
     private Path normalized(JsonNode node, String field) {

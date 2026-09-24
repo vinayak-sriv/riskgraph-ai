@@ -39,6 +39,11 @@ export function AccountPanel({
     role: "DEVELOPER",
     password: "",
   });
+  const [notificationEmail, setNotificationEmail] = useState({
+    username: "",
+    email: "",
+    verified: true,
+  });
   async function signIn() {
     setBusy(true);
     setMessage("");
@@ -113,6 +118,35 @@ export function AccountPanel({
       );
     } finally {
       setNewUser((value) => ({ ...value, password: "" }));
+      setBusy(false);
+    }
+  }
+  async function saveNotificationEmail() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await api(
+        `/admin/users/${encodeURIComponent(notificationEmail.username)}/email`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: notificationEmail.email,
+            verified: notificationEmail.verified,
+          }),
+        },
+      );
+      if (!response.ok)
+        throw new Error(
+          (await response.json()).message ?? "Email update failed",
+        );
+      setMessage("Notification email updated.");
+      setNotificationEmail({ username: "", email: "", verified: true });
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Email update failed",
+      );
+    } finally {
       setBusy(false);
     }
   }
@@ -244,6 +278,57 @@ export function AccountPanel({
             </label>
             <button className="primary-button" disabled={busy}>
               Create account
+            </button>
+          </form>
+          <form
+            className="account-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveNotificationEmail();
+            }}
+          >
+            <label>
+              Account username
+              <input
+                required
+                value={notificationEmail.username}
+                onChange={(event) =>
+                  setNotificationEmail({
+                    ...notificationEmail,
+                    username: event.target.value,
+                  })
+                }
+              />
+            </label>
+            <label>
+              Notification email
+              <input
+                type="email"
+                required
+                value={notificationEmail.email}
+                onChange={(event) =>
+                  setNotificationEmail({
+                    ...notificationEmail,
+                    email: event.target.value,
+                  })
+                }
+              />
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={notificationEmail.verified}
+                onChange={(event) =>
+                  setNotificationEmail({
+                    ...notificationEmail,
+                    verified: event.target.checked,
+                  })
+                }
+              />
+              Address verified by administrator
+            </label>
+            <button className="secondary-button" disabled={busy}>
+              Save notification email
             </button>
           </form>
         </details>

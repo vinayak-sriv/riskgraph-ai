@@ -36,6 +36,7 @@ def main():
     compose = [
         "docker",
         "compose",
+        *(["--env-file", str(ROOT / ".env")] if (ROOT / ".env").exists() else []),
         "-p",
         args.project,
         "-f",
