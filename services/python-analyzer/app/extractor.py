@@ -13,6 +13,7 @@ an ``APIRouter`` or route decorator.
 
 import ast
 from functools import lru_cache
+from typing import cast
 
 from .resolver import Resolution, confidence_minimum, resolve_dependencies
 from .sensitivity_policy import SensitivityPolicy
@@ -49,10 +50,11 @@ def extract_endpoints(
             route = _match_route_decorator(decorator, set(router_configs))
             if route is None:
                 continue
+            route_decorator = cast(ast.Call, decorator)
             method, path, router_name = route
             config = router_configs[router_name]
             authenticated, authorization_confidence = _authorization(
-                node, decorator, config.dependencies, dependency_aliases or {}
+                node, route_decorator, config.dependencies, dependency_aliases or {}
             )
             resolution = resolve_dependencies(node, function_catalog)
             prefixes = (router_prefixes or {}).get(router_name, [config.prefix])
