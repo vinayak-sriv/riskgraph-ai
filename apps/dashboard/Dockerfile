@@ -1,4 +1,4 @@
-FROM node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS build
+FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS build
 WORKDIR /app
 ARG VITE_PLATFORM_API_BASE_URL=http://localhost:8080
 ENV VITE_PLATFORM_API_BASE_URL=$VITE_PLATFORM_API_BASE_URL
@@ -9,7 +9,7 @@ COPY index.html tsconfig.json vite.config.ts ./
 COPY src ./src
 RUN npm run build
 
-FROM node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
+FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80
 WORKDIR /app
 RUN npm install -g serve@14.2.4 --fetch-retries=5 --fetch-retry-factor=2 \
         --fetch-retry-mintimeout=10000 --fetch-retry-maxtimeout=60000 \
